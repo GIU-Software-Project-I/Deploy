@@ -3,8 +3,8 @@
 import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 interface PortalLayoutProps {
   children: ReactNode;
@@ -14,6 +14,7 @@ interface NavItemType {
   label: string;
   href: string;
   icon: string;
+  roles?: SystemRole[];
   children?: { label: string; href: string; icon: string }[];
 }
 
@@ -80,6 +81,23 @@ const PORTAL_NAV_ITEMS: NavItemType[] = [
     href: '/portal/my-resignation',
     icon: 'log-out',
   },
+  {
+    label: 'My Termination',
+    href: '/portal/my-termination',
+    icon: 'log-out',
+  },
+  {
+    label: 'Access Management',
+    href: '/portal/access-management',
+    icon: 'shield',
+    roles: [SystemRole.SYSTEM_ADMIN, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN],
+  },
+  {
+    label: 'Equipment Reservation',
+    href: '/portal/equipment-reservation',
+    icon: 'briefcase',
+    roles: [SystemRole.SYSTEM_ADMIN, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN],
+  },
 ];
 
 function NavIcon({ name, className }: { name: string; className?: string }) {
@@ -136,11 +154,10 @@ function NavItem({ item, isActive, pathname }: NavItemProps) {
       <div className="flex items-center">
         <Link
           href={item.href}
-          className={`flex-1 flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-all ${
-            active
-              ? 'bg-primary/10 text-primary font-medium'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-          }`}
+          className={`flex-1 flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-all ${active
+            ? 'bg-primary/10 text-primary font-medium'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            }`}
         >
           <NavIcon name={item.icon} className={`w-5 h-5 ${active ? 'text-primary' : ''}`} />
           <span>{item.label}</span>
@@ -165,11 +182,10 @@ function NavItem({ item, isActive, pathname }: NavItemProps) {
               <Link
                 key={child.href}
                 href={child.href}
-                className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all ${
-                  childActive
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
+                className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all ${childActive
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
               >
                 <NavIcon name={child.icon} className={`w-4 h-4 ${childActive ? 'text-primary' : ''}`} />
                 <span>{child.label}</span>
@@ -191,7 +207,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
   // Block candidates from accessing employee portal
   useEffect(() => {
     if (isLoading) return;
-    
+
     if (!isAuthenticated || !user) {
       router.push('/login');
       return;
@@ -263,9 +279,8 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-card border-r border-border flex flex-col transform transition-transform duration-300 lg:transform-none ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-card border-r border-border flex flex-col transform transition-transform duration-300 lg:transform-none ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          }`}
       >
         {/* Logo/Brand */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-border flex-shrink-0">
@@ -329,14 +344,17 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
               </p>
             </div>
 
-            {PORTAL_NAV_ITEMS.filter(item => item.href).map((item) => (
-              <NavItem
-                key={item.href}
-                item={item}
-                isActive={isActive}
-                pathname={pathname}
-              />
-            ))}
+            {PORTAL_NAV_ITEMS
+              .filter(item => item.href)
+              .filter(item => !item.roles || (user && item.roles.includes(user.role as SystemRole)))
+              .map((item) => (
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  isActive={isActive}
+                  pathname={pathname}
+                />
+              ))}
           </div>
         </nav>
 

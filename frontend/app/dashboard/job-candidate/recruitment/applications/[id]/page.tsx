@@ -10,9 +10,9 @@ import {
   getOfferByApplication,
   signOffer,
 } from '@/app/services/recruitment';
-import { Application as ApiApplication, JobOffer, Interview as ApiInterview } from '@/app/types/recruitment';
-import { ApplicationStage as ApiApplicationStage, ApplicationStatus, OfferResponseStatus, InterviewStatus, InterviewMethod } from '@/app/types/enums';
-import SignatureCapture from '@/app/components/recruitment/SignatureCapture';
+import { Application as ApiApplication, JobOffer, Interview as ApiInterview } from '@/types/recruitment';
+import { ApplicationStage as ApiApplicationStage, ApplicationStatus, OfferResponseStatus, InterviewStatus, InterviewMethod } from '@/types/enums';
+import SignatureCapture from '@/components/recruitment/SignatureCapture';
 
 // =====================================================
 // TypeScript Interfaces

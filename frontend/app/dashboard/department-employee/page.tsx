@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
+import { useAuth } from '@/context/AuthContext';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Calendar,
   Clock,
@@ -20,29 +20,29 @@ export default function DepartmentEmployeePage() {
   const { user } = useAuth();
 
   const quickActions = [
-    { 
-      label: 'Request Leave', 
+    {
+      label: 'Request Leave',
       href: '/portal/my-leaves/request',
       icon: <Calendar className="w-5 h-5" />,
       color: 'from-blue-500/20 to-blue-600/20',
       iconColor: 'text-blue-500',
     },
-    { 
-      label: 'View Attendance', 
+    {
+      label: 'View Attendance',
       href: '/portal/my-attendance',
       icon: <Clock className="w-5 h-5" />,
       color: 'from-purple-500/20 to-purple-600/20',
       iconColor: 'text-purple-500',
     },
-    { 
-      label: 'View Payslip', 
+    {
+      label: 'View Payslip',
       href: '/portal/my-profile',
       icon: <FileText className="w-5 h-5" />,
       color: 'from-emerald-500/20 to-emerald-600/20',
       iconColor: 'text-emerald-500',
     },
-    { 
-      label: 'My Performance', 
+    {
+      label: 'My Performance',
       href: '/portal/my-performance',
       icon: <TrendingUp className="w-5 h-5" />,
       color: 'from-amber-500/20 to-amber-600/20',
@@ -51,6 +51,13 @@ export default function DepartmentEmployeePage() {
   ];
 
   const modules = [
+    {
+      title: 'Onboarding Tracker',
+      description: 'Track your integration progress, complete required tasks, and view important documents.',
+      href: '/portal/my-onboarding',
+      icon: <Briefcase className="w-6 h-6" />,
+      color: 'from-orange-500/10 to-orange-600/10',
+    },
     {
       title: 'Employee Profile',
       description: 'View and manage your personal information, update contact details, and request corrections.',

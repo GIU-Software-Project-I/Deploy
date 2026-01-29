@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import Link from 'next/link';
-import { Button } from '@/app/components/ui/button';
-import { Card } from '@/app/components/ui/card';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
-import { ApplicationStage, InterviewMethod, InterviewStatus } from '@/app/types/enums';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ApplicationStage, InterviewMethod, InterviewStatus } from '@/types/enums';
 import { getInterviewById, submitInterviewFeedback, getApplicationById } from '@/app/services/recruitment';
-import { SubmitFeedbackRequest } from '@/app/types/recruitment';
+import { SubmitFeedbackRequest } from '@/types/recruitment';
 
 // =====================================================
 // Types

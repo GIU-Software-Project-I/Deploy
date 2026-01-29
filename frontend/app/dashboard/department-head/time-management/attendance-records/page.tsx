@@ -9,7 +9,7 @@ import {
   PunchType,
   CorrectAttendanceDto,
 } from '@/app/services/time-management';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AttendanceRecordsPage() {
   const { user } = useAuth();

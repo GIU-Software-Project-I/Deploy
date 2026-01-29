@@ -20,8 +20,8 @@ const USE_AUTH_ENDPOINTS = true; // Production mode - user ID extracted from JWT
 
 /**
  * Helper to build the self-service endpoint path
- * - Auth mode: /employee-profile/me (user ID from JWT token)
- * - No-auth mode: /employee-profile/me/:userId (user ID in path)
+ * - Auth mode: /dto's/me (user ID from JWT token)
+ * - No-auth mode: /dto's/me/:userId (user ID in path)
  */
 const getMePath = (userId?: string, suffix: string = '') => {
   if (USE_AUTH_ENDPOINTS) {
@@ -47,8 +47,8 @@ export const employeeProfileService = {
 
   /**
    * Update contact information
-   * Auth: PATCH /employee-profile/me/contact-info
-   * No-auth: PATCH /employee-profile/me/:userId/contact-info
+   * Auth: PATCH /dto's/me/contact-info
+   * No-auth: PATCH /dto's/me/:userId/contact-info
    */
   updateContactInfo: async (userId: string, data: any) => {
     return apiService.patch(getMePath(userId, '/contact-info'), data);
@@ -56,8 +56,8 @@ export const employeeProfileService = {
 
   /**
    * Update biography and photo
-   * Auth: PATCH /employee-profile/me/bio
-   * No-auth: PATCH /employee-profile/me/:userId/bio
+   * Auth: PATCH /dto's/me/bio
+   * No-auth: PATCH /dto's/me/:userId/bio
    */
   updateBio: async (userId: string, data: any) => {
     return apiService.patch(getMePath(userId, '/bio'), data);
@@ -65,8 +65,8 @@ export const employeeProfileService = {
 
   /**
    * Submit correction request
-   * Auth: POST /employee-profile/me/correction-request
-   * No-auth: POST /employee-profile/me/:userId/correction-request
+   * Auth: POST /dto's/me/correction-request
+   * No-auth: POST /dto's/me/:userId/correction-request
    */
   submitCorrectionRequest: async (userId: string, data: any) => {
     return apiService.post(getMePath(userId, '/correction-request'), data);
@@ -74,8 +74,8 @@ export const employeeProfileService = {
 
   /**
    * Get own correction requests (paginated)
-   * Auth: GET /employee-profile/me/correction-requests
-   * No-auth: GET /employee-profile/me/:userId/correction-requests
+   * Auth: GET /dto's/me/correction-requests
+   * No-auth: GET /dto's/me/:userId/correction-requests
    */
   getMyCorrectionRequests: async (userId: string, page?: number, limit?: number) => {
     const query = buildQueryString({ page, limit });
@@ -84,8 +84,8 @@ export const employeeProfileService = {
 
   /**
    * Cancel own correction request
-   * Auth: PATCH /employee-profile/me/correction-requests/:requestId/cancel
-   * No-auth: PATCH /employee-profile/me/:userId/correction-requests/:requestId/cancel
+   * Auth: PATCH /dto's/me/correction-requests/:requestId/cancel
+   * No-auth: PATCH /dto's/me/:userId/correction-requests/:requestId/cancel
    */
   cancelCorrectionRequest: async (userId: string, requestId: string) => {
     return apiService.patch(getMePath(userId, `/correction-requests/${requestId}/cancel`), {});
@@ -97,8 +97,8 @@ export const employeeProfileService = {
 
   /**
    * Upload a document
-   * Auth: POST /employee-profile/me/documents
-   * No-auth: POST /employee-profile/me/:userId/documents
+   * Auth: POST /dto's/me/documents
+   * No-auth: POST /dto's/me/:userId/documents
    */
   uploadDocument: async (userId: string, data: any) => {
     return apiService.post(getMePath(userId, '/documents'), data);
@@ -106,8 +106,8 @@ export const employeeProfileService = {
 
   /**
    * Get all my documents
-   * Auth: GET /employee-profile/me/documents
-   * No-auth: GET /employee-profile/me/:userId/documents
+   * Auth: GET /dto's/me/documents
+   * No-auth: GET /dto's/me/:userId/documents
    */
   getMyDocuments: async (userId: string) => {
     return apiService.get(getMePath(userId, '/documents'));
@@ -115,8 +115,8 @@ export const employeeProfileService = {
 
   /**
    * Get a specific document (full data including file)
-   * Auth: GET /employee-profile/me/documents/:documentId
-   * No-auth: GET /employee-profile/me/:userId/documents/:documentId
+   * Auth: GET /dto's/me/documents/:documentId
+   * No-auth: GET /dto's/me/:userId/documents/:documentId
    */
   getDocument: async (userId: string, documentId: string) => {
     return apiService.get(getMePath(userId, `/documents/${documentId}`));
@@ -124,8 +124,8 @@ export const employeeProfileService = {
 
   /**
    * Delete a document
-   * Auth: DELETE /employee-profile/me/documents/:documentId
-   * No-auth: DELETE /employee-profile/me/:userId/documents/:documentId
+   * Auth: DELETE /dto's/me/documents/:documentId
+   * No-auth: DELETE /dto's/me/:userId/documents/:documentId
    */
   deleteDocument: async (userId: string, documentId: string) => {
     return apiService.delete(getMePath(userId, `/documents/${documentId}`));
@@ -137,8 +137,8 @@ export const employeeProfileService = {
 
   /**
    * Get all emergency contacts
-   * Auth: GET /employee-profile/me/emergency-contacts
-   * No-auth: GET /employee-profile/me/:userId/emergency-contacts
+   * Auth: GET /dto's/me/emergency-contacts
+   * No-auth: GET /dto's/me/:userId/emergency-contacts
    */
   getEmergencyContacts: async (userId: string) => {
     return apiService.get(getMePath(userId, '/emergency-contacts'));
@@ -146,8 +146,8 @@ export const employeeProfileService = {
 
   /**
    * Add emergency contact
-   * Auth: POST /employee-profile/me/emergency-contacts
-   * No-auth: POST /employee-profile/me/:userId/emergency-contacts
+   * Auth: POST /dto's/me/emergency-contacts
+   * No-auth: POST /dto's/me/:userId/emergency-contacts
    */
   addEmergencyContact: async (userId: string, data: any) => {
     return apiService.post(getMePath(userId, '/emergency-contacts'), data);
@@ -155,8 +155,8 @@ export const employeeProfileService = {
 
   /**
    * Update emergency contact
-   * Auth: PATCH /employee-profile/me/emergency-contacts/:index
-   * No-auth: PATCH /employee-profile/me/:userId/emergency-contacts/:index
+   * Auth: PATCH /dto's/me/emergency-contacts/:index
+   * No-auth: PATCH /dto's/me/:userId/emergency-contacts/:index
    */
   updateEmergencyContact: async (userId: string, index: number, data: any) => {
     return apiService.patch(getMePath(userId, `/emergency-contacts/${index}`), data);
@@ -164,8 +164,8 @@ export const employeeProfileService = {
 
   /**
    * Delete emergency contact
-   * Auth: DELETE /employee-profile/me/emergency-contacts/:index
-   * No-auth: DELETE /employee-profile/me/:userId/emergency-contacts/:index
+   * Auth: DELETE /dto's/me/emergency-contacts/:index
+   * No-auth: DELETE /dto's/me/:userId/emergency-contacts/:index
    */
   deleteEmergencyContact: async (userId: string, index: number) => {
     return apiService.delete(getMePath(userId, `/emergency-contacts/${index}`));
@@ -210,7 +210,7 @@ export const employeeProfileService = {
 
   /**
    * Get team profiles
-   * GET /employee-profile/team
+   * GET /dto's/team
    */
   getTeamProfiles: async () => {
     return apiService.get(`/employee-profile/team`);
@@ -218,7 +218,7 @@ export const employeeProfileService = {
 
   /**
    * Get team profiles (paginated)
-   * GET /employee-profile/team/paginated
+   * GET /dto's/team/paginated
    */
   getTeamProfilesPaginated: async (page?: number, limit?: number) => {
     const query = buildQueryString({ page, limit });
@@ -231,7 +231,7 @@ export const employeeProfileService = {
 
   /**
    * Get all employees (paginated with optional filters)
-   * GET /employee-profile/admin/employees
+   * GET /dto's/admin/employees
    */
   getAllEmployees: async (page?: number, limit?: number, status?: string, departmentId?: string) => {
     const query = buildQueryString({ page, limit, status, departmentId });
@@ -240,7 +240,7 @@ export const employeeProfileService = {
 
   /**
    * Search employees (paginated)
-   * GET /employee-profile/admin/search
+   * GET /dto's/admin/search
    */
   searchEmployees: async (q: string, page?: number, limit?: number, status?: string) => {
     const query = buildQueryString({ query: q, page, limit, status });
@@ -249,7 +249,7 @@ export const employeeProfileService = {
 
   /**
    * Get all change requests (paginated)
-   * GET /employee-profile/admin/change-requests
+   * GET /dto's/admin/change-requests
    */
   getAllChangeRequests: async (page?: number, limit?: number) => {
     const query = buildQueryString({ page, limit });
@@ -258,7 +258,7 @@ export const employeeProfileService = {
 
   /**
    * Get single change request
-   * GET /employee-profile/admin/change-requests/:requestId
+   * GET /dto's/admin/change-requests/:requestId
    */
   getChangeRequest: async (requestId: string) => {
     return apiService.get(`/employee-profile/admin/change-requests/${requestId}`);
@@ -266,7 +266,7 @@ export const employeeProfileService = {
 
   /**
    * Process (approve/reject) change request
-   * PATCH /employee-profile/admin/change-requests/:requestId/process
+   * PATCH /dto's/admin/change-requests/:requestId/process
    */
   processChangeRequest: async (requestId: string, data: any) => {
     return apiService.patch(`/employee-profile/admin/change-requests/${requestId}/process`, data);
@@ -274,7 +274,7 @@ export const employeeProfileService = {
 
   /**
    * Get pending change requests count
-   * GET /employee-profile/admin/change-requests/count/pending
+   * GET /dto's/admin/change-requests/count/pending
    */
   getPendingChangeRequestsCount: async () => {
     return apiService.get(`/employee-profile/admin/change-requests/count/pending`);
@@ -282,7 +282,7 @@ export const employeeProfileService = {
 
   /**
    * Get employee count by status
-   * GET /employee-profile/admin/stats/by-status
+   * GET /dto's/admin/stats/by-status
    */
   getEmployeeCountByStatus: async () => {
     return apiService.get(`/employee-profile/admin/stats/by-status`);
@@ -290,7 +290,7 @@ export const employeeProfileService = {
 
   /**
    * Get employee count by department
-   * GET /employee-profile/admin/stats/by-department
+   * GET /dto's/admin/stats/by-department
    */
   getEmployeeCountByDepartment: async () => {
     return apiService.get(`/employee-profile/admin/stats/by-department`);
@@ -298,7 +298,7 @@ export const employeeProfileService = {
 
   /**
    * Get employee profile (admin view)
-   * GET /employee-profile/:id
+   * GET /dto's/:id
    */
   getEmployeeProfile: async (id: string) => {
     return apiService.get(`/employee-profile/${id}`);
@@ -306,7 +306,7 @@ export const employeeProfileService = {
 
   /**
    * Update employee profile (admin)
-   * PATCH /employee-profile/:id
+   * PATCH /dto's/:id
    */
   updateEmployeeProfile: async (id: string, data: any) => {
     return apiService.patch(`/employee-profile/${id}`, data);
@@ -314,7 +314,7 @@ export const employeeProfileService = {
 
   /**
    * Deactivate employee
-   * PATCH /employee-profile/:id/deactivate
+   * PATCH /dto's/:id/deactivate
    */
   deactivateEmployee: async (id: string, data?: any) => {
     return apiService.patch(`/employee-profile/${id}/deactivate`, data || {});
@@ -322,7 +322,7 @@ export const employeeProfileService = {
 
   /**
    * Assign role to employee
-   * PATCH /employee-profile/:id/role
+   * PATCH /dto's/:id/role
    */
   assignRole: async (id: string, data: any) => {
     return apiService.patch(`/employee-profile/${id}/role`, data);

@@ -2,18 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import { payrollConfigurationService } from '@/app/services/payroll-configuration';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 // Type definitions based on your API response
+interface PopulatedEmployee {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  employeeNumber: string;
+}
+
 interface TerminationBenefit {
   _id: string;
   name: string;
   amount: number;
   terms?: string; // Optional field
   status: 'draft' | 'approved' | 'rejected' | 'pending_approval';
-  createdBy?: string;
+  createdBy?: string | PopulatedEmployee;
   createdAt: string;
   updatedAt: string;
-  approvedBy?: string;
+  approvedBy?: string | PopulatedEmployee;
   approvedAt?: string;
   __v: number;
 }
@@ -65,7 +73,7 @@ export default function TerminationBenefitsPage() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedTerminationBenefit, setSelectedTerminationBenefit] = useState<TerminationBenefit | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   // Pagination state
   const [pagination, setPagination] = useState({
     page: 1,
@@ -73,13 +81,13 @@ export default function TerminationBenefitsPage() {
     total: 0,
     totalPages: 0,
   });
-  
+
   // Search and filter state
   const [filters, setFilters] = useState({
     search: '',
     status: '',
   });
-  
+
   // Form state - terms is optional
   const [formData, setFormData] = useState({
     name: '',
@@ -96,7 +104,7 @@ export default function TerminationBenefitsPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Get current user ID for filtering (if needed)
       let currentUserId = '';
       if (typeof window !== 'undefined') {
@@ -110,7 +118,7 @@ export default function TerminationBenefitsPage() {
           }
         }
       }
-      
+
       const queryParams = {
         page: pagination.page,
         limit: pagination.limit,
@@ -118,21 +126,21 @@ export default function TerminationBenefitsPage() {
         status: filters.status || undefined,
         createdByEmployeeId: currentUserId || undefined,
       };
-      
+
       const response = await payrollConfigurationService.getTerminationBenefits(queryParams);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       if (!response.data) {
         console.warn('No data in response');
         setTerminationBenefits([]);
         return;
       }
-      
+
       const apiData = response.data as any;
-      
+
       if (apiData.data && Array.isArray(apiData.data)) {
         // Handle paginated response
         setTerminationBenefits(apiData.data);
@@ -143,7 +151,7 @@ export default function TerminationBenefitsPage() {
           page: apiData.page || 1,
           limit: apiData.limit || 10,
         }));
-      } 
+      }
       else if (Array.isArray(apiData)) {
         // Handle non-paginated response
         setTerminationBenefits(apiData);
@@ -157,7 +165,7 @@ export default function TerminationBenefitsPage() {
         console.warn('Unexpected response structure:', apiData);
         setTerminationBenefits([]);
       }
-      
+
     } catch (err: any) {
       setError(err.message || 'Failed to fetch termination benefits');
       console.error('Error fetching termination benefits:', err);
@@ -167,130 +175,6 @@ export default function TerminationBenefitsPage() {
   };
 
   const handleCreateTerminationBenefit = async () => {
-  try {
-    // Basic frontend validation - terms is optional
-    if (!formData.name || !formData.amount) {
-      setError('Please fill all required fields (Name and Amount)');
-      return;
-    }
-
-    // Convert amount to number
-    const amountNum = parseFloat(formData.amount);
-    
-    if (isNaN(amountNum) || amountNum < 0) {
-      setError('Amount must be a valid number 0 or greater');
-      return;
-    }
-
-    setActionLoading(true);
-    
-    // Get the employee ID - REQUIRED by backend DTO
-    let createdByEmployeeId = user?.id || '';
-    
-    // Fallback to localStorage if user.id is not available
-    if (!createdByEmployeeId) {
-      try {
-        const storedUser = localStorage.getItem('hr_system_user');
-        if (storedUser) {
-          const userData = JSON.parse(storedUser);
-          createdByEmployeeId = userData.id || userData._id || '';
-        }
-      } catch (e) {
-        console.error('Failed to get user from localStorage:', e);
-      }
-    }
-    
-    if (!createdByEmployeeId) {
-      setError('Unable to identify user. Please make sure you are logged in.');
-      setActionLoading(false);
-      return;
-    }
-    
-    // Validate that createdByEmployeeId looks like a MongoDB ObjectId
-    // MongoDB ObjectIds are 24-character hex strings
-    const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-    if (!objectIdRegex.test(createdByEmployeeId)) {
-      console.warn('Employee ID does not look like a MongoDB ObjectId:', createdByEmployeeId);
-      // Continue anyway - the backend validation will catch it
-    }
-    
-    // Prepare data for backend - terms is optional
-    const apiData: any = {
-      name: formData.name,
-      amount: amountNum,
-      createdByEmployeeId: createdByEmployeeId,
-    };
-    
-    // Only add terms if it's not empty
-    if (formData.terms.trim() !== '') {
-      apiData.terms = formData.terms;
-    }
-    
-    console.log('Creating termination benefit with data:', apiData);
-    
-    const response = await payrollConfigurationService.createTerminationBenefit(apiData);
-    
-    // Handle response
-    if (response.error) {
-      throw new Error(response.error);
-    }
-    
-    // Check for backend validation errors
-    if (response.data) {
-      const responseData = response.data as any;
-      
-      // Handle various error response formats
-      if (responseData.message && responseData.message.includes('already exists')) {
-        throw new Error(responseData.message);
-      }
-      else if (responseData.error) {
-        throw new Error(responseData.error);
-      }
-      else if (responseData.statusCode && responseData.statusCode >= 400) {
-        // Extract validation messages if available
-        const errorMessage = responseData.message || 
-                            responseData.error?.message || 
-                            'Failed to create termination benefit';
-        throw new Error(errorMessage);
-      }
-    }
-    
-    setSuccess('Termination benefit created successfully as DRAFT');
-    setShowCreateModal(false);
-    resetForm();
-    fetchTerminationBenefits();
-  } catch (err: any) {
-    console.error('Create error details:', err);
-    
-    // Extract error message from various possible formats
-    let errorMessage = 'Failed to create termination benefit';
-    
-    if (err.message) {
-      errorMessage = err.message;
-    } else if (err.response?.data?.message) {
-      errorMessage = err.response.data.message;
-    } else if (err.response?.data?.error?.message) {
-      errorMessage = err.response.data.error.message;
-    }
-    
-    // Format specific error messages
-    if (errorMessage.includes('already exists')) {
-      errorMessage = `Termination benefit "${formData.name}" already exists. Please use a different name.`;
-    }
-    
-    // Special handling for ObjectId conversion errors
-    if (errorMessage.includes('ObjectId') || errorMessage.includes('Cast to ObjectId')) {
-      errorMessage = 'User identification issue. Please try logging out and back in.';
-    }
-    
-    setError(errorMessage);
-  } finally {
-    setActionLoading(false);
-  }
-};
-  const handleUpdateTerminationBenefit = async () => {
-    if (!selectedTerminationBenefit) return;
-    
     try {
       // Basic frontend validation - terms is optional
       if (!formData.name || !formData.amount) {
@@ -300,65 +184,189 @@ export default function TerminationBenefitsPage() {
 
       // Convert amount to number
       const amountNum = parseFloat(formData.amount);
-      
+
       if (isNaN(amountNum) || amountNum < 0) {
         setError('Amount must be a valid number 0 or greater');
         return;
       }
 
       setActionLoading(true);
-      
+
+      // Get the employee ID - REQUIRED by backend DTO
+      let createdByEmployeeId = user?.id || '';
+
+      // Fallback to localStorage if user.id is not available
+      if (!createdByEmployeeId) {
+        try {
+          const storedUser = localStorage.getItem('hr_system_user');
+          if (storedUser) {
+            const userData = JSON.parse(storedUser);
+            createdByEmployeeId = userData.id || userData._id || '';
+          }
+        } catch (e) {
+          console.error('Failed to get user from localStorage:', e);
+        }
+      }
+
+      if (!createdByEmployeeId) {
+        setError('Unable to identify user. Please make sure you are logged in.');
+        setActionLoading(false);
+        return;
+      }
+
+      // Validate that createdByEmployeeId looks like a MongoDB ObjectId
+      // MongoDB ObjectIds are 24-character hex strings
+      const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+      if (!objectIdRegex.test(createdByEmployeeId)) {
+        console.warn('Employee ID does not look like a MongoDB ObjectId:', createdByEmployeeId);
+        // Continue anyway - the backend validation will catch it
+      }
+
+      // Prepare data for backend - terms is optional
+      const apiData: any = {
+        name: formData.name,
+        amount: amountNum,
+        createdByEmployeeId: createdByEmployeeId,
+      };
+
+      // Only add terms if it's not empty
+      if (formData.terms.trim() !== '') {
+        apiData.terms = formData.terms;
+      }
+
+      console.log('Creating termination benefit with data:', apiData);
+
+      const response = await payrollConfigurationService.createTerminationBenefit(apiData);
+
+      // Handle response
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      // Check for backend validation errors
+      if (response.data) {
+        const responseData = response.data as any;
+
+        // Handle various error response formats
+        if (responseData.message && responseData.message.includes('already exists')) {
+          throw new Error(responseData.message);
+        }
+        else if (responseData.error) {
+          throw new Error(responseData.error);
+        }
+        else if (responseData.statusCode && responseData.statusCode >= 400) {
+          // Extract validation messages if available
+          const errorMessage = responseData.message ||
+            responseData.error?.message ||
+            'Failed to create termination benefit';
+          throw new Error(errorMessage);
+        }
+      }
+
+      setSuccess('Termination benefit created successfully as DRAFT');
+      setShowCreateModal(false);
+      resetForm();
+      fetchTerminationBenefits();
+    } catch (err: any) {
+      console.error('Create error details:', err);
+
+      // Extract error message from various possible formats
+      let errorMessage = 'Failed to create termination benefit';
+
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error?.message) {
+        errorMessage = err.response.data.error.message;
+      }
+
+      // Format specific error messages
+      if (errorMessage.includes('already exists')) {
+        errorMessage = `Termination benefit "${formData.name}" already exists. Please use a different name.`;
+      }
+
+      // Special handling for ObjectId conversion errors
+      if (errorMessage.includes('ObjectId') || errorMessage.includes('Cast to ObjectId')) {
+        errorMessage = 'User identification issue. Please try logging out and back in.';
+      }
+
+      setError(errorMessage);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  const handleUpdateTerminationBenefit = async () => {
+    if (!selectedTerminationBenefit) return;
+
+    try {
+      // Basic frontend validation - terms is optional
+      if (!formData.name || !formData.amount) {
+        setError('Please fill all required fields (Name and Amount)');
+        return;
+      }
+
+      // Convert amount to number
+      const amountNum = parseFloat(formData.amount);
+
+      if (isNaN(amountNum) || amountNum < 0) {
+        setError('Amount must be a valid number 0 or greater');
+        return;
+      }
+
+      setActionLoading(true);
+
       // Prepare update data - terms is optional
       const updateData: any = {
         name: formData.name,
         amount: amountNum,
       };
-      
+
       // Only add terms if it's not empty or if we're updating from existing value
       if (formData.terms.trim() !== '' || (selectedTerminationBenefit.terms && selectedTerminationBenefit.terms !== formData.terms)) {
         updateData.terms = formData.terms;
       }
-      
+
       const response = await payrollConfigurationService.updateTerminationBenefit(
         selectedTerminationBenefit._id,
         updateData
       );
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       // Check for backend validation errors
       if (response.data) {
         const responseData = response.data as any;
-        
+
         if (responseData.statusCode && responseData.statusCode >= 400) {
-          const errorMessage = responseData.message || 
-                              responseData.error?.message || 
-                              'Failed to update termination benefit';
+          const errorMessage = responseData.message ||
+            responseData.error?.message ||
+            'Failed to update termination benefit';
           throw new Error(errorMessage);
         }
       }
-      
+
       setSuccess('Termination benefit updated successfully');
       setShowEditModal(false);
       resetForm();
       fetchTerminationBenefits();
     } catch (err: any) {
       console.error('Update error details:', err);
-      
+
       let errorMessage = 'Failed to update termination benefit';
       if (err.message) {
         errorMessage = err.message;
       }
-      
+
       // Format specific error messages
       if (errorMessage.includes('already exists')) {
         errorMessage = `Termination benefit "${formData.name}" already exists. Please use a different name.`;
       } else if (errorMessage.includes('Cannot update termination benefit with status')) {
         errorMessage = `Cannot update ${selectedTerminationBenefit.status.toLowerCase()} termination benefit. Only DRAFT termination benefits can be edited. Manual adjustments require specialist approval (BR27).`;
       }
-      
+
       setError(errorMessage);
     } finally {
       setActionLoading(false);
@@ -369,31 +377,31 @@ export default function TerminationBenefitsPage() {
     if (!confirm(`Are you sure you want to delete the termination benefit "${benefit.name}"? This action cannot be undone.`)) {
       return;
     }
-    
+
     try {
       setActionLoading(true);
-      
+
       const response = await payrollConfigurationService.deleteTerminationBenefit(benefit._id);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       setSuccess(`Termination benefit "${benefit.name}" deleted successfully`);
       fetchTerminationBenefits();
     } catch (err: any) {
       console.error('Delete error:', err);
-      
+
       let errorMessage = 'Failed to delete termination benefit';
       if (err.message) {
         errorMessage = err.message;
       }
-      
+
       // Handle specific error cases
       if (errorMessage.includes('Cannot delete termination benefit with status')) {
         errorMessage = `Cannot delete ${benefit.status.toLowerCase()} termination benefit. Only DRAFT termination benefits can be deleted.`;
       }
-      
+
       setError(errorMessage);
     } finally {
       setActionLoading(false);
@@ -406,14 +414,14 @@ export default function TerminationBenefitsPage() {
       setError(`Cannot edit ${benefit.status.toLowerCase()} termination benefit. Only DRAFT termination benefits can be edited. Manual adjustments require specialist approval (BR27).`);
       return;
     }
-    
+
     setSelectedTerminationBenefit(benefit);
     setFormData({
       name: benefit.name,
       amount: benefit.amount.toString(),
       terms: benefit.terms || '', // Handle optional terms
     });
-    
+
     setShowEditModal(true);
   };
 
@@ -456,6 +464,12 @@ export default function TerminationBenefitsPage() {
 
   const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const getEmployeeDisplayName = (emp: string | PopulatedEmployee | undefined) => {
+    if (!emp) return 'N/A';
+    if (typeof emp === 'string') return emp;
+    return `${emp.fullName || `${emp.firstName} ${emp.lastName}`.trim()} (${emp.employeeNumber})`;
   };
 
   const formatDate = (dateString: string) => {
@@ -527,7 +541,7 @@ export default function TerminationBenefitsPage() {
         <div className="bg-success/10 border border-success/20 rounded-lg p-4 flex items-center gap-3">
           <div className="text-success-foreground font-bold">Success</div>
           <p className="text-success-foreground font-medium">{success}</p>
-          <button 
+          <button
             onClick={() => setSuccess(null)}
             className="ml-auto text-success-foreground hover:text-success-foreground"
           >
@@ -544,7 +558,7 @@ export default function TerminationBenefitsPage() {
             <p className="text-destructive-foreground font-medium">Error</p>
             <p className="text-destructive-foreground text-sm mt-1">{error}</p>
           </div>
-          <button 
+          <button
             onClick={() => setError(null)}
             className="ml-auto text-destructive-foreground hover:text-destructive-foreground"
           >
@@ -610,7 +624,7 @@ export default function TerminationBenefitsPage() {
             Page {pagination.page} of {pagination.totalPages || 1}
           </div>
         </div>
-        
+
         {terminationBenefits.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-muted-foreground font-medium">No termination benefits found</p>
@@ -659,27 +673,27 @@ export default function TerminationBenefitsPage() {
                       <td className="py-4 px-6">
                         <span className={`
       inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-      ${benefit.status === 'approved' 
-        ? 'bg-green-100 text-green-800' 
-        : benefit.status === 'draft' 
-        ? 'bg-yellow-100 text-yellow-800'
-        : benefit.status === 'rejected' 
-        ? 'bg-red-100 text-red-800'
-        : benefit.status === 'pending_approval'
-        ? 'bg-yellow-100 text-yellow-800'
-        : 'bg-muted/20 text-foreground'
-      }
+      ${benefit.status === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : benefit.status === 'draft'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : benefit.status === 'rejected'
+                                ? 'bg-red-100 text-red-800'
+                                : benefit.status === 'pending_approval'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-muted/20 text-foreground'
+                          }
     `}>
-      {benefit.status === 'approved' 
-        ? 'Approved' 
-        : benefit.status === 'draft' 
-        ? 'Draft'
-        : benefit.status === 'rejected' 
-        ? 'Rejected'
-        : benefit.status === 'pending_approval'
-        ? 'Pending Approval'
-        : benefit.status}
-    </span>
+                          {benefit.status === 'approved'
+                            ? 'Approved'
+                            : benefit.status === 'draft'
+                              ? 'Draft'
+                              : benefit.status === 'rejected'
+                                ? 'Rejected'
+                                : benefit.status === 'pending_approval'
+                                  ? 'Pending Approval'
+                                  : benefit.status}
+                        </span>
                       </td>
                       <td className="py-4 px-6 text-foreground text-sm">
                         {formatDate(benefit.createdAt)}
@@ -694,7 +708,7 @@ export default function TerminationBenefitsPage() {
                           >
                             View
                           </button>
-                          
+
                           {/* Edit button - Only for DRAFT termination benefits */}
                           {benefit.status === 'draft' && (
                             <button
@@ -738,7 +752,7 @@ export default function TerminationBenefitsPage() {
                       } else {
                         pageNum = pagination.page - 2 + i;
                       }
-                      
+
                       return (
                         <button
                           key={pageNum}
@@ -812,7 +826,7 @@ export default function TerminationBenefitsPage() {
                   Enter a unique name for this termination benefit.
                 </p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Amount (USD) *
@@ -837,7 +851,7 @@ export default function TerminationBenefitsPage() {
                   Benefit amount. Must be 0 or greater.
                 </p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Terms & Conditions (Optional)
@@ -854,7 +868,7 @@ export default function TerminationBenefitsPage() {
                   Describe the conditions and terms for this benefit (optional)
                 </p>
               </div>
-              
+
               <div className="p-4 border border-border rounded-lg">
                 <p className="text-sm font-medium text-foreground mb-2">Important Notes</p>
                 <ul className="text-xs text-warning-foreground space-y-1">
@@ -919,7 +933,7 @@ export default function TerminationBenefitsPage() {
                   Enter a unique name for this termination benefit.
                 </p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Amount (USD) *
@@ -944,7 +958,7 @@ export default function TerminationBenefitsPage() {
                   Benefit amount.
                 </p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Terms & Conditions (Optional)
@@ -961,7 +975,7 @@ export default function TerminationBenefitsPage() {
                   Describe the conditions and terms for this benefit (optional)
                 </p>
               </div>
-              
+
               <div className="p-4 bg-muted/5 border border-border rounded-lg">
                 <p className="text-sm font-medium text-foreground mb-2">Editing Notice (BR27)</p>
                 <ul className="text-xs text-muted-foreground space-y-1">
@@ -997,67 +1011,53 @@ export default function TerminationBenefitsPage() {
       {showViewModal && selectedTerminationBenefit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-card rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-border">
-                <h3 className="text-xl font-bold text-foreground">Termination Benefit Details</h3>
-              </div>
+            <div className="p-6 border-b border-border">
+              <h3 className="text-xl font-bold text-foreground">Termination Benefit Details</h3>
+            </div>
             <div className="p-6 space-y-4">
               <div className="flex items-start justify-between">
                 <div>
                   <h4 className="text-lg font-bold text-foreground">{selectedTerminationBenefit.name}</h4>
                   <p className="text-sm text-primary mt-2">Status</p>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-1
-                      ${selectedTerminationBenefit.status === 'approved'
-                        ? 'bg-green-100 text-green-800'
-                        : selectedTerminationBenefit.status === 'draft'
+                  <span className={`
+  inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-medium mt-1 w-fit
+  ${selectedTerminationBenefit.status === 'approved'
+                      ? 'bg-green-100 text-green-800'
+                      : selectedTerminationBenefit.status === 'draft'
                         ? 'bg-yellow-100 text-yellow-800'
                         : selectedTerminationBenefit.status === 'rejected'
-                        ? 'bg-red-100 text-red-800'
-                        : selectedTerminationBenefit.status === 'pending_approval'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-muted/20 text-foreground'}
-                    `}>
-                      {selectedTerminationBenefit.status === 'approved'
-                        ? 'Approved'
-                        : selectedTerminationBenefit.status === 'draft'
+                          ? 'bg-red-100 text-red-800'
+                          : selectedTerminationBenefit.status === 'pending_approval'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-muted/20 text-foreground'
+                    }
+`}>
+                    {selectedTerminationBenefit.status === 'approved'
+                      ? 'Approved'
+                      : selectedTerminationBenefit.status === 'draft'
                         ? 'Draft'
                         : selectedTerminationBenefit.status === 'rejected'
-                        ? 'Rejected'
-                        : selectedTerminationBenefit.status === 'pending_approval'
-                        ? 'Pending Approval'
-                        : selectedTerminationBenefit.status}
-                    </span>
+                          ? 'Rejected'
+                          : selectedTerminationBenefit.status === 'pending_approval'
+                            ? 'Pending Approval'
+                            : selectedTerminationBenefit.status}
+                  </span>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-primary">Amount</p>
                   <p className="font-medium text-foreground text-xl">{formatCurrency(selectedTerminationBenefit.amount)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-primary">Created</p>
-                  <p className="font-medium text-foreground">{formatDate(selectedTerminationBenefit.createdAt)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-primary">Last Modified</p>
-                  <p className="font-medium text-foreground">{formatDate(selectedTerminationBenefit.updatedAt)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-primary">Created</p>
-                  <p className="font-medium text-foreground">{formatDate(selectedTerminationBenefit.createdAt)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-primary">Last Modified</p>
-                  <p className="font-medium text-foreground">{formatDate(selectedTerminationBenefit.updatedAt)}</p>
-                </div>
-                <div>
                   <p className="text-sm text-primary">Created By</p>
-                  <p className="font-medium text-foreground">{selectedTerminationBenefit.createdBy || 'N/A'}</p>
+                  <p className="font-medium text-foreground">{getEmployeeDisplayName(selectedTerminationBenefit.createdBy)}</p>
                 </div>
                 {(selectedTerminationBenefit.status === 'approved' || selectedTerminationBenefit.status === 'rejected') && (
                   <div>
                     <p className="text-sm text-primary">{selectedTerminationBenefit.status === 'approved' ? 'Approved By' : 'Rejected By'}</p>
-                    <p className="font-medium text-foreground">{selectedTerminationBenefit.approvedBy || 'N/A'}</p>
+                    <p className="font-medium text-foreground">{getEmployeeDisplayName(selectedTerminationBenefit.approvedBy)}</p>
                   </div>
                 )}
                 {(selectedTerminationBenefit.status === 'approved' || selectedTerminationBenefit.status === 'rejected') && (
@@ -1067,7 +1067,7 @@ export default function TerminationBenefitsPage() {
                   </div>
                 )}
               </div>
-              
+
               {selectedTerminationBenefit.terms && (
                 <div>
                   <p className="text-sm font-medium text-primary mb-2">Terms & Conditions</p>
@@ -1076,8 +1076,8 @@ export default function TerminationBenefitsPage() {
                   </div>
                 </div>
               )}
-              
-             
+
+
             </div>
             <div className="p-6 border-t border-border flex justify-end">
               <button

@@ -28,7 +28,26 @@ const convertApiNotificationToUI = (apiNotif: any): Notification => {
     let actionUrl: string | undefined;
     let actionLabel: string | undefined;
 
-    if (apiType.includes('SHIFT_')) {
+    // Handle lateness/threshold notifications first
+    if (apiType.includes('LATENESS_THRESHOLD') || apiType.includes('REPEATED_LATENESS') || apiType === 'EMPLOYEE_LATENESS_THRESHOLD') {
+        category = 'attendance';
+        type = 'warning';
+        title = 'Lateness Alert';
+        actionUrl = '/portal/my-attendance';
+        actionLabel = 'View Attendance';
+    } else if (apiType === 'LATE') {
+        category = 'attendance';
+        type = 'warning';
+        title = 'Late Arrival';
+        actionUrl = '/portal/my-attendance';
+        actionLabel = 'View Attendance';
+    } else if (apiType === 'MISSED_PUNCH') {
+        category = 'attendance';
+        type = 'warning';
+        title = 'Missed Punch Alert';
+        actionUrl = '/portal/my-attendance';
+        actionLabel = 'View Attendance';
+    } else if (apiType.includes('SHIFT_')) {
         category = 'shift';
         if (apiType.includes('EXPIRED')) {
             type = 'error';
@@ -72,6 +91,9 @@ const convertApiNotificationToUI = (apiNotif: any): Notification => {
         title = 'Performance Update';
         actionUrl = '/portal/my-performance';
         actionLabel = 'View Performance';
+    } else if (apiType) {
+        // Fallback for unknown notification types - convert to readable title
+        title = apiType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
     }
 
     return {

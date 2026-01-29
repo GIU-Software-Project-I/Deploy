@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { payrollSpecialistService, DepartmentalReport, ReportFilters, PayrollSummaryReport, type Department } from '@/app/services/payroll-specialist';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 type ReportType = 'summary' | 'tax' | 'payslip';
 type PeriodType = 'monthly' | 'quarterly' | 'yearly';

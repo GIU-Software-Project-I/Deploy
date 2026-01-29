@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   getInterviewsByPanelist,
   submitInterviewFeedback,
   getFeedbackByInterview,
 } from '@/app/services/recruitment';
-import { Interview } from '@/app/types/recruitment';
-import { InterviewStatus, ApplicationStage } from '@/app/types/enums';
+import { Interview } from '@/types/recruitment';
+import { InterviewStatus, ApplicationStage } from '@/types/enums';
 
 // REC-011: Provide feedback/interview score for filtration
 // REC-020: Structured assessment and scoring forms per role
@@ -50,9 +50,11 @@ export default function FeedbackPage() {
       }
 
       const data = await getInterviewsByPanelist(user.id);
-      // Filter only completed interviews that need feedback
+      // Filter completed or scheduled interviews that need feedback
       const completedInterviews = data.filter(
-        (interview) => interview.status === InterviewStatus.COMPLETED
+        (interview) =>
+          interview.status === InterviewStatus.COMPLETED ||
+          interview.status === InterviewStatus.SCHEDULED
       );
       setInterviews(completedInterviews);
     } catch (err: any) {
@@ -169,13 +171,12 @@ export default function FeedbackPage() {
                   <button
                     key={interview.id}
                     onClick={() => setSelectedInterview(interview)}
-                    className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                      selectedInterview?.id === interview.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : needsFeedback
+                    className={`w-full text-left p-4 rounded-lg border transition-colors ${selectedInterview?.id === interview.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : needsFeedback
                         ? 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'
                         : 'border-gray-200 bg-gray-50 opacity-75'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="font-medium text-gray-900">
@@ -192,9 +193,14 @@ export default function FeedbackPage() {
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      Application #{interview.applicationId}
+                    <div className="text-sm text-gray-900 font-medium">
+                      {interview.jobTitle || `Application #${interview.applicationId}`}
                     </div>
+                    {interview.candidateName && (
+                      <div className="text-sm text-gray-600">
+                        {interview.candidateName}
+                      </div>
+                    )}
                     <div className="text-sm text-gray-500">
                       {new Date(interview.scheduledDate).toLocaleDateString()}
                     </div>
@@ -220,6 +226,12 @@ export default function FeedbackPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
+                <div className="mb-2 text-sm text-gray-600">
+                  <strong>Candidate:</strong> {selectedInterview.candidateName || 'Unknown'}
+                </div>
+                <div className="mb-2 text-sm text-gray-600">
+                  <strong>Position:</strong> {selectedInterview.jobTitle || 'Unknown'}
+                </div>
                 <div className="mb-2 text-sm text-gray-600">
                   <strong>Interview:</strong> {getStageLabel(selectedInterview.stage)}
                 </div>

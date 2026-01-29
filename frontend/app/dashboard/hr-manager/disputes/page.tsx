@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { performanceService } from '@/app/services/performance';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Badge } from '@/app/components/ui/badge';
-import { Textarea } from '@/app/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
     Dialog,
     DialogContent,
@@ -14,21 +14,21 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/app/components/ui/dialog';
+} from '@/components/ui/dialog';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@/app/components/ui/select';
-import { Label } from '@/app/components/ui/label';
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import {
     Tabs,
     TabsContent,
     TabsList,
     TabsTrigger,
-} from '@/app/components/ui/tabs';
+} from '@/components/ui/tabs';
 
 interface Dispute {
     _id: string;
@@ -142,11 +142,18 @@ export default function DisputesPage() {
             }
 
             const disputesData = disputesRes.data as any;
-            const rawList = disputesData?.data || disputesData || [];
+            const rawList = (disputesData?.data || disputesData || []) as any[];
 
             const disputesList = (Array.isArray(rawList) ? rawList : []).map((d: any) => {
+                // Map backend properties to frontend interface expectations
+                const mappedDispute = {
+                    ...d,
+                    recordId: d.appraisalId, // Alias appraisalId to recordId
+                    employeeId: d.raisedByEmployeeId, // Alias raisedByEmployeeId to employeeId
+                };
+
                 // Extract resolution type from summary if present
-                let resolutionType = undefined;
+                let resolutionType = d.resolutionType;
                 let resolution = d.resolutionSummary;
 
                 if (resolution && resolution.startsWith('[')) {
@@ -158,9 +165,9 @@ export default function DisputesPage() {
                 }
 
                 return {
-                    ...d,
+                    ...mappedDispute,
                     resolution,
-                    resolutionType,
+                    resolutionType: resolutionType || d.resolutionType,
                 };
             });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/app/components/theme-customizer';
+import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/components/theme-customizer';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
 import {
   Card,
@@ -10,11 +10,11 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "../../../components/ui/card";
-import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
-import { Skeleton } from "../../../components/ui/skeleton";
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
 import { 
   FileSpreadsheet,
   RefreshCw,
@@ -168,7 +168,7 @@ export default function GeneratePayslipsPage() {
                       id="runId"
                       placeholder="Enter payroll run ID (e.g., PR-2024-03-001)"
                       value={runId}
-                      onChange={(e) => {
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                         setRunId(e.target.value);
                         setError(null);
                         setStatus(null);

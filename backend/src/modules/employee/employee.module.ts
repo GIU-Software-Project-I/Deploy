@@ -19,13 +19,12 @@ import {
   EmployeeProfileAuditLog,
   EmployeeProfileAuditLogSchema
 } from "./models/audit/employee-profile-audit-log.schema";
-import { OrganizationStructureModule } from './organization-structure.module';
-import { EmployeeProfileController } from "./controllers/employee-profile.controller";
-
-
+import { OrganizationStructureModule } from '../organization-structure/organization-structure.module';
 import { EmployeeProfileService } from "./services/employee-profile.service";
-import { SharedModule } from '../shared/shared.module';
-import { AuthModule } from "../auth/auth-module";
+import { IntegrationModule } from '../integration/Integration.module';
+import { AuthModule } from "../auth/auth.module";
+import {EmployeeProfileController} from "./controllers/employee-profile.controller";
+
 
 
 @Module({
@@ -40,12 +39,10 @@ import { AuthModule } from "../auth/auth-module";
       { name: EmployeeProfileAuditLog.name, schema: EmployeeProfileAuditLogSchema },
     ]),
     OrganizationStructureModule,
-    SharedModule,
+    IntegrationModule,
   ],
-  // Production mode - using authenticated controller
+
   controllers: [EmployeeProfileController],
-  // Testing mode - no-auth controller (disabled for production)
-  // controllers: [EmployeeProfileNoAuthController],
   providers: [EmployeeProfileService],
   exports: [EmployeeProfileService],
 })

@@ -2,11 +2,10 @@
   "name": "HR System",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/main.js",
+  "main": "dist/App/Main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/main.js",
-      "start:prod": "npm run build && npm run start",
+    "start": "nodemon --exec ts-node src/main.ts",
     "start:dev": "ts-node --project tsconfig.json src/main.ts",
     "dev": "nodemon --exec ts-node src/main.ts",
     "watch": "tsc -w"

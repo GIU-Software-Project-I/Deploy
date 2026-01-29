@@ -10,8 +10,8 @@ import {
   DepartmentalReport,
 } from '@/app/services/finance-staff';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 /* ================= TYPES ================= */
 

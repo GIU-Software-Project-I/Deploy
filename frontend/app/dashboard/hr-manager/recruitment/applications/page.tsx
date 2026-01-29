@@ -9,8 +9,8 @@ import {
   updateApplicationStatus,
   rejectApplication,
 } from '@/app/services/recruitment';
-import { Application, JobRequisition } from '@/app/types/recruitment';
-import { ApplicationStage, ApplicationStatus } from '@/app/types/enums';
+import { Application, JobRequisition } from '@/types/recruitment';
+import { ApplicationStage, ApplicationStatus } from '@/types/enums';
 import {
   Users,
   Search,
@@ -37,14 +37,14 @@ import {
   TrendingUp,
   Download
 } from 'lucide-react';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
-import { Input } from '@/app/components/ui/input';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
-import { Label } from '@/app/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 
 export default function HRManagerApplicationsPage() {

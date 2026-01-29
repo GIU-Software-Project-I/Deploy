@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
 import { payrollConfigurationService } from '@/app/services/payroll-configuration';
-import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/app/components/theme-customizer';
+import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/components/theme-customizer';
 
 interface Stats {
   pendingRuns: number;
@@ -39,7 +39,7 @@ export default function PayrollSpecialistPage() {
   });
   const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Add company currency state
   const [companyCurrency, setCompanyCurrency] = useState<string>('EGP');
   const [loadingCurrency, setLoadingCurrency] = useState<boolean>(true);
@@ -56,18 +56,18 @@ export default function PayrollSpecialistPage() {
     try {
       setLoadingCurrency(true);
       const response = await payrollConfigurationService.getCompanyWideSettings() as any;
-      
+
       // Extract currency from the response based on your API structure
       if (response?.data) {
         const settings = response.data;
         // Try different possible property names for currency
-        const currency = 
+        const currency =
           settings.currency ||
           settings.companyCurrency ||
           settings.defaultCurrency ||
           settings.financialSettings?.currency ||
           'EGP';
-        
+
         setCompanyCurrency(currency);
       } else if (response?.currency) {
         // Direct currency property
@@ -168,12 +168,12 @@ export default function PayrollSpecialistPage() {
 
   // Add currency badge component
   const CurrencyBadge = () => (
-    <div className="inline-flex items-center px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+    <span className="inline-flex items-center px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
       <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       {loadingCurrency ? '...' : companyCurrency}
-    </div>
+    </span>
   );
 
   return (
@@ -185,7 +185,7 @@ export default function PayrollSpecialistPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Payroll Specialist Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            Manage payroll processing and configurations 
+            Manage payroll processing and configurations
             <span className="ml-2"><CurrencyBadge /></span>
           </p>
         </div>
@@ -201,7 +201,7 @@ export default function PayrollSpecialistPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Pending Runs</p>
-              <p className={`text-2xl font-bold mt-1 ${stats.pendingRuns > 0 ? 'text-warning' : 'text-card-foreground'}`}> 
+              <p className={`text-2xl font-bold mt-1 ${stats.pendingRuns > 0 ? 'text-warning' : 'text-card-foreground'}`}>
                 {loading ? '...' : stats.pendingRuns}
               </p>
             </div>
@@ -233,7 +233,7 @@ export default function PayrollSpecialistPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Signing Bonuses Pending</p>
-              <p className={`text-2xl font-bold mt-1 ${stats.signingBonusesPending > 0 ? 'text-primary' : 'text-card-foreground'}`}> 
+              <p className={`text-2xl font-bold mt-1 ${stats.signingBonusesPending > 0 ? 'text-primary' : 'text-card-foreground'}`}>
                 {loading ? '...' : stats.signingBonusesPending}
               </p>
             </div>

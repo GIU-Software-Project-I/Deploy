@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { payrollTrackingService } from '@/app/services/payroll-tracking';
 
 /**
@@ -12,35 +12,7 @@ import { payrollTrackingService } from '@/app/services/payroll-tracking';
  * BR 17: Auto-generated Payslip with clear breakdown of components
  */
 
-// Backend Payslip structure from MongoDB
-interface BackendPayslip {
-  _id: string;
-  employeeId: string;
-  payrollRunId: string;
-  earningsDetails?: {
-    baseSalary: number;
-    allowances?: { name: string; amount: number }[];
-    bonuses?: { name: string; amount: number }[];
-    benefits?: { name: string; amount: number }[];
-    refunds?: { amount: number; description?: string }[];
-  };
-  deductionsDetails?: {
-    taxes?: { name: string; amount: number }[];
-    insurances?: { name: string; amount: number }[];
-    penalties?: { totalAmount?: number };
-    taxAmount?: number;
-    insuranceAmount?: number;
-    penaltiesAmount?: number;
-  };
-  totalGrossSalary: number;
-  totaDeductions?: number;
-  netPay: number;
-  paymentStatus: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-// Frontend Payslip interface for display
+// Frontend Payslip interface for display (canonical shape used by pages)
 interface Payslip {
   id: string;
   periodStart: string;
@@ -64,53 +36,9 @@ interface Payslip {
   }[];
 }
 
-// Map backend payslip to frontend format
-function mapPayslip(backend: BackendPayslip): Payslip {
-  const createdDate = backend.createdAt ? new Date(backend.createdAt) : new Date();
-  
-  // Calculate period (assume monthly - start of month to end of month)
-  const periodStart = new Date(createdDate.getFullYear(), createdDate.getMonth(), 1);
-  const periodEnd = new Date(createdDate.getFullYear(), createdDate.getMonth() + 1, 0);
-  
-  // Map earnings
-  const earnings: { type: string; amount: number; description?: string }[] = [];
-  if (backend.earningsDetails?.baseSalary) {
-    earnings.push({ type: 'Base Salary', amount: backend.earningsDetails.baseSalary });
-  }
-  backend.earningsDetails?.allowances?.forEach(a => {
-    earnings.push({ type: 'Allowance', amount: a.amount, description: a.name });
-  });
-  backend.earningsDetails?.bonuses?.forEach(b => {
-    earnings.push({ type: 'Bonus', amount: b.amount, description: b.name });
-  });
-  
-  // Map deductions
-  const deductions: { type: string; amount: number; description?: string }[] = [];
-  if (backend.deductionsDetails?.taxAmount) {
-    deductions.push({ type: 'Tax', amount: backend.deductionsDetails.taxAmount });
-  }
-  if (backend.deductionsDetails?.insuranceAmount) {
-    deductions.push({ type: 'Insurance', amount: backend.deductionsDetails.insuranceAmount });
-  }
-  if (backend.deductionsDetails?.penaltiesAmount) {
-    deductions.push({ type: 'Penalties', amount: backend.deductionsDetails.penaltiesAmount });
-  }
-  
-  return {
-    id: backend._id,
-    periodStart: periodStart.toISOString(),
-    periodEnd: periodEnd.toISOString(),
-    payDate: backend.createdAt || new Date().toISOString(),
-    status: backend.paymentStatus || 'PENDING',
-    baseSalary: backend.earningsDetails?.baseSalary || 0,
-    grossPay: backend.totalGrossSalary || 0,
-    totalDeductions: backend.totaDeductions || 0,
-    netPay: backend.netPay || 0,
-    currency: 'EGP',
-    earnings,
-    deductions,
-  };
-}
+// NOTE: Mapping logic has been centralized in `payrollTrackingService` as
+// `getEmployeePayslipsMapped` and `getPayslipDetailsMapped` so pages use a
+// single authority for shaping data coming from the backend.
 
 export default function PayslipsPage() {
   const { user } = useAuth();
@@ -129,24 +57,33 @@ export default function PayslipsPage() {
 
       try {
         setLoading(true);
-        const response = await payrollTrackingService.getEmployeePayslips(user.id);
-        // Map backend payslips to frontend format and normalize
-        const backendPayslips = (response?.data || []) as BackendPayslip[];
-        const mappedPayslips = backendPayslips.map(mapPayslip);
-        const normalizePayslip = (p: any): Payslip => ({
-          id: p.id || p.payslipId || p._id || '',
-          periodStart: p.periodStart || new Date().toISOString(),
-          periodEnd: p.periodEnd || p.payDate || new Date().toISOString(),
-          payDate: p.payDate || p.periodEnd || new Date().toISOString(),
-          status: p.status || p.paymentStatus || 'unknown',
-          baseSalary: Number(p.baseSalary ?? 0) || 0,
-          grossPay: Number(p.grossPay ?? 0) || 0,
-          totalDeductions: Number(p.totalDeductions ?? 0) || 0,
-          netPay: Number(p.netPay ?? 0) || 0,
-          currency: p.currency || 'EGP',
-          earnings: Array.isArray(p.earnings) ? p.earnings : [],
-          deductions: Array.isArray(p.deductions) ? p.deductions : [],
-        });
+        const response = await payrollTrackingService.getEmployeePayslipsMapped(user.id);
+        const mappedPayslips = (response?.data || []) as any[];
+        // Normalize mapped payslips to ensure required fields exist and types are correct
+        const normalizePayslip = (p: any): Payslip => {
+          const periodStart = p.periodStart || p.from || p.start || new Date().toISOString();
+          const periodEnd = p.periodEnd || p.to || p.end || periodStart;
+          const payDate = p.payDate || p.paidAt || periodEnd || periodStart;
+          const baseSalary = Number(p.baseSalary ?? p.earnings?.baseSalary ?? 0) || 0;
+          const grossPay = Number(p.grossPay ?? p.grossSalary ?? 0) || 0;
+          const totalDeductions = Number(p.totalDeductions ?? p.deductionsTotal ?? 0) || 0;
+          const netPay = Number(p.netPay ?? p.netSalary ?? (grossPay - totalDeductions)) || 0;
+          return {
+            id: p.id || p.payslipId || p._id || '',
+            periodStart,
+            periodEnd,
+            payDate,
+            status: p.status || 'unknown',
+            baseSalary,
+            grossPay,
+            totalDeductions,
+            netPay,
+            currency: p.currency || 'EGP',
+            earnings: Array.isArray(p.earnings) ? p.earnings : [],
+            deductions: Array.isArray(p.deductions) ? p.deductions : [],
+          };
+        };
+
         setPayslips(mappedPayslips.map(normalizePayslip));
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load payslips';
@@ -163,12 +100,27 @@ export default function PayslipsPage() {
     if (!user?.id) return;
     
     try {
-      const response = await payrollTrackingService.getPayslipDetails(payslip.id, user.id);
-      // The detail response includes { payslip, disputes } - map the payslip portion
-      const responseData = response?.data as { payslip?: BackendPayslip; disputes?: unknown[] } | undefined;
+      const response = await payrollTrackingService.getPayslipDetailsMapped(payslip.id, user.id);
+      // Response shape: may contain backend-shaped payslip or already-mapped Payslip
+      const responseData = response?.data as unknown as { payslip?: any; disputes?: unknown[] } | undefined;
       if (responseData?.payslip) {
-        const detailedPayslip = mapPayslip(responseData.payslip);
-        setSelectedPayslip(detailedPayslip);
+        const p = responseData.payslip;
+        // Ensure required frontend fields exist
+        const normalized: Payslip = {
+          id: p.id || p.payslipId || p._id || payslip.id,
+          periodStart: p.periodStart || p.from || p.start || payslip.periodStart,
+          periodEnd: p.periodEnd || p.to || p.end || payslip.periodEnd,
+          payDate: p.payDate || p.paidAt || payslip.payDate,
+          status: p.status || p.paymentStatus || payslip.status || 'unknown',
+          baseSalary: Number(p.baseSalary ?? p.earningsDetails?.baseSalary ?? payslip.baseSalary) || 0,
+          grossPay: Number(p.grossPay ?? p.grossSalary ?? payslip.grossPay) || 0,
+          totalDeductions: Number(p.totalDeductions ?? p.deductionsTotal ?? payslip.totalDeductions) || 0,
+          netPay: Number(p.netPay ?? p.netSalary ?? payslip.netPay) || 0,
+          currency: p.currency || payslip.currency || 'EGP',
+          earnings: Array.isArray(p.earnings) ? p.earnings : p.earningsDetails?.allowances || payslip.earnings || [],
+          deductions: Array.isArray(p.deductions) ? p.deductions : p.deductionsDetails?.taxes || payslip.deductions || [],
+        };
+        setSelectedPayslip(normalized);
       } else {
         // Fallback to the already mapped payslip from the list
         setSelectedPayslip(payslip);
@@ -280,7 +232,7 @@ export default function PayslipsPage() {
         </div>
         <Link href="/dashboard/department-employee/payroll-tracking">
           <button className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
-            Back to Payroll Tracking
+            ← Back to Payroll Tracking
           </button>
         </Link>
       </div>

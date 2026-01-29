@@ -64,7 +64,7 @@ export default function DataBackupPage() {
         );
       }, 3000);
     } catch (e: any) {
-      alert("Failed to trigger backup: " + e?.message);
+      alert("Failed to trigger data-backup: " + e?.message);
     }
   };
 
@@ -72,12 +72,12 @@ export default function DataBackupPage() {
     try {
       alert("Backup configuration saved successfully");
     } catch (e: any) {
-      alert("Failed to save backup config: " + e?.message);
+      alert("Failed to save data-backup config: " + e?.message);
     }
   };
 
   const restoreBackup = (id: string) => {
-    if (!confirm("Are you sure you want to restore from this backup? This will overwrite current data.")) return;
+    if (!confirm("Are you sure you want to restore from this data-backup? This will overwrite current data.")) return;
     alert(`Restore from backup ${id} initiated (placeholder)`);
   };
 

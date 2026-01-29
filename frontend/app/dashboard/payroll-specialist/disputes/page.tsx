@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { payrollSpecialistService, PayrollDispute, DisputeFilters } from '@/app/services/payroll-specialist';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 export default function DisputesPage() {
   const { user } = useAuth();
@@ -438,8 +438,8 @@ export default function DisputesPage() {
                   <p className="text-sm text-slate-600">{selectedDispute.employeeNumber}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Employee ID</label>
-                  <p className="text-slate-900 text-sm font-mono">{selectedDispute.employeeId}</p>
+                  <label className="text-sm font-medium text-slate-500">Submitted At</label>
+                  <p className="text-slate-900">{new Date(selectedDispute.submittedAt).toLocaleString()}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-500">Pay Period</label>
@@ -472,10 +472,6 @@ export default function DisputesPage() {
               <div>
                 <label className="text-sm font-medium text-slate-500">Description</label>
                 <p className="text-slate-900 mt-1">{selectedDispute.description}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-500">Submitted</label>
-                <p className="text-slate-900">{new Date(selectedDispute.submittedAt).toLocaleString()}</p>
               </div>
               {selectedDispute.notes && (
                 <div>

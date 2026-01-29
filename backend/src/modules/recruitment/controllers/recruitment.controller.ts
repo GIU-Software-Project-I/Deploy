@@ -12,6 +12,8 @@ import {
     HttpStatus,
     HttpCode,
     UseGuards,
+    UseInterceptors,
+    UploadedFile,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -21,14 +23,17 @@ import {
     ApiQuery,
     ApiBearerAuth,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 import { RecruitmentService } from '../services/recruitment.service';
-import { AuthenticationGuard } from '../../auth/guards/authentication-guard';
-import { AuthorizationGuard } from '../../auth/guards/authorization-guard';
-import { Roles } from '../../auth/decorators/roles-decorator';
-import { Public } from '../../auth/decorators/public-decorator';
-import { CurrentUser } from '../../auth/decorators/current-user';
-import type { JwtPayload } from '../../auth/token/jwt-payload';
+import { AuthenticationGuard } from '../../common/guards/authentication-guard';
+import { AuthorizationGuard } from '../../common/guards/authorization-guard';
+import { Roles } from '../../common/decorators/roles-decorator';
+import { Public } from '../../common/decorators/public-decorator';
+import { CurrentUser } from '../../common/decorators/current-user';
+import type { JwtPayload } from '../../common/payload/jwt-payload';
 import { SystemRole } from '../../employee/enums/employee-profile.enums';
 
 // DTOs
@@ -230,7 +235,6 @@ export class RecruitmentController {
         return this.recruitmentService.getApplicationHistory(id);
     }
 
-
     @Get('candidates')//@Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.RECRUITER)
     @ApiOperation({ summary: 'REC-017: Get all candidates' })
     @ApiResponse({ status: 200, description: 'List of all candidates' })
@@ -246,12 +250,13 @@ export class RecruitmentController {
         return this.recruitmentService.getCandidateById(id);
     }
 
-    @Get('candidates/:candidateId/applications')//@Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.RECRUITER, SystemRole.JOB_CANDIDATE)
+    @Get('candidates/:candidateId/applications')
+    @Public()
     @ApiOperation({ summary: 'REC-017: Get all applications by candidate' })
     @ApiParam({ name: 'candidateId', description: 'Candidate ID' })
     @ApiResponse({ status: 200, description: 'Candidate applications list' })
     async getApplicationsByCandidate(@Param('candidateId') candidateId: string) {
-        return this.recruitmentService.getApplicationsByCandidate(candidateId);
+        return this.recruitmentService.getCandidateApplications(candidateId);
     }
 
     @Patch('applications/:id/assign-hr')//@Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.RECRUITER)
@@ -289,6 +294,52 @@ export class RecruitmentController {
         return this.recruitmentService.rejectApplication(id, reason);
     }
 
+    // ============================================================
+    // Document Upload Endpoint
+    // Upload CV and other recruitment documents
+    // ============================================================
+
+    @Post('documents')
+    @Public()
+    @UseInterceptors(FileInterceptor('file', {
+        storage: diskStorage({
+            destination: './uploads/recruitment',
+            filename: (req, file, cb) => {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                const ext = extname(file.originalname);
+                cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+            },
+        }),
+        fileFilter: (req, file, cb) => {
+            const allowedMimes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            if (allowedMimes.includes(file.mimetype)) {
+                cb(null, true);
+            } else {
+                cb(new Error('Invalid file type. Only PDF and Word documents are allowed.'), false);
+            }
+        },
+    }))
+    @ApiOperation({ summary: 'Upload a document (CV, etc.)' })
+    @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
+    async uploadDocument(@UploadedFile() file: Express.Multer.File) {
+        return {
+            fileName: file.filename,
+            originalName: file.originalname,
+            filePath: file.path,
+            fileUrl: `/uploads/recruitment/${file.filename}`,
+        };
+    }
+
+    // ============================================================
+    // Candidate Management Endpoints
+    // ============================================================
+
+    @Post('candidates')
+    @Public()
+    @ApiOperation({ summary: 'Create or update a candidate profile' })
+    async createCandidate(@Body() candidateData: any) {
+        return this.recruitmentService.createCandidateProfile(candidateData);
+    }
 
     // ============================================================
     // REC-009: Dashboard & Analytics

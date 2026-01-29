@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { payrollConfigurationService } from "@/app/services/payroll-configuration";
-import { ConfigStatus } from "@/app/types/enums";
-import { useAuth } from "@/app/context/AuthContext";
+import { ConfigStatus } from "@/types/enums";
+import { useAuth } from "@/context/AuthContext";
 
 interface InsuranceBracket {
   id: string;

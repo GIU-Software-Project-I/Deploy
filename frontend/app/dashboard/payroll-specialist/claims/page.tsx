@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { claimsService, Claim, ClaimStatus, ClaimFilters } from '@/app/services/claims';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 export default function ClaimsPage() {
   const { user } = useAuth();
@@ -287,7 +287,7 @@ export default function ClaimsPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-slate-900">
                           {typeof claim.employeeId === 'object' && claim.employeeId
-                            ? `${(claim.employeeId as any).firstName || ''} ${(claim.employeeId as any).lastName || ''}`.trim() || (claim.employeeId as any).employeeId || 'N/A'
+                            ? `${(claim.employeeId as any).firstName || ''} ${(claim.employeeId as any).lastName || ''}`.trim() || (claim.employeeId as any).employeeNumber || 'N/A'
                             : claim.employeeId || 'N/A'}
                         </div>
                       </td>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { timeManagementService, ShiftAssignment, ShiftAssignmentStatus, Shift } from '@/app/services/time-management';
 import { leavesService } from '@/app/services/leaves';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 
 interface LeaveEntitlement {

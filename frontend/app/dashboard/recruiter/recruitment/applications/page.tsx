@@ -2,20 +2,20 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import {
     getApplications,
     updateApplicationStage,
     getJobs,
     getApplicationById
 } from '@/app/services/recruitment';
-import { Application, JobRequisition } from '@/app/types/recruitment';
-import { ApplicationStage, ApplicationStatus } from '@/app/types/enums';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Badge } from '@/app/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
+import { Application, JobRequisition } from '@/types/recruitment';
+import { ApplicationStage, ApplicationStatus } from '@/types/enums';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+
 import {
     Search,
     Filter,

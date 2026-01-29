@@ -179,8 +179,8 @@ export default function CreateEmployeePage() {
                   key={contract._id}
                   onClick={() => setSelectedContract(contract)}
                   className={`p-4 cursor-pointer transition-colors ${selectedContract?._id === contract._id
-                      ? 'bg-primary/5 border-l-4 border-l-primary'
-                      : 'hover:bg-accent/50'
+                    ? 'bg-primary/5 border-l-4 border-l-primary'
+                    : 'hover:bg-accent/50'
                     }`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -229,37 +229,98 @@ export default function CreateEmployeePage() {
           )}
         </div>
 
-        {/* Action Button */}
+        {/* Action Button & Preview */}
         {selectedContract && (
-          <div className="flex items-center justify-between p-4 bg-card border border-border rounded-xl">
-            <div>
-              <p className="font-medium text-foreground">Ready to create employee profile</p>
-              <p className="text-sm text-muted-foreground">
-                For: {selectedContract.candidateName} - {selectedContract.jobTitle}
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+            <div className="p-6 border-b border-border bg-muted/20">
+              <h2 className="text-lg font-semibold text-foreground">Review & Create Employee Profile</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Please review the details below before creating the employee profile.
+                System access tasks will be automatically generated.
               </p>
             </div>
-            <button
-              onClick={handleCreateEmployee}
-              disabled={creating}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {creating ? (
-                <>
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
-                  Create Employee Profile
-                </>
-              )}
-            </button>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-primary uppercase tracking-wider">Candidate Details</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="block text-muted-foreground">Name</span>
+                    <span className="font-medium text-foreground">{selectedContract.candidateName}</span>
+                  </div>
+                  <div>
+                    <span className="block text-muted-foreground">Personal Email</span>
+                    <span className="font-medium text-foreground">{selectedContract.candidateEmail}</span>
+                  </div>
+                  <div>
+                    <span className="block text-muted-foreground">Job Title</span>
+                    <span className="font-medium text-foreground">{selectedContract.jobTitle}</span>
+                  </div>
+                  <div>
+                    <span className="block text-muted-foreground">Department</span>
+                    <span className="font-medium text-foreground">{selectedContract.departmentName}</span>
+                  </div>
+                  <div>
+                    <span className="block text-muted-foreground">Start Date</span>
+                    <span className="font-medium text-foreground">{new Date(selectedContract.startDate).toLocaleDateString()}</span>
+                  </div>
+                  <div>
+                    <span className="block text-muted-foreground">Signed On</span>
+                    <span className="font-medium text-foreground">{new Date(selectedContract.contractSignedDate).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-primary uppercase tracking-wider">System Provisioning (Auto)</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between p-2 bg-muted/50 rounded">
+                    <span className="text-muted-foreground">Projected Work Email</span>
+                    <span className="font-mono text-foreground font-medium">
+                      {selectedContract.candidateName.split(' ')[0].toLowerCase()}.
+                      {selectedContract.candidateName.split(' ').slice(1).join('').toLowerCase()}@company.com
+                    </span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-muted/50 rounded">
+                    <span className="text-muted-foreground">Employee ID</span>
+                    <span className="font-mono text-foreground font-medium">Auto-generated</span>
+                  </div>
+                  <div className="flex justify-between p-2 bg-muted/50 rounded">
+                    <span className="text-muted-foreground">Temporary Password</span>
+                    <span className="font-mono text-foreground font-medium">Auto-generated sent to personal email</span>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded text-blue-800 dark:text-blue-300 text-xs">
+                    <strong>Note:</strong> Creating the profile will automatically trigger the Onboarding Checklist, allowing the System Admin to finalize access rights.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-muted/10 border-t border-border flex justify-end gap-3">
+              <button
+                onClick={() => setSelectedContract(null)}
+                className="px-4 py-2 text-foreground font-medium hover:bg-muted rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateEmployee}
+                disabled={creating}
+                className="inline-flex items-center gap-2 px-6 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 shadow-sm"
+              >
+                {creating ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Creating Profile...
+                  </>
+                ) : (
+                  'Confirm & Create Profile'
+                )}
+              </button>
+            </div>
           </div>
         )}
       </div>

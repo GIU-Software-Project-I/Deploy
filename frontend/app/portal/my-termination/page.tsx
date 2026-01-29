@@ -8,7 +8,22 @@ import {
   ClearanceChecklist,
   ClearanceCompletionStatus,
 } from '@/app/services/offboarding';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
+import {
+  LucideCheckCircle2,
+  LucideClock,
+  LucideAlertCircle,
+  LucideShield,
+  LucideLayout,
+  LucideChevronRight,
+  LucideCalendar,
+  LucideInfo,
+  LucideArrowRight,
+  LucidePackage,
+  LucideContact2,
+  LucideFileText,
+  LucideTimer
+} from 'lucide-react';
 
 export default function MyTerminationPage() {
   const { user } = useAuth();
@@ -25,19 +40,16 @@ export default function MyTerminationPage() {
 
   const fetchTerminationStatus = async () => {
     try {
-      setLoading(false);
-
+      setLoading(true);
       const employeeId = user?.id;
       if (!employeeId) return;
 
-      // Fetch termination request for this employee
       const requests = await offboardingService.getAllTerminationRequests(employeeId);
 
       if (requests && requests.length > 0) {
         const latestTermination = requests[0];
         setTermination(latestTermination);
 
-        // If termination is approved, fetch clearance checklist
         if (latestTermination.status === TerminationStatus.APPROVED) {
           try {
             const checklist = await offboardingService.getClearanceChecklistByTerminationId(
@@ -45,16 +57,15 @@ export default function MyTerminationPage() {
             );
             setClearanceChecklist(checklist);
 
-            // Fetch clearance completion status
             const status = await offboardingService.getClearanceCompletionStatus(checklist._id);
             setClearanceStatus(status);
           } catch (err) {
-            // Clearance checklist not yet created
+            // Checklist not created yet
           }
         }
       }
     } catch (err) {
-      // Handle error silently
+      // Handle silently
     } finally {
       setLoading(false);
     }
@@ -64,59 +75,71 @@ export default function MyTerminationPage() {
     switch (status) {
       case TerminationStatus.PENDING:
         return {
-          className: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-          description: 'Your termination request has been submitted and is awaiting review.',
+          icon: LucideClock,
+          color: 'text-amber-500',
+          bg: 'bg-amber-50',
+          border: 'border-amber-100',
+          description: 'Awaiting initial departmental review.',
         };
       case TerminationStatus.UNDER_REVIEW:
         return {
-          className: 'bg-blue-50 text-blue-700 border-blue-200',
-          description: 'Your termination request is under review by HR.',
+          icon: LucideTimer,
+          color: 'text-blue-500',
+          bg: 'bg-blue-50',
+          border: 'border-blue-100',
+          description: 'HR and Management are coordinating your final paperwork.',
         };
       case TerminationStatus.APPROVED:
         return {
-          className: 'bg-green-50 text-green-700 border-green-200',
-          description: 'Your termination has been approved. Offboarding process is underway.',
+          icon: LucideCheckCircle2,
+          color: 'text-green-600',
+          bg: 'bg-green-50',
+          border: 'border-green-100',
+          description: 'Request authorized. Clearance protocols are active.',
         };
       case TerminationStatus.REJECTED:
         return {
-          className: 'bg-red-50 text-red-700 border-red-200',
-          description: 'Your termination request has been rejected.',
+          icon: LucideAlertCircle,
+          color: 'text-red-600',
+          bg: 'bg-red-50',
+          border: 'border-red-100',
+          description: 'Request declined. Please contact your HR representative.',
         };
       default:
         return {
-          className: 'bg-gray-50 text-gray-700 border-gray-200',
-          description: 'Unknown status.',
+          icon: LucideInfo,
+          color: 'text-gray-400',
+          bg: 'bg-gray-50/50',
+          border: 'border-gray-100',
+          description: 'System state: Unknown.',
         };
-    }
-  };
-
-  const getInitiatorLabel = (initiator: string) => {
-    switch (initiator) {
-      case 'employee':
-        return 'Your Resignation';
-      case 'hr':
-        return 'HR Initiated Termination';
-      case 'manager':
-        return 'Manager Initiated Termination';
-      default:
-        return initiator;
     }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p className="text-gray-500">Loading your termination status...</p>
+      <div className="min-h-screen bg-white p-8 animate-pulse">
+        <div className="max-w-5xl mx-auto space-y-12">
+          <div className="h-12 bg-gray-100 rounded-2xl w-64"></div>
+          <div className="h-96 bg-gray-50 rounded-[48px]"></div>
+          <div className="h-64 bg-gray-50 rounded-[48px]"></div>
+        </div>
       </div>
     );
   }
 
   if (!termination) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">My Termination Status</h1>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">
-          You do not have an active termination or resignation request.
+      <div className="min-h-[80vh] flex flex-col items-center justify-center text-center p-8">
+        <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-8 border border-gray-100">
+          <LucideShield className="w-10 h-10 text-gray-200" />
+        </div>
+        <h1 className="text-4xl font-black tracking-tight mb-4">Account Status: Active</h1>
+        <p className="text-gray-400 font-medium max-w-sm mb-10">
+          No pending termination or resignation requests were found for your employee profile.
+        </p>
+        <div className="px-6 py-3 bg-black text-white rounded-full text-[10px] font-black uppercase tracking-widest cursor-default">
+          Corporate Secure Identity
         </div>
       </div>
     );
@@ -126,238 +149,191 @@ export default function MyTerminationPage() {
   const clearanceProgress =
     clearanceChecklist && clearanceStatus
       ? Math.round(
-          ((clearanceChecklist.items.filter((i) => i.status === 'approved').length || 0) /
-            (clearanceChecklist.items.length || 1)) *
-            100
-        )
+        ((clearanceChecklist.items.filter((i) => i.status === 'approved').length || 0) /
+          (clearanceChecklist.items.length || 1)) *
+        100
+      )
       : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">My Termination Status</h1>
-        <p className="text-gray-600 mt-2">OFF-019: Track your termination or resignation request</p>
-      </div>
+    <div className="min-h-screen bg-[#fafafa] p-6 lg:p-10 font-sans text-black">
+      <div className="max-w-5xl mx-auto space-y-12">
 
-      {/* Main Status Card */}
-      <div className="border rounded-lg p-6 bg-white shadow-sm">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h2 className="text-lg font-semibold">{getInitiatorLabel(termination.initiator)}</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Submitted on {new Date(termination.createdAt).toLocaleDateString()}
+        {/* Superior Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-[0.2em]">
+              <statusConfig.icon className="w-3.5 h-3.5" />
+              Case Status: {termination.status}
+            </div>
+            <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-black">
+              {termination.initiator === 'employee' ? 'Departure' : 'Separation'}
+            </h1>
+            <p className="text-gray-400 font-bold uppercase text-xs tracking-widest flex items-center gap-2">
+              Ref Code: T-{termination._id.toUpperCase()}
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-200" />
+              Submitted {new Date(termination.createdAt).toLocaleDateString()}
             </p>
           </div>
-          <span
-            className={`px-3 py-1 rounded-full text-sm font-semibold border ${statusConfig.className}`}
-          >
-            {termination.status}
-          </span>
+
+          <div className="flex flex-col items-end">
+            <div className="text-right">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Effective Last Day</p>
+              <div className="flex items-center gap-3">
+                <LucideCalendar className="w-6 h-6 text-black" />
+                <p className="text-3xl font-black tracking-tighter">
+                  {termination.terminationDate ? new Date(termination.terminationDate).toLocaleDateString() : 'TBD'}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-6">
-          {/* Status Description */}
-          <div className={`rounded-lg p-4 border ${statusConfig.className}`}>
-            {statusConfig.description}
-          </div>
-
-          {/* Termination Details */}
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Effective Termination Date</p>
-              <p className="text-lg font-semibold">
-                {termination.terminationDate
-                  ? new Date(termination.terminationDate).toLocaleDateString()
-                  : 'Not set'}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Request Type</p>
-              <p className="text-lg font-semibold capitalize">{termination.initiator}</p>
-            </div>
-          </div>
-
-          {/* Reason */}
-          <div>
-            <p className="text-sm text-gray-500 mb-2">Reason for Termination</p>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-700">{termination.reason}</p>
-            </div>
-          </div>
-
-          {/* Employee Comments */}
-          {termination.employeeComments && (
-            <div>
-              <p className="text-sm text-gray-500 mb-2">Your Comments</p>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-700">{termination.employeeComments}</p>
+        {/* Global Overview Card */}
+        <div className="bg-white border border-gray-100 rounded-[48px] p-10 shadow-2xl shadow-black/[0.02] flex flex-col md:flex-row gap-12">
+          <div className="md:w-1/3 flex flex-col justify-between">
+            <div className="space-y-6">
+              <div className={`p-6 rounded-3xl ${statusConfig.bg} ${statusConfig.border} flex flex-col items-center text-center`}>
+                <statusConfig.icon className={`w-12 h-12 ${statusConfig.color} mb-4`} />
+                <p className={`text-xs font-black uppercase tracking-widest ${statusConfig.color}`}>{termination.status}</p>
+                <p className="text-gray-500 font-medium text-sm mt-3 leading-relaxed">{statusConfig.description}</p>
               </div>
-            </div>
-          )}
 
-          {/* HR Comments */}
-          {termination.hrComments && (
-            <div>
-              <p className="text-sm text-gray-500 mb-2">HR Comments</p>
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <p className="text-blue-700">{termination.hrComments}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Performance Data */}
-          {termination.performanceData && (
-            <div className="border-t pt-6">
-              <p className="font-semibold mb-4">Performance Data</p>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500">Total Appraisals</p>
-                  <p className="text-2xl font-bold">{termination.performanceData.totalAppraisals}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500">Average Score</p>
-                  <p className="text-2xl font-bold">
-                    {termination.performanceData.averageScore?.toFixed(1) || 'N/A'}%
-                  </p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-500">Low Score Count</p>
-                  <p className="text-2xl font-bold">{termination.performanceData.lowScoreCount}</p>
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Case Details</h4>
+                <div className="space-y-2">
+                  <DetailRow label="Primary Reason" value={termination.reason} />
+                  {termination.employeeComments && <DetailRow label="Your Comments" value={termination.employeeComments} />}
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Clearance Checklist Status (if approved) */}
-      {termination.status === TerminationStatus.APPROVED && clearanceStatus && clearanceChecklist && (
-        <div className="border rounded-lg p-6 bg-white shadow-sm">
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold">Offboarding Checklist Progress</h2>
-            <p className="text-sm text-gray-600 mt-1">OFF-006: Clearance status across departments</p>
           </div>
 
-          <div className="space-y-6">
-            {/* Overall Progress */}
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">Overall Completion</span>
-                <span className="text-sm text-gray-500">{clearanceProgress}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all"
-                  style={{ width: `${clearanceProgress}%` }}
-                ></div>
-              </div>
-            </div>
+          <div className="flex-1 space-y-10">
+            {termination.status === TerminationStatus.APPROVED ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-black tracking-tight">Clearance Checklist</h3>
+                  <div className="px-4 py-1.5 bg-green-50 rounded-full border border-green-100">
+                    <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">{clearanceProgress}% Complete</p>
+                  </div>
+                </div>
 
-            {/* Department Sign-offs */}
-            <div>
-              <p className="font-semibold mb-4">Department Approvals</p>
-              <div className="space-y-3">
-                {clearanceStatus.pendingDepartments && clearanceStatus.pendingDepartments.length > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-2">Pending Approvals</p>
-                    <ul className="space-y-2">
-                      {clearanceStatus.pendingDepartments.map((dept) => (
-                        <li key={dept} className="flex items-center gap-2 p-2 bg-yellow-50 rounded">
-                          <div className="w-2 h-2 bg-yellow-400 rounded-full" />
-                          <span className="text-sm">{dept}</span>
-                        </li>
-                      ))}
-                    </ul>
+                <div className="space-y-4">
+                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-black h-full rounded-full transition-all duration-1000 ease-out"
+                      style={{ width: `${clearanceProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] font-black text-gray-400 tracking-[0.2em] uppercase">Security sign-off in progress</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {clearanceChecklist?.items.map((item, idx) => (
+                    <ClearanceItemRow key={idx} item={item} />
+                  ))}
+                  <AssetStatusRow
+                    label="IT Hardware Return"
+                    isComplete={clearanceStatus?.allEquipmentReturned || false}
+                    icon={LucidePackage}
+                  />
+                  <AssetStatusRow
+                    label="Security Badge Return"
+                    isComplete={clearanceStatus?.cardReturned || false}
+                    icon={LucideContact2}
+                  />
+                </div>
+
+                {clearanceStatus?.fullyCleared && (
+                  <div className="p-8 bg-black text-white rounded-[32px] flex items-center gap-6 shadow-2xl">
+                    <LucideCheckCircle2 className="w-10 h-10 text-white animate-bounce" />
+                    <div>
+                      <p className="text-lg font-black tracking-tight text-white/100">Separation Protocols Finalized</p>
+                      <p className="text-white/40 text-sm font-bold uppercase tracking-widest mt-1">Ready for settlement</p>
+                    </div>
                   </div>
                 )}
-
-                <p className="text-sm text-gray-600 mb-2">Completed Approvals</p>
-                {clearanceChecklist.items.map((item, idx) =>
-                  item.status === 'approved' ? (
-                    <div key={idx} className="flex items-center gap-2 p-2 bg-green-50 rounded">
-                      <div className="w-2 h-2 bg-green-600 rounded-full" />
-                      <span className="text-sm">{item.department}</span>
-                    </div>
-                  ) : null
-                )}
-              </div>
-            </div>
-
-            {/* Equipment Status */}
-            <div className="border-t pt-4">
-              <p className="font-semibold mb-4">Equipment Return Status</p>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm">Equipment Returned</span>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold ${
-                      clearanceStatus.allEquipmentReturned
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {clearanceStatus.allEquipmentReturned ? 'Complete' : 'Pending'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm">Access Card Returned</span>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold ${
-                      clearanceStatus.cardReturned
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {clearanceStatus.cardReturned ? 'Complete' : 'Pending'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Final Status */}
-            {clearanceStatus.fullyCleared && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 font-semibold">
-                ✓ Offboarding checklist is fully complete. Final settlement can now be processed.
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                <LucideFileText className="w-20 h-20 text-gray-50 mb-8" />
+                <h3 className="text-2xl font-black tracking-tight text-gray-200 uppercase">Awaiting Authorization</h3>
+                <p className="text-gray-300 text-sm font-bold uppercase tracking-widest mt-4">Checklist will materialize upon approval.</p>
               </div>
             )}
           </div>
         </div>
-      )}
 
-      {/* Status Timeline */}
-      <div className="border rounded-lg p-6 bg-white shadow-sm">
-        <h2 className="text-lg font-semibold mb-6">Request Timeline</h2>
-        <div className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <div className="w-3 h-3 bg-blue-500 rounded-full" />
-              <div className="w-0.5 h-12 bg-gray-200" />
+        {/* Dynamic HR Feed */}
+        {termination.hrComments && (
+          <div className="bg-[#111] rounded-[48px] p-10 text-white relative overflow-hidden group border border-white/5">
+            <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:scale-110 transition-transform duration-700">
+              <LucideArrowRight className="w-48 h-48 -rotate-45" />
             </div>
-            <div>
-              <p className="font-semibold text-sm">Request Submitted</p>
-              <p className="text-xs text-gray-500">{new Date(termination.createdAt).toLocaleString()}</p>
-            </div>
-          </div>
-
-          {termination.status !== TerminationStatus.PENDING && (
-            <div className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div
-                  className={`w-3 h-3 ${
-                    termination.status === TerminationStatus.APPROVED ? 'bg-green-500' : 'bg-orange-500'
-                  } rounded-full`}
-                />
+            <div className="relative z-10 flex flex-col md:flex-row gap-10 items-start md:items-center">
+              <div className="p-6 bg-white/5 rounded-3xl border border-white/10 shrink-0">
+                <LucideInfo className="w-10 h-10 text-white/60" />
               </div>
               <div>
-                <p className="font-semibold text-sm">Status: {termination.status}</p>
-                <p className="text-xs text-gray-500">{new Date(termination.updatedAt).toLocaleString()}</p>
+                <h4 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-3">Governance Feed / HR Message</h4>
+                <p className="text-2xl font-black tracking-tight text-white/90 italic leading-snug">
+                  "{termination.hrComments}"
+                </p>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
 }
 
+function DetailRow({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{label}</p>
+      <p className="text-sm font-bold text-black leading-relaxed">{value}</p>
+    </div>
+  );
+}
+
+function ClearanceItemRow({ item }: { item: any }) {
+  const isApproved = item.status === 'approved';
+  return (
+    <div className={`p-5 rounded-3xl border transition-all duration-500 flex items-center justify-between group ${isApproved ? 'bg-white border-gray-100' : 'bg-gray-50/50 border-gray-50 cursor-not-allowed opacity-60'
+      }`}>
+      <div className="flex items-center gap-4">
+        <div className={`w-1.5 h-1.5 rounded-full ${isApproved ? 'bg-black' : 'bg-gray-200'}`} />
+        <p className={`text-xs font-black uppercase tracking-widest ${isApproved ? 'text-black' : 'text-gray-400'}`}>
+          {item.department}
+        </p>
+      </div>
+      {isApproved ? (
+        <LucideCheckCircle2 className="w-4 h-4 text-black" />
+      ) : (
+        <LucideClock className="w-4 h-4 text-gray-200" />
+      )}
+    </div>
+  );
+}
+
+function AssetStatusRow({ label, isComplete, icon: Icon }: { label: string, isComplete: boolean, icon: any }) {
+  return (
+    <div className={`p-5 rounded-3xl border transition-all duration-500 flex items-center justify-between group ${isComplete ? 'bg-white border-gray-100 shadow-sm' : 'bg-gray-50/50 border-gray-50 opacity-60'
+      }`}>
+      <div className="flex items-center gap-4 text-gray-400 group-hover:text-black">
+        <Icon className={`w-5 h-5 ${isComplete ? 'text-black' : 'text-gray-200'}`} />
+        <p className={`text-[10px] font-black uppercase tracking-widest ${isComplete ? 'text-black' : 'text-gray-400'}`}>
+          {label}
+        </p>
+      </div>
+      {isComplete ? (
+        <LucideCheckCircle2 className="w-4 h-4 text-black" />
+      ) : (
+        <div className="w-4 h-4 border-2 border-dashed border-gray-100 rounded-full" />
+      )}
+    </div>
+  );
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import apiService from '../api';
+import { PopulatedEmployee } from '@/types/payroll';
 
 // Enums matching backend
 export enum OnboardingTaskStatus {
@@ -30,7 +31,7 @@ export interface OnboardingTask {
 
 export interface Onboarding {
   _id: string;
-  employeeId: string;
+  employeeId: string | PopulatedEmployee;
   contractId: string;
   tasks: OnboardingTask[];
   completed: boolean;
@@ -325,18 +326,16 @@ class OnboardingService {
     const response = await apiService.get<any>(`/onboarding/${id}`);
     if (response.error) throw new Error(response.error);
     const data = response.data;
-    
-    // Transform populated fields to strings
+
+    // Transform populated fields to strings if needed, or keep objects
     const transformed: Onboarding = {
       ...data,
-      employeeId: typeof data.employeeId === 'object' 
-        ? (data.employeeId._id || data.employeeId.id || String(data.employeeId))
-        : (data.employeeId || ''),
+      employeeId: data.employeeId, // Keep as is, local components will handle string vs object
       contractId: typeof data.contractId === 'object'
         ? (data.contractId._id || data.contractId.id || String(data.contractId))
         : (data.contractId || ''),
     };
-    
+
     return transformed;
   }
 

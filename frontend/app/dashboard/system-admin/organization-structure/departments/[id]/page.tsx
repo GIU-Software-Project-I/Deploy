@@ -5,8 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { organizationStructureService } from '@/app/services/organization-structure';
 import { employeeProfileService } from '@/app/services/employee-profile';
-import RoleGuard from '@/app/components/RoleGuard';
-import { SystemRole } from '@/app/context/AuthContext';
+import RoleGuard from '@/components/RoleGuard';
+import { SystemRole } from '@/context/AuthContext';
 
 /**
  * Create/Edit Department - System Admin
@@ -20,11 +20,11 @@ interface Department {
   code: string;
 }
 
-interface Employee {
+interface Position {
   _id: string;
-  firstName: string;
-  lastName: string;
-  employeeNumber: string;
+  title: string;
+  departmentId: { _id: string; name: string };
+  isActive: boolean;
 }
 
 export default function DepartmentFormPage() {
@@ -38,14 +38,14 @@ export default function DepartmentFormPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
 
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     description: '',
     parentDepartmentId: '',
-    headOfDepartmentId: '',
+    headPositionId: '',
     costCenter: '',
   });
 
@@ -58,13 +58,13 @@ export default function DepartmentFormPage() {
 
   const fetchDependencies = async () => {
     try {
-      const [deptRes, empRes] = await Promise.all([
+      const [deptRes, posRes] = await Promise.all([
         organizationStructureService.getDepartments(true),
-        employeeProfileService.getTeamProfiles(),
+        organizationStructureService.getPositions(undefined, true),
       ]);
 
       if (deptRes.data) setDepartments(Array.isArray(deptRes.data) ? deptRes.data as Department[] : []);
-      if (empRes.data) setEmployees(Array.isArray(empRes.data) ? empRes.data as Employee[] : []);
+      if (posRes.data) setPositions(Array.isArray(posRes.data) ? posRes.data as Position[] : []);
     } catch (err) {
       console.error('Failed to load dependencies:', err);
     }
@@ -81,7 +81,7 @@ export default function DepartmentFormPage() {
           code: dept.code || '',
           description: dept.description || '',
           parentDepartmentId: dept.parentDepartmentId?._id || '',
-          headOfDepartmentId: dept.headOfDepartmentId?._id || '',
+          headPositionId: dept.headPositionId?._id || '',
           costCenter: dept.costCenter || '',
         });
       }
@@ -114,7 +114,7 @@ export default function DepartmentFormPage() {
         code: formData.code.trim().toUpperCase(),
         description: formData.description.trim() || undefined,
         parentDepartmentId: formData.parentDepartmentId || undefined,
-        headOfDepartmentId: formData.headOfDepartmentId || undefined,
+        headPositionId: formData.headPositionId || undefined,
         costCenter: formData.costCenter.trim() || undefined,
       };
 
@@ -151,150 +151,152 @@ export default function DepartmentFormPage() {
     <RoleGuard allowedRoles={[SystemRole.SYSTEM_ADMIN, SystemRole.HR_ADMIN, SystemRole.HR_MANAGER]}>
       <div className="p-6 lg:p-8 bg-background min-h-screen">
         <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard/system-admin/organization-structure"
-            className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {isNew ? 'Create Department' : 'Edit Department'}
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {isNew ? 'REQ-OSM-01: Define and create departments' : 'REQ-OSM-02: Update existing departments'}
-            </p>
-          </div>
-        </div>
-
-        {error && (
-          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl">
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Department Name <span className="text-destructive">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="e.g., Human Resources"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Department Code <span className="text-destructive">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
-                  placeholder="e.g., HR"
-                  required
-                />
-                <p className="text-xs text-muted-foreground mt-1">Unique identifier (BR 5)</p>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px]"
-                placeholder="Brief description of the department"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Parent Department
-                </label>
-                <select
-                  value={formData.parentDepartmentId}
-                  onChange={(e) => setFormData({ ...formData, parentDepartmentId: e.target.value })}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">None (Top-level)</option>
-                  {departments
-                    .filter(d => d._id !== id)
-                    .map((dept) => (
-                      <option key={dept._id} value={dept._id}>{dept.name}</option>
-                    ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Head of Department
-                </label>
-                <select
-                  value={formData.headOfDepartmentId}
-                  onChange={(e) => setFormData({ ...formData, headOfDepartmentId: e.target.value })}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Select employee</option>
-                  {employees.map((emp) => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeNumber})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Cost Center
-              </label>
-              <input
-                type="text"
-                value={formData.costCenter}
-                onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })}
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="e.g., CC-HR-001"
-                required
-              />
-              <p className="text-xs text-muted-foreground mt-1">Required for payroll linkage (BR 30)</p>
-            </div>
-          </div>
-
-          <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
+          {/* Header */}
+          <div className="flex items-center gap-4">
             <Link
               href="/dashboard/system-admin/organization-structure"
-              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors"
             >
-              Cancel
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </Link>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : (isNew ? 'Create Department' : 'Update Department')}
-            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                {isNew ? 'Create Department' : 'Edit Department'}
+              </h1>
+              <p className="text-muted-foreground text-sm mt-1">
+                {isNew ? 'REQ-OSM-01: Define and create departments' : 'REQ-OSM-02: Update existing departments'}
+              </p>
+            </div>
           </div>
-        </form>
+
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl">
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Department Name <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="e.g., Human Resources"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Department Code <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                    placeholder="e.g., HR"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Unique identifier (BR 5)</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px]"
+                  placeholder="Brief description of the department"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Parent Department
+                  </label>
+                  <select
+                    value={formData.parentDepartmentId}
+                    onChange={(e) => setFormData({ ...formData, parentDepartmentId: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">None (Top-level)</option>
+                    {departments
+                      .filter(d => d._id !== id)
+                      .map((dept) => (
+                        <option key={dept._id} value={dept._id}>{dept.name}</option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Head Position
+                  </label>
+                  <select
+                    value={formData.headPositionId}
+                    onChange={(e) => setFormData({ ...formData, headPositionId: e.target.value })}
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select position</option>
+                    {positions
+                      .filter(p => !id || p.departmentId?._id === id || (p as any).departmentId === id)
+                      .map((pos) => (
+                        <option key={pos._id} value={pos._id}>
+                          {pos.title}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Cost Center
+                </label>
+                <input
+                  type="text"
+                  value={formData.costCenter}
+                  onChange={(e) => setFormData({ ...formData, costCenter: e.target.value })}
+                  className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="e.g., CC-HR-001"
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">Required for payroll linkage (BR 30)</p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
+              <Link
+                href="/dashboard/system-admin/organization-structure"
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </Link>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : (isNew ? 'Create Department' : 'Update Department')}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
     </RoleGuard>
   );
 }

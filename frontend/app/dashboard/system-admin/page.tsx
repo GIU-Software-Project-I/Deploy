@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
+import { useAuth } from '@/context/AuthContext';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   Building2,
   UserPlus,
@@ -86,7 +86,7 @@ export default function SystemAdminPage() {
 
   const recentActivity = [
     {
-      message: 'System backup completed successfully',
+      message: 'System data-backup completed successfully',
       time: '2 hours ago',
       type: 'success',
     },

@@ -21,9 +21,9 @@ import {
     UpdateShiftTypeDto,
     UpdateShiftAssignmentStatusDto, CreateShortTimeRuleDto, UpdateShortTimeRuleDto
 } from "../dto/ShiftManagementDtos";
-import {AuthenticationGuard} from "../../auth/guards/authentication-guard";
-import {AuthorizationGuard} from "../../auth/guards/authorization-guard";
-import {Roles} from "../../auth/decorators/roles-decorator";
+import {AuthenticationGuard} from "../../common/guards/authentication-guard";
+import {AuthorizationGuard} from "../../common/guards/authorization-guard";
+import {Roles} from "../../common/decorators/roles-decorator";
 import {SystemRole} from "../../employee/enums/employee-profile.enums";
 import {ApiBearerAuth} from "@nestjs/swagger";
 

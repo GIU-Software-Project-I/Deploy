@@ -9,7 +9,7 @@ import {
   PunchType,
   CorrectAttendanceDto,
 } from '@/app/services/time-management';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 // Dynamically import the Lateness page component for the repeated lateness tab
 const RepeatedLatenessPage = lazy(() => import('../../../hr-manager/time-management/Lateness/page').then(mod => ({ default: mod.default })));

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { financeStaffService, ApprovedDispute, ApprovedClaim } from '@/app/services/finance-staff';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 export default function NotificationsPage() {
   const { user } = useAuth();

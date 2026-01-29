@@ -2,18 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import { payrollConfigurationService } from '@/app/services/payroll-configuration';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 // Type definitions based on your API response
+interface PopulatedEmployee {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  employeeNumber: string;
+}
+
 interface Allowance {
   _id: string;
   name: string;
   amount: number;
   status: 'draft' | 'approved' | 'rejected' | 'pending_approval';
-  createdBy?: string;
+  createdBy?: string | PopulatedEmployee;
   createdAt: string;
   updatedAt: string;
-  approvedBy?: string;
+  approvedBy?: string | PopulatedEmployee;
   approvedAt?: string;
   __v: number;
 }
@@ -69,7 +77,7 @@ export default function AllowancesPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAllowance, setSelectedAllowance] = useState<Allowance | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   // Pagination state
   const [pagination, setPagination] = useState({
     page: 1,
@@ -77,13 +85,13 @@ export default function AllowancesPage() {
     total: 0,
     totalPages: 0,
   });
-  
+
   // Search and filter state
   const [filters, setFilters] = useState({
     search: '',
     status: '',
   });
-  
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -99,7 +107,7 @@ export default function AllowancesPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Get current user ID for filtering (if needed)
       let currentUserId = '';
       if (typeof window !== 'undefined') {
@@ -113,7 +121,7 @@ export default function AllowancesPage() {
           }
         }
       }
-      
+
       const queryParams = {
         page: pagination.page,
         limit: pagination.limit,
@@ -121,21 +129,21 @@ export default function AllowancesPage() {
         status: filters.status || undefined,
         createdByEmployeeId: currentUserId || undefined,
       };
-      
+
       const response = await payrollConfigurationService.getAllowances(queryParams);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       if (!response.data) {
         console.warn('No data in response');
         setAllowances([]);
         return;
       }
-      
+
       const apiData = response.data as any;
-      
+
       if (apiData.data && Array.isArray(apiData.data)) {
         // Handle paginated response
         setAllowances(apiData.data);
@@ -146,7 +154,7 @@ export default function AllowancesPage() {
           page: apiData.page || 1,
           limit: apiData.limit || 10,
         }));
-      } 
+      }
       else if (Array.isArray(apiData)) {
         // Handle non-paginated response
         setAllowances(apiData);
@@ -160,7 +168,7 @@ export default function AllowancesPage() {
         console.warn('Unexpected response structure:', apiData);
         setAllowances([]);
       }
-      
+
     } catch (err: any) {
       setError(err.message || 'Failed to fetch allowances');
       console.error('Error fetching allowances:', err);
@@ -170,151 +178,151 @@ export default function AllowancesPage() {
   };
 
   const handleCreateAllowance = async () => {
-  try {
-    // Basic frontend validation
-    if (!formData.name || !formData.amount) {
-      setError('Please fill all required fields');
-      return;
-    }
+    try {
+      // Basic frontend validation
+      if (!formData.name || !formData.amount) {
+        setError('Please fill all required fields');
+        return;
+      }
 
-    // Convert amount to number
-    const amountNum = parseFloat(formData.amount);
-    
-    if (isNaN(amountNum) || amountNum < 0) {
-      setError('Amount must be a valid number 0 or greater');
-      return;
-    }
+      // Convert amount to number
+      const amountNum = parseFloat(formData.amount);
 
-    setActionLoading(true);
-    
-    // Get the employee ID - REQUIRED by backend DTO
-    let createdByEmployeeId = user?.id || '';
-    
-    // Fallback to localStorage if user.id is not available
-    if (!createdByEmployeeId) {
-      try {
-        const storedUser = localStorage.getItem('hr_system_user');
-        if (storedUser) {
-          const userData = JSON.parse(storedUser);
-          createdByEmployeeId = userData.id || userData._id || '';
+      if (isNaN(amountNum) || amountNum < 0) {
+        setError('Amount must be a valid number 0 or greater');
+        return;
+      }
+
+      setActionLoading(true);
+
+      // Get the employee ID - REQUIRED by backend DTO
+      let createdByEmployeeId = user?.id || '';
+
+      // Fallback to localStorage if user.id is not available
+      if (!createdByEmployeeId) {
+        try {
+          const storedUser = localStorage.getItem('hr_system_user');
+          if (storedUser) {
+            const userData = JSON.parse(storedUser);
+            createdByEmployeeId = userData.id || userData._id || '';
+          }
+        } catch (e) {
+          console.error('Failed to get user from localStorage:', e);
         }
-      } catch (e) {
-        console.error('Failed to get user from localStorage:', e);
       }
-    }
-    
-    if (!createdByEmployeeId) {
-      setError('Unable to identify user. Please make sure you are logged in.');
+
+      if (!createdByEmployeeId) {
+        setError('Unable to identify user. Please make sure you are logged in.');
+        setActionLoading(false);
+        return;
+      }
+
+      // Validate that createdByEmployeeId looks like a MongoDB ObjectId
+      // MongoDB ObjectIds are 24-character hex strings
+      const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+      if (!objectIdRegex.test(createdByEmployeeId)) {
+        console.warn('Employee ID does not look like a MongoDB ObjectId:', createdByEmployeeId);
+        // Continue anyway - the backend validation will catch it
+      }
+
+      // Prepare data for backend
+      const apiData = {
+        name: formData.name,
+        amount: amountNum,
+        createdByEmployeeId: createdByEmployeeId,
+      };
+
+      console.log('Creating allowance with data:', apiData);
+
+      const response = await payrollConfigurationService.createAllowance(apiData);
+
+      // Handle response
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      // Check for backend validation errors
+      if (response.data) {
+        const responseData = response.data as any;
+
+        // Handle various error response formats
+        if (responseData.message && responseData.message.includes('already exists')) {
+          throw new Error(responseData.message);
+        }
+        else if (responseData.error) {
+          throw new Error(responseData.error);
+        }
+        else if (responseData.statusCode && responseData.statusCode >= 400) {
+          // Extract validation messages if available
+          const errorMessage = responseData.message ||
+            responseData.error?.message ||
+            'Failed to create allowance';
+          throw new Error(errorMessage);
+        }
+      }
+
+      setSuccess('Allowance created successfully as DRAFT');
+      setShowCreateModal(false);
+      resetForm();
+      fetchAllowances();
+    } catch (err: any) {
+      console.error('Create error details:', err);
+
+      // Extract error message from various possible formats
+      let errorMessage = 'Failed to create allowance';
+
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error?.message) {
+        errorMessage = err.response.data.error.message;
+      }
+
+      // Format specific error messages
+      if (errorMessage.includes('already exists')) {
+        errorMessage = `Allowance "${formData.name}" already exists. Please use a different name.`;
+      }
+
+      // Special handling for ObjectId conversion errors
+      if (errorMessage.includes('ObjectId') || errorMessage.includes('Cast to ObjectId')) {
+        errorMessage = 'User identification issue. Please try logging out and back in.';
+      }
+
+      setError(errorMessage);
+    } finally {
       setActionLoading(false);
-      return;
     }
-    
-    // Validate that createdByEmployeeId looks like a MongoDB ObjectId
-    // MongoDB ObjectIds are 24-character hex strings
-    const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-    if (!objectIdRegex.test(createdByEmployeeId)) {
-      console.warn('Employee ID does not look like a MongoDB ObjectId:', createdByEmployeeId);
-      // Continue anyway - the backend validation will catch it
-    }
-    
-    // Prepare data for backend
-    const apiData = {
-      name: formData.name,
-      amount: amountNum,
-      createdByEmployeeId: createdByEmployeeId,
-    };
-    
-    console.log('Creating allowance with data:', apiData);
-    
-    const response = await payrollConfigurationService.createAllowance(apiData);
-    
-    // Handle response
-    if (response.error) {
-      throw new Error(response.error);
-    }
-    
-    // Check for backend validation errors
-    if (response.data) {
-      const responseData = response.data as any;
-      
-      // Handle various error response formats
-      if (responseData.message && responseData.message.includes('already exists')) {
-        throw new Error(responseData.message);
-      }
-      else if (responseData.error) {
-        throw new Error(responseData.error);
-      }
-      else if (responseData.statusCode && responseData.statusCode >= 400) {
-        // Extract validation messages if available
-        const errorMessage = responseData.message || 
-                            responseData.error?.message || 
-                            'Failed to create allowance';
-        throw new Error(errorMessage);
-      }
-    }
-    
-    setSuccess('Allowance created successfully as DRAFT');
-    setShowCreateModal(false);
-    resetForm();
-    fetchAllowances();
-  } catch (err: any) {
-    console.error('Create error details:', err);
-    
-    // Extract error message from various possible formats
-    let errorMessage = 'Failed to create allowance';
-    
-    if (err.message) {
-      errorMessage = err.message;
-    } else if (err.response?.data?.message) {
-      errorMessage = err.response.data.message;
-    } else if (err.response?.data?.error?.message) {
-      errorMessage = err.response.data.error.message;
-    }
-    
-    // Format specific error messages
-    if (errorMessage.includes('already exists')) {
-      errorMessage = `Allowance "${formData.name}" already exists. Please use a different name.`;
-    }
-    
-    // Special handling for ObjectId conversion errors
-    if (errorMessage.includes('ObjectId') || errorMessage.includes('Cast to ObjectId')) {
-      errorMessage = 'User identification issue. Please try logging out and back in.';
-    }
-    
-    setError(errorMessage);
-  } finally {
-    setActionLoading(false);
-  }
-};
+  };
   const handleDeleteAllowance = async (allowance: Allowance) => {
     if (!confirm(`Are you sure you want to delete "${allowance.name}"? This action cannot be undone.`)) {
       return;
     }
-    
+
     try {
       setActionLoading(true);
-      
+
       const response = await payrollConfigurationService.deleteAllowance(allowance._id);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       setSuccess(`Allowance "${allowance.name}" deleted successfully`);
       fetchAllowances();
     } catch (err: any) {
       console.error('Delete error:', err);
-      
+
       let errorMessage = 'Failed to delete allowance';
       if (err.message) {
         errorMessage = err.message;
       }
-      
+
       // Handle specific error cases
       if (errorMessage.includes('Cannot delete allowance with status')) {
         errorMessage = `Cannot delete ${allowance.status.toLowerCase()} allowance. Only DRAFT allowances can be deleted.`;
       }
-      
+
       setError(errorMessage);
     } finally {
       setActionLoading(false);
@@ -337,7 +345,7 @@ export default function AllowancesPage() {
 
   const handleUpdateAllowance = async () => {
     if (!selectedAllowance) return;
-    
+
     try {
       if (!formData.name || !formData.amount) {
         setError('Please fill all required fields');
@@ -345,27 +353,27 @@ export default function AllowancesPage() {
       }
 
       const amountNum = parseFloat(formData.amount);
-      
+
       if (isNaN(amountNum) || amountNum < 0) {
         setError('Amount must be a valid number 0 or greater');
         return;
       }
 
       setActionLoading(true);
-      
+
       const apiData = {
         name: formData.name,
         amount: amountNum,
       };
-      
+
       console.log('Updating allowance with data:', apiData);
-      
+
       const response = await payrollConfigurationService.updateAllowance(selectedAllowance._id, apiData);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       setSuccess('Allowance updated successfully');
       setShowEditModal(false);
       setSelectedAllowance(null);
@@ -415,6 +423,12 @@ export default function AllowancesPage() {
 
   const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const getEmployeeDisplayName = (emp: string | PopulatedEmployee | undefined) => {
+    if (!emp) return 'N/A';
+    if (typeof emp === 'string') return emp;
+    return `${emp.fullName || `${emp.firstName} ${emp.lastName}`.trim()} (${emp.employeeNumber})`;
   };
 
   const formatDate = (dateString: string) => {
@@ -486,7 +500,7 @@ export default function AllowancesPage() {
         <div className="bg-success/10 border border-success/20 rounded-lg p-4 flex items-center gap-3">
           <div className="text-success-foreground font-bold">Success</div>
           <p className="text-success-foreground font-medium">{success}</p>
-          <button 
+          <button
             onClick={() => setSuccess(null)}
             className="ml-auto text-success-foreground hover:underline"
           >
@@ -503,7 +517,7 @@ export default function AllowancesPage() {
             <p className="text-destructive-foreground font-medium">Error</p>
             <p className="text-destructive-foreground text-sm mt-1">{error}</p>
           </div>
-          <button 
+          <button
             onClick={() => setError(null)}
             className="ml-auto text-destructive-foreground hover:underline"
           >
@@ -512,47 +526,47 @@ export default function AllowancesPage() {
         </div>
       )}
 
-  {/* Filters */}
-<div className="bg-card rounded-lg border border-border p-4">
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div>
-      <label className="block text-sm font-medium text-foreground mb-2">Search Allowances</label>
-      <input
-        type="text"
-        name="search"
-        value={filters.search}
-        onChange={handleFilterChange}
-        className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
-        placeholder="Search by name..."
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-foreground mb-2">Status Filter</label>
-      <select
-        name="status"
-        value={filters.status}
-        onChange={handleFilterChange}
-        className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
-      >
-        <option value="">All Statuses</option>
-        <option value="draft">Draft</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-      </select>
-    </div>
-    <div className="flex items-end">
-      <button
-        onClick={() => {
-          setFilters({ search: '', status: '' });
-          setPagination(prev => ({ ...prev, page: 1 }));
-        }}
-        className="px-4 py-2 border border-input text-foreground rounded-lg hover:bg-muted/5 transition-colors font-medium w-full"
-      >
-        Clear Filters
-      </button>
-    </div>
-  </div>
-</div>
+      {/* Filters */}
+      <div className="bg-card rounded-lg border border-border p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Search Allowances</label>
+            <input
+              type="text"
+              name="search"
+              value={filters.search}
+              onChange={handleFilterChange}
+              className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+              placeholder="Search by name..."
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Status Filter</label>
+            <select
+              name="status"
+              value={filters.status}
+              onChange={handleFilterChange}
+              className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+            >
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setFilters({ search: '', status: '' });
+                setPagination(prev => ({ ...prev, page: 1 }));
+              }}
+              className="px-4 py-2 border border-input text-foreground rounded-lg hover:bg-muted/5 transition-colors font-medium w-full"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Allowances Table */}
       <div className="bg-card rounded-lg border border-border shadow-sm">
@@ -563,7 +577,7 @@ export default function AllowancesPage() {
           </h2>
           <div className="text-sm text-foreground">Page {pagination.page} of {pagination.totalPages || 1}</div>
         </div>
-        
+
         {allowances.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-foreground font-medium">No allowances found</p>
@@ -583,71 +597,70 @@ export default function AllowancesPage() {
                     <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
                   </tr>
                 </thead>
-              <tbody>
-  {allowances.map((allowance) => (
-    <tr key={allowance._id} className="border-b border-border hover:bg-muted/20">
-      <td className="py-4 px-6">
-        <div>
-          <p className="font-medium text-foreground">{allowance.name}</p>
-          {/* ID display removed intentionally */}
-        </div>
-      </td>
-      <td className="py-4 px-6">
-        <span className="text-foreground font-medium">{formatCurrency(allowance.amount)}</span>
-      </td>
-      <td className="py-4 px-6">
-         <span className={`
+                <tbody>
+                  {allowances.map((allowance) => (
+                    <tr key={allowance._id} className="border-b border-border hover:bg-muted/20">
+                      <td className="py-4 px-6">
+                        <div>
+                          <p className="font-medium text-foreground">{allowance.name}</p>
+                          {/* ID display removed intentionally */}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="text-foreground font-medium">{formatCurrency(allowance.amount)}</span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className={`
     inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-    ${allowance.status === 'approved' 
-      ? 'bg-green-100 text-green-800' 
-      : allowance.status === 'draft' 
-      ? 'bg-yellow-100 text-yellow-800'
-      : allowance.status === 'rejected' 
-      ? 'bg-red-100 text-red-800'
-      : allowance.status === 'pending_approval'
-      ? 'bg-yellow-100 text-yellow-800'
-      : 'bg-muted/20 text-foreground'
-    }
+    ${allowance.status === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : allowance.status === 'draft'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : allowance.status === 'rejected'
+                                ? 'bg-red-100 text-red-800'
+                                : allowance.status === 'pending_approval'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-muted/20 text-foreground'
+                          }
   `}>
-    {allowance.status === 'approved' 
-      ? 'Approved' 
-      : allowance.status === 'draft' 
-      ? 'Draft'
-      : allowance.status === 'rejected' 
-      ? 'Rejected'
-      : allowance.status === 'pending_approval'
-      ? 'Pending Approval'
-      : allowance.status}
-  </span>
-      </td>
-      <td className="py-4 px-6 text-foreground text-sm">{formatDate(allowance.createdAt)}</td>
-        <td className="py-4 px-6 text-foreground text-sm">{formatDate(allowance.createdAt)}</td>
-      <td className="py-4 px-6">
-        <div className="flex gap-2">
-          {/* View button */}
-          <button
-            onClick={() => handleViewClick(allowance)}
-            className="px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted/5 border border-border rounded-lg transition-colors"
-            title="View Details"
-          >
-            View
-          </button>
+                          {allowance.status === 'approved'
+                            ? 'Approved'
+                            : allowance.status === 'draft'
+                              ? 'Draft'
+                              : allowance.status === 'rejected'
+                                ? 'Rejected'
+                                : allowance.status === 'pending_approval'
+                                  ? 'Pending Approval'
+                                  : allowance.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-foreground text-sm">{formatDate(allowance.createdAt)}</td>
+                      <td className="py-4 px-6">
+                        <div className="flex gap-2">
+                          {/* View button */}
+                          <button
+                            onClick={() => handleViewClick(allowance)}
+                            className="px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted/5 border border-border rounded-lg transition-colors"
+                            title="View Details"
+                          >
+                            View
+                          </button>
 
-          {/* Edit button - Only for DRAFT allowances */}
-          {allowance.status === 'draft' && (
-            <button
-              onClick={() => handleEditClick(allowance)}
-              className="px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted/5 border border-border rounded-lg transition-colors"
-              title="Edit Allowance"
-            >
-              Edit
-            </button>
-          )}
-        </div>
-      </td>
-    </tr>
-  ))}
-</tbody>
+                          {/* Edit button - Only for DRAFT allowances */}
+                          {allowance.status === 'draft' && (
+                            <button
+                              onClick={() => handleEditClick(allowance)}
+                              className="px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted/5 border border-border rounded-lg transition-colors"
+                              title="Edit Allowance"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
 
@@ -675,7 +688,7 @@ export default function AllowancesPage() {
                       } else {
                         pageNum = pagination.page - 2 + i;
                       }
-                      
+
                       return (
                         <button
                           key={pageNum}
@@ -716,84 +729,84 @@ export default function AllowancesPage() {
         </ul>
       </div>
 
-  {/* Create Modal */}
-{showCreateModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-      <div className="p-6 border-b border-border">
-        <h3 className="text-xl font-bold text-foreground">Create New Allowance</h3>
-      </div>
-      <div className="p-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-muted-foreground mb-2">Allowance Name *</label>
-          <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
-            required
-            placeholder="e.g., Transportation Allowance"
-            list="allowance-suggestions"
-          />
-          <datalist id="allowance-suggestions">
-            {commonAllowanceTypes.map((option) => (
-              <option key={option.value} value={option.value} />
-            ))}
-          </datalist>
-          <p className="text-xs text-muted-foreground mt-1">Enter a unique name for this allowance. Common types include Housing, Transportation, Meal, etc.</p>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-muted-foreground mb-2">Amount (USD) *</label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-muted-foreground">$</span>
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-xl font-bold text-foreground">Create New Allowance</h3>
             </div>
-            <input
-              type="number"
-              name="amount"
-              value={formData.amount}
-              onChange={handleChange}
-              className="w-full pl-8 pr-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
-              required
-              placeholder="e.g., 500"
-              step="0.01"
-              min="0"
-            />
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Allowance Name *</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                  required
+                  placeholder="e.g., Transportation Allowance"
+                  list="allowance-suggestions"
+                />
+                <datalist id="allowance-suggestions">
+                  {commonAllowanceTypes.map((option) => (
+                    <option key={option.value} value={option.value} />
+                  ))}
+                </datalist>
+                <p className="text-xs text-muted-foreground mt-1">Enter a unique name for this allowance. Common types include Housing, Transportation, Meal, etc.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Amount (USD) *</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-muted-foreground">$</span>
+                  </div>
+                  <input
+                    type="number"
+                    name="amount"
+                    value={formData.amount}
+                    onChange={handleChange}
+                    className="w-full pl-8 pr-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                    required
+                    placeholder="e.g., 500"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Monthly amount for this allowance. Must be 0 or greater.</p>
+              </div>
+
+              <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                <p className="text-sm font-medium text-warning-foreground mb-2">Important Notes</p>
+                <ul className="text-xs text-warning-foreground space-y-1">
+                  <li>• Allowance will be created as <span className="font-semibold">DRAFT</span></li>
+                  <li>• Payroll Manager approval is required before use</li>
+                  <li>• Duplicate names are not allowed</li>
+                  <li>• Only you can delete your draft allowances</li>
+                </ul>
+              </div>
+            </div>
+            <div className="p-6 border-t border-border flex justify-end gap-3">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                disabled={actionLoading}
+                className="px-4 py-2 border border-input text-muted-foreground rounded-lg hover:bg-muted/5 disabled:opacity-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateAllowance}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-95 disabled:opacity-50 transition-colors font-medium"
+              >
+                {actionLoading ? 'Creating...' : 'Create Allowance'}
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Monthly amount for this allowance. Must be 0 or greater.</p>
         </div>
-        
-        <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
-          <p className="text-sm font-medium text-warning-foreground mb-2">Important Notes</p>
-          <ul className="text-xs text-warning-foreground space-y-1">
-            <li>• Allowance will be created as <span className="font-semibold">DRAFT</span></li>
-            <li>• Payroll Manager approval is required before use</li>
-            <li>• Duplicate names are not allowed</li>
-            <li>• Only you can delete your draft allowances</li>
-          </ul>
-        </div>
-      </div>
-      <div className="p-6 border-t border-border flex justify-end gap-3">
-        <button
-          onClick={() => setShowCreateModal(false)}
-          disabled={actionLoading}
-          className="px-4 py-2 border border-input text-muted-foreground rounded-lg hover:bg-muted/5 disabled:opacity-50 transition-colors font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleCreateAllowance}
-          disabled={actionLoading}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-95 disabled:opacity-50 transition-colors font-medium"
-        >
-          {actionLoading ? 'Creating...' : 'Create Allowance'}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {/* View Modal */}
       {showViewModal && selectedAllowance && (
@@ -808,26 +821,28 @@ export default function AllowancesPage() {
                   <h4 className="text-lg font-bold text-foreground mb-2">{selectedAllowance.name}</h4>
                   <div className="flex flex-col gap-1">
                     <span className="text-sm text-primary">Status</span>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-1
-                      ${selectedAllowance.status === 'approved'
+                    <span className={`
+  inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-medium mt-1 w-fit
+  ${selectedAllowance.status === 'approved'
                         ? 'bg-green-100 text-green-800'
                         : selectedAllowance.status === 'draft'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : selectedAllowance.status === 'rejected'
-                        ? 'bg-red-100 text-red-800'
-                        : selectedAllowance.status === 'pending_approval'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-muted/20 text-foreground'}
-                    `}>
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : selectedAllowance.status === 'rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : selectedAllowance.status === 'pending_approval'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-muted/20 text-foreground'
+                      }
+`}>
                       {selectedAllowance.status === 'approved'
                         ? 'Approved'
                         : selectedAllowance.status === 'draft'
-                        ? 'Draft'
-                        : selectedAllowance.status === 'rejected'
-                        ? 'Rejected'
-                        : selectedAllowance.status === 'pending_approval'
-                        ? 'Pending Approval'
-                        : selectedAllowance.status}
+                          ? 'Draft'
+                          : selectedAllowance.status === 'rejected'
+                            ? 'Rejected'
+                            : selectedAllowance.status === 'pending_approval'
+                              ? 'Pending Approval'
+                              : selectedAllowance.status}
                     </span>
                   </div>
                 </div>
@@ -837,16 +852,14 @@ export default function AllowancesPage() {
                   <p className="text-sm text-primary">Amount</p>
                   <p className="font-medium text-foreground text-xl">{formatCurrency(selectedAllowance.amount)}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-primary">Created By</p>
-                  <p className="font-medium text-foreground">{selectedAllowance.createdBy || 'N/A'}</p>
-                </div>
+                <p className="text-sm text-primary">Created By</p>
+                <p className="font-medium text-foreground">{getEmployeeDisplayName(selectedAllowance.createdBy)}</p>
                 {/* Approved By/At or Rejected By/At */}
                 {(selectedAllowance.status === 'approved' || selectedAllowance.status === 'rejected') && (
                   <>
                     <div>
                       <p className="text-sm text-primary">{selectedAllowance.status === 'approved' ? 'Approved By' : 'Rejected By'}</p>
-                      <p className="font-medium text-foreground">{selectedAllowance.approvedBy || 'N/A'}</p>
+                      <p className="font-medium text-foreground">{getEmployeeDisplayName(selectedAllowance.approvedBy)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-primary">{selectedAllowance.status === 'approved' ? 'Approved At' : 'Rejected At'}</p>

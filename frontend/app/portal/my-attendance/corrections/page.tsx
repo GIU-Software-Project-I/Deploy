@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { timeManagementService } from '@/app/services/time-management';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AttendanceCorrectionPage() {
   const router = useRouter();
@@ -41,19 +41,40 @@ export default function AttendanceCorrectionPage() {
 
       try {
         setFetchingRecords(true);
-        // Get current month attendance
-        const now = new Date();
-        const response = await timeManagementService.getMonthlyAttendance(
-          user.id,
-          now.getMonth() + 1,
-          now.getFullYear()
-        );
 
-        if (response.data && Array.isArray(response.data)) {
-          // Filter records that have punches
-          const recordsWithPunches = response.data.filter((r: any) => r.punches && r.punches.length > 0);
-          setAttendanceRecords(recordsWithPunches);
+        // Fetch last 12 months of attendance records to include all records
+        const now = new Date();
+        const allRecords: any[] = [];
+
+        for (let i = 0; i < 12; i++) {
+          const targetDate = new Date(now);
+          targetDate.setMonth(now.getMonth() - i);
+
+          const response = await timeManagementService.getMonthlyAttendance(
+            user.id,
+            targetDate.getMonth() + 1,
+            targetDate.getFullYear()
+          );
+
+          if (response.data && Array.isArray(response.data)) {
+            allRecords.push(...response.data);
+          }
         }
+
+        // Filter records that have punches and remove duplicates
+        const recordsWithPunches = allRecords
+          .filter((r: any) => r.punches && r.punches.length > 0)
+          .filter((record, index, self) =>
+            index === self.findIndex((r) => r._id === record._id)
+          )
+          .sort((a, b) => {
+            // Sort by date descending (newest first)
+            const dateA = new Date(a.punches[0]?.time || 0);
+            const dateB = new Date(b.punches[0]?.time || 0);
+            return dateB.getTime() - dateA.getTime();
+          });
+
+        setAttendanceRecords(recordsWithPunches);
 
         // Also fetch corrections to show summary
         try {

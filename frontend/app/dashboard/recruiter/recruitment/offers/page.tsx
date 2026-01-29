@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Card } from '@/app/components/ui/card';
-import { Button } from '@/app/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   getOffers,
   getCandidateById,
@@ -14,9 +14,9 @@ import {
   getApplicationHistory,
   getFeedbackByApplication
 } from '@/app/services/recruitment';
-import { useAuth } from '@/app/context/AuthContext';
-import { JobOffer, Candidate, Application, JobRequisition, Interview } from '@/app/types/recruitment';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
+import { useAuth } from '@/context/AuthContext';
+import { JobOffer, Candidate, Application, JobRequisition, Interview } from '@/types/recruitment';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 // ==================== INTERFACES ====================
 interface OfferDisplay {

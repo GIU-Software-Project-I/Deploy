@@ -1,7 +1,7 @@
 // src/time-management/repeated-lateness/repeated-lateness.service.ts
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Types, Connection } from 'mongoose';
 import { TimeException, TimeExceptionDocument } from '../models/time-exception.schema';
 import { TimeExceptionType, TimeExceptionStatus } from '../models/enums';
 import { NotificationLog } from '../models/notification-log.schema';
@@ -13,6 +13,7 @@ export class RepeatedLatenessService {
     private readonly logger = new Logger(RepeatedLatenessService.name);
 
     constructor(
+        @InjectConnection() private readonly connection: Connection, // Ensure connection is injected
         @InjectModel(TimeException.name) private readonly exceptionModel: Model<TimeExceptionDocument>,
         @InjectModel(AttendanceRecord.name) private readonly attendanceModel: Model<AttendanceRecordDocument>,
         @InjectModel(NotificationLog.name) private readonly notificationModel: Model<NotificationLog>,
@@ -189,4 +190,390 @@ export class RepeatedLatenessService {
         }
         return await this.exceptionModel.countDocuments(filter);
     }
- }
+
+    /**
+     * Check if employee just hit or exceeded the lateness threshold after a new late clock-in.
+     * Called immediately after a LATE exception is created.
+     * Notifies both the employee and HR admins if threshold is reached.
+     *
+     * @param employeeId - The employee who was just marked late
+     * @param currentLateCount - The current count INCLUDING the new late record
+     */
+    async checkThresholdAndNotify(employeeId: Types.ObjectId | string, currentLateCount?: number): Promise<{
+        thresholdExceeded: boolean;
+        count: number;
+        threshold: number;
+        notifiedEmployee: boolean;
+        notifiedHr: boolean;
+        employeeName?: string;
+    }> {
+        const matchEmployee = typeof employeeId === 'string' ? new Types.ObjectId(employeeId) : employeeId;
+
+        // Get threshold from env or default
+        const threshold = Number(process.env.LATENESS_THRESHOLD_OCCURRENCES ?? 3);
+        const windowDays = Number(process.env.LATENESS_THRESHOLD_WINDOW_DAYS ?? 30);
+
+        // Fetch employee name for HR notification
+        let employeeName = `Employee ID: ${matchEmployee}`;
+        try {
+            if (this.connection && this.connection.db) {
+                const profileCollections = ['employee_profiles', 'employeeprofiles', 'employee_profiles_v1'];
+                for (const colName of profileCollections) {
+                    try {
+                        const profile = await this.connection.db.collection(colName).findOne({ _id: matchEmployee });
+                        if (profile) {
+                            const firstName = profile.firstName || profile.first_name || '';
+                            const lastName = profile.lastName || profile.last_name || '';
+                            const fullName = `${firstName} ${lastName}`.trim();
+                            if (fullName) {
+                                employeeName = fullName;
+                            } else if (profile.name) {
+                                employeeName = profile.name;
+                            } else if (profile.workEmail) {
+                                employeeName = profile.workEmail;
+                            }
+                            break;
+                        }
+                    } catch (e) {
+                        // continue to next collection
+                    }
+                }
+            }
+        } catch (e) {
+            this.logger.debug('Failed to fetch employee name for notification', e);
+        }
+
+        // Get the current late count if not provided
+        let lateCount = currentLateCount;
+        if (lateCount === undefined) {
+            // Count LATE exceptions within the window period
+            const windowStart = new Date();
+            windowStart.setDate(windowStart.getDate() - windowDays);
+
+            const startHex = Math.floor(windowStart.getTime() / 1000).toString(16).padStart(8, '0');
+            const startObjectId = new Types.ObjectId(startHex + '0000000000000000');
+
+            lateCount = await this.exceptionModel.countDocuments({
+                employeeId: matchEmployee,
+                type: TimeExceptionType.LATE,
+                status: { $ne: TimeExceptionStatus.RESOLVED },
+                $or: [
+                    { createdAt: { $gte: windowStart } },
+                    { _id: { $gte: startObjectId } }
+                ]
+            });
+        }
+
+        this.logger.debug(`[ThresholdCheck] Employee ${matchEmployee}: ${lateCount} late in ${windowDays} days (threshold: ${threshold})`);
+
+        // Check if threshold is reached
+        if (lateCount < threshold) {
+            return {
+                thresholdExceeded: false,
+                count: lateCount,
+                threshold,
+                notifiedEmployee: false,
+                notifiedHr: false
+            };
+        }
+
+        // Check if we already notified for this exact count (to avoid duplicate notifications)
+        const recentNotification = await this.notificationModel.findOne({
+            to: matchEmployee,
+            type: 'LATENESS_THRESHOLD_EXCEEDED',
+            message: { $regex: `${lateCount} time` } // Check if we already notified for this exact count
+        }).lean();
+
+        if (recentNotification) {
+            this.logger.debug(`[ThresholdCheck] Already notified employee ${matchEmployee} for count ${lateCount}`);
+            return {
+                thresholdExceeded: true,
+                count: lateCount,
+                threshold,
+                notifiedEmployee: false,
+                notifiedHr: false
+            };
+        }
+
+        let notifiedEmployee = false;
+        let notifiedHr = false;
+
+        // Send notifications since threshold is reached/exceeded and not already notified for this count
+        // Notify the employee
+        try {
+            await this.notificationModel.create({
+                to: matchEmployee,
+                type: 'LATENESS_THRESHOLD_EXCEEDED',
+                message: `Warning: You have been late ${lateCount} time(s) in the last ${windowDays} days. The allowed threshold is ${threshold}. Please improve your punctuality to avoid disciplinary action.`,
+            } as any);
+            notifiedEmployee = true;
+            this.logger.log(`[ThresholdCheck] Notified employee ${matchEmployee} - late count: ${lateCount}/${threshold}`);
+        } catch (e) {
+            this.logger.warn('Failed to notify employee about threshold breach', e);
+        }
+
+        // Notify HR Admins and HR Managers
+        try {
+            const hrAdmins = await this.findHRAdmins();
+            const hrManagers = await this.findHRManagers();
+
+            // Combine both lists, avoiding duplicates by employeeProfileId
+            const allHRUsers = new Map<string, any>();
+            hrAdmins.forEach(hr => allHRUsers.set(hr.employeeProfileId.toString(), hr));
+            hrManagers.forEach(hr => allHRUsers.set(hr.employeeProfileId.toString(), hr));
+
+            const hrUsers = Array.from(allHRUsers.values());
+            this.logger.debug(`[ThresholdCheck] Found ${hrAdmins.length} HR Admins and ${hrManagers.length} HR Managers (${hrUsers.length} unique) to notify`);
+
+            for (const hr of hrUsers) {
+                await this.notificationModel.create({
+                    to: hr.employeeProfileId,
+                    type: 'EMPLOYEE_LATENESS_THRESHOLD',
+                    message: `${employeeName} has exceeded the lateness threshold with ${lateCount} late arrival(s) in the last ${windowDays} days. The allowed threshold is ${threshold}. Please review and take appropriate action.`,
+                    metadata: {
+                        employeeId: matchEmployee.toString(),
+                        employeeName,
+                        lateCount,
+                        threshold,
+                        windowDays,
+                    },
+                } as any);
+            }
+            notifiedHr = hrUsers.length > 0;
+            this.logger.log(`[ThresholdCheck] Notified ${hrUsers.length} HR users (Admins: ${hrAdmins.length}, Managers: ${hrManagers.length}) about employee ${employeeName}`);
+        } catch (e) {
+            this.logger.warn('Failed to notify HR admins/managers about employee threshold breach', e);
+        }
+
+        return {
+            thresholdExceeded: true,
+            count: lateCount,
+            threshold,
+            notifiedEmployee,
+            notifiedHr,
+            employeeName
+        };
+    }
+
+    /**
+     * Find HR Admins to notify.
+     * Uses robust detection checking both embedded roles and role collections.
+     */
+    private async findHRAdmins(): Promise<any[]> {
+        const HR_ADMIN_ROLES = [
+            'HR Admin', 'HR_ADMIN', 'HRAdmin', 'hr admin',
+            'HR Administrator', 'HR_ADMINISTRATOR',
+            'System Admin', 'SYSTEM_ADMIN', 'SystemAdmin'
+        ];
+
+        return this.findUsersByRoles(HR_ADMIN_ROLES, 'findHRAdmins');
+    }
+
+    /**
+     * Find HR Managers to notify.
+     * Uses robust detection checking both embedded roles and role collections.
+     */
+    private async findHRManagers(): Promise<any[]> {
+        const HR_MANAGER_ROLES = [
+            'HR Manager', 'HR_MANAGER', 'HRManager', 'hr manager'
+        ];
+
+        return this.findUsersByRoles(HR_MANAGER_ROLES, 'findHRManagers');
+    }
+
+    /**
+     * Helper to find users by role names.
+     * Uses robust detection checking both embedded roles and role collections.
+     */
+    private async findUsersByRoles(roleCandidates: string[], logPrefix: string): Promise<any[]> {
+        const allUsers = new Map<string, any>();
+
+        if (!this.connection || !this.connection.db) {
+            this.logger.warn('Database connection is not initialized or invalid. Cannot fetch users.');
+            return [];
+        }
+
+        try {
+            // Try embedded roles first (employee_profiles with roles field)
+            const profileCollections = ['employee_profiles', 'employeeprofiles', 'employee_profiles_v1'];
+            for (const colName of profileCollections) {
+                try {
+                    const probe = await this.connection.db.collection(colName).findOne({});
+                    if (probe && Object.prototype.hasOwnProperty.call(probe, 'roles')) {
+                        const directHr = await this.connection.db
+                            .collection(colName)
+                            .find({
+                                roles: { $in: roleCandidates },
+                                $or: [{ status: 'ACTIVE' }, { isActive: true }, { status: { $exists: false } }]
+                            })
+                            .project({ _id: 1, workEmail: 1, roles: 1, status: 1 })
+                            .toArray();
+
+                        if (directHr.length > 0) {
+                            this.logger.debug(`[${logPrefix}] Found ${directHr.length} users from embedded roles in ${colName}`);
+                            return directHr.map(e => ({
+                                employeeProfileId: e._id,
+                                roles: e.roles,
+                                workEmail: e.workEmail,
+                                isActive: e.status === 'ACTIVE' || true,
+                            }));
+                        }
+                    }
+                } catch (e) {
+                    // ignore and try next collection
+                }
+            }
+
+            // Fallback to role collections
+            const roleCollections = ['employee_system_roles', 'employeesystemroles', 'employee_systemroles', 'employeeSystemRoles'];
+            for (const rc of roleCollections) {
+                try {
+                    const hrRoles = await this.connection.db.collection(rc).find({
+                        roles: { $in: roleCandidates },
+                        $or: [{ isActive: true }, { status: 'ACTIVE' }, { status: { $exists: false } }],
+                    }).toArray();
+
+                    if (!hrRoles || hrRoles.length === 0) continue;
+
+                    this.logger.debug(`[${logPrefix}] Found ${hrRoles.length} roles from ${rc}`);
+
+                    // For role collections, the _id might be the employeeProfileId or there's an employeeProfileId field
+                    hrRoles.forEach((role: any) => {
+                        const empId = role.employeeProfileId || role._id;
+                        allUsers.set(empId.toString(), {
+                            employeeProfileId: empId,
+                            roles: role.roles,
+                            workEmail: role.workEmail,
+                            isActive: true,
+                        });
+                    });
+
+                    if (allUsers.size > 0) break;
+                } catch (e) {
+                    this.logger.debug(`[${logPrefix}] Failed to query ${rc}:`, e);
+                    continue;
+                }
+            }
+        } catch (error) {
+            this.logger.error('Failed to fetch users from the database.', error);
+        }
+
+        this.logger.debug(`[${logPrefix}] Returning ${allUsers.size} users`);
+        return Array.from(allUsers.values());
+    }
+
+    /**
+     * Get lateness counts for all employees in a single aggregation query
+     * Returns array of { employeeId, count } for employees with count > 0
+     * Only counts records where the referenced AttendanceRecord still exists (filters orphaned exceptions)
+     */
+    async getAllLatenessCounts(opts?: { onlyUnresolved?: boolean }): Promise<{ employeeId: string; count: number }[]> {
+        const matchStage: any = {
+            type: TimeExceptionType.LATE,
+        };
+        if (opts?.onlyUnresolved) {
+            matchStage.status = { $ne: TimeExceptionStatus.RESOLVED };
+        }
+
+        return await this.exceptionModel.aggregate([
+            { $match: matchStage },
+            // Lookup to verify attendanceRecordId exists
+            {
+                $lookup: {
+                    from: 'attendancerecords',
+                    localField: 'attendanceRecordId',
+                    foreignField: '_id',
+                    as: 'attendanceRecord'
+                }
+            },
+            // Only keep records where the attendance record was found
+            {
+                $match: {
+                    'attendanceRecord': { $ne: [] }
+                }
+            },
+            {
+                $group: {
+                    _id: '$employeeId',
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    employeeId: { $toString: '$_id' },
+                    count: 1
+                }
+            },
+            { $sort: { count: -1 } }
+        ]);
+    }
+
+    /**
+     * Get detailed lateness records for an employee
+     * @param employeeId employee ObjectId or string
+     * @param options optional flags: { onlyUnresolved?: boolean, windowDays?: number }
+     */
+    async getLatenessRecords(
+        employeeId: Types.ObjectId | string,
+        options?: { onlyUnresolved?: boolean; windowDays?: number }
+    ): Promise<TimeExceptionDocument[]> {
+        const matchEmployee = typeof employeeId === 'string' ? new Types.ObjectId(employeeId) : employeeId;
+
+        const filter: any = {
+            employeeId: matchEmployee,
+            type: TimeExceptionType.LATE,
+        };
+
+        if (options?.onlyUnresolved) {
+            filter.status = { $ne: TimeExceptionStatus.RESOLVED };
+        }
+
+        if (options?.windowDays) {
+            const windowStart = new Date();
+            windowStart.setDate(windowStart.getDate() - options.windowDays);
+            filter.createdAt = { $gte: windowStart };
+        }
+
+        return this.exceptionModel.find(filter)
+            .populate('attendanceRecordId')
+            .sort({ createdAt: -1 })
+            .exec();
+    }
+
+    /**
+     * Clean up orphaned TimeException records where the referenced AttendanceRecord no longer exists
+     * @returns count of deleted orphaned records
+     */
+    async cleanupOrphanedExceptions(): Promise<{ deletedCount: number; orphanedIds: string[] }> {
+        // Find all TimeException records
+        const allExceptions = await this.exceptionModel.find({}).lean();
+
+        const orphanedIds: string[] = [];
+
+        for (const exception of allExceptions) {
+            if (exception.attendanceRecordId) {
+                // Check if the referenced AttendanceRecord exists
+                const attendanceExists = await this.attendanceModel.exists({
+                    _id: exception.attendanceRecordId
+                });
+
+                if (!attendanceExists) {
+                    orphanedIds.push((exception as any)._id.toString());
+                }
+            } else {
+                // No attendanceRecordId at all - also orphaned
+                orphanedIds.push((exception as any)._id.toString());
+            }
+        }
+
+        if (orphanedIds.length > 0) {
+            this.logger.log(`Found ${orphanedIds.length} orphaned TimeException records, deleting...`);
+            await this.exceptionModel.deleteMany({
+                _id: { $in: orphanedIds.map(id => new Types.ObjectId(id)) }
+            });
+        }
+
+        return { deletedCount: orphanedIds.length, orphanedIds };
+    }
+}

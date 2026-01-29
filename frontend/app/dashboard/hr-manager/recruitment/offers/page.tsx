@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Card } from '@/app/components/ui/card';
-import { Button } from '@/app/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   getOffers,
   approveOffer,
@@ -16,10 +16,10 @@ import {
   triggerPreboarding,
   getFeedbackByApplication
 } from '@/app/services/recruitment';
-import { useAuth } from '@/app/context/AuthContext';
-import { JobOffer, Candidate, Application, JobRequisition } from '@/app/types/recruitment';
-import { OfferResponseStatus } from '@/app/types/enums';
-import { getOfferResponseStatusConfig } from '@/app/utils/recruitment-theme';
+import { useAuth } from '@/context/AuthContext';
+import { JobOffer} from '@/types/recruitment';
+
+
 
 // ==================== INTERFACES ====================
 // Local display interface that combines offer + denormalized data

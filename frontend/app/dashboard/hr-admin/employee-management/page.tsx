@@ -9,7 +9,7 @@ import {
   RoleAssignmentModal,
   DeactivateEmployeeModal,
   Employee,
-} from '@/app/components/hr-admin';
+} from '@/components/hr-admin';
 
 export default function EmployeeManagementPage() {
   const [loading, setLoading] = useState(true);

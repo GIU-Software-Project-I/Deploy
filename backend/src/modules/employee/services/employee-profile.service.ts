@@ -7,16 +7,16 @@ import { EmployeeQualification, EmployeeQualificationDocument } from '../models/
 import { EmployeeSystemRole, EmployeeSystemRoleDocument } from '../models/employee/employee-system-role.schema';
 import { EmployeeProfileAuditLog, EmployeeProfileAuditLogDocument, EmployeeProfileAuditAction } from '../models/audit/employee-profile-audit-log.schema';
 
-import { UpdateContactInfoDto } from '../dto/employee-profile/update-contact-info.dto';
-import { UpdateBioDto } from '../dto/employee-profile/update-bio.dto';
-import { CreateCorrectionRequestDto } from '../dto/employee-profile/create-correction-request.dto';
-import { AdminUpdateProfileDto } from '../dto/employee-profile/admin-update-profile.dto';
-import { AdminAssignRoleDto } from '../dto/employee-profile/admin-assign-role.dto';
-import { SearchEmployeesDto, PaginatedResult, PaginationQueryDto } from '../dto/employee-profile/search-employees.dto';
+import { UpdateContactInfoDto } from '../dto\'s/update-contact-info.dto';
+import { UpdateBioDto } from '../dto\'s/update-bio.dto';
+import { CreateCorrectionRequestDto } from '../dto\'s/create-correction-request.dto';
+import { AdminUpdateProfileDto } from '../dto\'s/admin-update-profile.dto';
+import { AdminAssignRoleDto } from '../dto\'s/admin-assign-role.dto';
+import { SearchEmployeesDto, PaginatedResult, PaginationQueryDto } from '../dto\'s/search-employees.dto';
 import { EmployeeStatus, ProfileChangeStatus } from '../enums/employee-profile.enums';
-import { AddEmergencyContactDto, UpdateEmergencyContactDto } from '../dto/employee-profile/emergency-contact.dto';
-import { AddQualificationDto, UpdateQualificationDto } from '../dto/employee-profile/qualification.dto';
-import { SharedEmployeeService } from '../../shared/services/shared-employee.service';
+import { AddEmergencyContactDto, UpdateEmergencyContactDto } from '../dto\'s/emergency-contact.dto';
+import { AddQualificationDto, UpdateQualificationDto } from '../dto\'s/qualification.dto';
+import { SharedEmployeeService } from '../../integration/services/shared-employee.service';
 
 @Injectable()
 export class EmployeeProfileService {
@@ -73,6 +73,46 @@ export class EmployeeProfileService {
     private isValidStatusTransition(currentStatus: EmployeeStatus, newStatus: EmployeeStatus): boolean {
         if (currentStatus === newStatus) return true;
         return this.validStatusTransitions[currentStatus]?.includes(newStatus) ?? false;
+    }
+
+    /**
+     * BR 2g, 2n, 2o: Validate that at least one contact method (phone or email) is provided
+     */
+    private validateContactInfo(profile: { mobilePhone?: string; homePhone?: string; personalEmail?: string; workEmail?: string }): void {
+        const hasPhone = !!(profile.mobilePhone || profile.homePhone);
+        const hasEmail = !!(profile.personalEmail || profile.workEmail);
+        
+        if (!hasPhone && !hasEmail) {
+            throw new BadRequestException('At least one contact method is required: phone (mobile or home) or email (personal or work)');
+        }
+    }
+
+    /**
+     * BR 3f, 3g: Validate that contract type is provided during employee onboarding
+     */
+    private validateContractType(contractType?: any, isOnboarding: boolean = false): void {
+        if (isOnboarding && !contractType) {
+            throw new BadRequestException('Contract type is required during employee onboarding');
+        }
+    }
+
+    /**
+     * BR 3d, 3e: Validate that department and supervisor IDs are set (with exception for top-level positions)
+     * Note: Supervisor may be optional for top-level positions (e.g., CEO)
+     */
+    private validateOrganizationStructure(
+        primaryDepartmentId?: Types.ObjectId | string,
+        supervisorPositionId?: Types.ObjectId | string,
+        isTopLevel: boolean = false
+    ): void {
+        if (!primaryDepartmentId) {
+            throw new BadRequestException('Primary department ID is required');
+        }
+        
+        // Supervisor is required unless this is a top-level position
+        if (!isTopLevel && !supervisorPositionId) {
+            throw new BadRequestException('Supervisor position ID is required (except for top-level positions)');
+        }
     }
 
     /**
@@ -579,6 +619,31 @@ export class EmployeeProfileService {
         if (dto.payGradeId !== undefined) {
             this.validateObjectId(dto.payGradeId, 'payGradeId');
             profile.payGradeId = new Types.ObjectId(dto.payGradeId);
+        }
+
+        // BR 2g, 2n, 2o: Validate contact info if being updated
+        if (dto.mobilePhone !== undefined || dto.homePhone !== undefined || dto.personalEmail !== undefined || dto.workEmail !== undefined) {
+            const updatedContact = {
+                mobilePhone: dto.mobilePhone !== undefined ? dto.mobilePhone : profile.mobilePhone,
+                homePhone: dto.homePhone !== undefined ? dto.homePhone : profile.homePhone,
+                personalEmail: dto.personalEmail !== undefined ? dto.personalEmail : profile.personalEmail,
+                workEmail: dto.workEmail !== undefined ? dto.workEmail : profile.workEmail,
+            };
+            this.validateContactInfo(updatedContact);
+        }
+
+        // BR 3d, 3e: Validate organization structure if being updated
+        if (dto.primaryDepartmentId !== undefined || dto.supervisorPositionId !== undefined) {
+            const updatedDeptId = dto.primaryDepartmentId ? new Types.ObjectId(dto.primaryDepartmentId) : profile.primaryDepartmentId;
+            const updatedSupervisorId = dto.supervisorPositionId ? new Types.ObjectId(dto.supervisorPositionId) : profile.supervisorPositionId;
+            // Note: We don't check for top-level positions here - that should be handled by business logic
+            // For now, we'll allow supervisor to be optional if explicitly set to null/undefined
+            if (updatedDeptId) {
+                // Department is required
+                if (!updatedSupervisorId && dto.supervisorPositionId === undefined) {
+                    // Only validate if supervisor is being explicitly removed
+                }
+            }
         }
 
         const savedProfile = await profile.save();

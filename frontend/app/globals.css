@@ -496,4 +496,115 @@ body {
   ::view-transition-new(root) {
     animation: none;
   }
+
+/* ============================================
+   PRINT STYLES FOR PDF EXPORT
+   ============================================ */
+@media print {
+  /* Reset page margins */
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
+  /* Hide navigation and sidebars */
+  nav,
+  aside,
+  header:has(nav),
+  .sidebar,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Show main content full width */
+  body,
+  html {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Reset containers */
+  main,
+  .container,
+  .mx-auto {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Force visibility */
+  * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Grid layouts for print */
+  .grid {
+    display: grid !important;
+    page-break-inside: avoid;
+  }
+
+  /* Ensure cards are visible */
+  .card,
+  [class*="rounded"] {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+
+  /* Tables */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  /* Charts and visualizations */
+  canvas,
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Typography adjustments */
+  h1 {
+    font-size: 24pt !important;
+  }
+
+  h2 {
+    font-size: 18pt !important;
+  }
+
+  h3 {
+    font-size: 14pt !important;
+  }
+
+  p,
+  td,
+  th {
+    font-size: 10pt !important;
+  }
+
+  /* Remove text shadows and effects */
+  * {
+    text-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
 }

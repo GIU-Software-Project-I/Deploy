@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { getApplicationsByCandidate, getJobById } from '@/app/services/recruitment';
-import { Application, JobRequisition } from '@/app/types/recruitment';
-import { ApplicationStage, ApplicationStatus } from '@/app/types/enums';
+import { Application, JobRequisition } from '@/types/recruitment';
+import { ApplicationStage, ApplicationStatus } from '@/types/enums';
 
 /**
  * REC-017: Candidate Applications List Page

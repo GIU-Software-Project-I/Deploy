@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { timeManagementService, PunchInRequest, PunchOutRequest } from '@/app/services/time-management';
-import { useAuth } from '@/app/context/AuthContext';
-import { PunchType } from '@/app/types/enums';
+import { useAuth } from '@/context/AuthContext';
+import { PunchType } from '@/types/enums';
 
 interface TimeException {
   _id: string;

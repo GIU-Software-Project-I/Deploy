@@ -3,14 +3,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { getPublishedJobs } from '@/app/services/recruitment';
-import { JobRequisition } from '@/app/types/recruitment';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Badge } from '@/app/components/ui/badge';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
-import { LandingNavbar } from '@/app/components/landing/navbar';
-import { LandingFooter } from '@/app/components/landing/footer';
+import { JobRequisition } from '@/types/recruitment';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { GlassCard } from '@/components/ui/glass-card';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { LandingNavbar } from '@/components/landing/navbar';
+import { LandingFooter } from '@/components/landing/footer';
 import { 
   Search, 
   MapPin, 
@@ -23,7 +23,7 @@ import {
   X,
   CheckCircle2
 } from 'lucide-react';
-import { DotPattern } from '@/app/components/dot-pattern';
+import { DotPattern } from '@/components/dot-pattern';
 
 export default function CareersPage() {
   const [jobs, setJobs] = useState<JobRequisition[]>([]);

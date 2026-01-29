@@ -2,17 +2,17 @@
 'use client';   
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import {
     getInterviews,
     updateInterview
 } from '@/app/services/recruitment';
-import { Interview } from '@/app/types/recruitment';
-import { InterviewStatus, InterviewMethod } from '@/app/types/enums';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
-import { Input } from '@/app/components/ui/input';
+import { Interview } from '@/types/recruitment';
+import { InterviewStatus, InterviewMethod } from '@/types/enums';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
     Calendar,
     Clock,

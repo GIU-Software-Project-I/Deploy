@@ -11,8 +11,8 @@ import {
   getApplications,
   getEmployees,
 } from '@/app/services/recruitment';
-import { Interview, Application } from '@/app/types/recruitment';
-import { ApplicationStage, InterviewMethod, InterviewStatus } from '@/app/types/enums';
+import { Interview, Application } from '@/types/recruitment';
+import { ApplicationStage, InterviewMethod, InterviewStatus } from '@/types/enums';
 
 // REC-010: Schedule and manage interview invitations
 // REC-021: Coordinate interview panels (members, availability, scoring)

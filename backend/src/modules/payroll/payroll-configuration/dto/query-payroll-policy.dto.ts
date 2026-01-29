@@ -1,6 +1,6 @@
 import { IsOptional, IsEnum, IsString, IsNumber, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PolicyType, Applicability, ConfigStatus } from '../../payroll-configuration/enums/payroll-configuration-enums';
+import { PolicyType, Applicability, ConfigStatus } from '../enums/payroll-configuration-enums';
 
 export class QueryPayrollPolicyDto {
   @IsOptional()

@@ -7,8 +7,8 @@ import { EmployeeSystemRole, EmployeeSystemRoleDocument } from '../../employee/m
 import { Candidate, CandidateDocument } from '../../employee/models/employee/Candidate.Schema';
 
 import { SystemRole, EmployeeStatus } from '../../employee/enums/employee-profile.enums';
-import {RegisterEmployeeDto} from "../dto/register-employee-dto";
-import {RegisterCandidateDto} from "../dto/register-candidate-dto";
+import { RegisterEmployeeDto } from "../dto/register-employee-dto";
+import { RegisterCandidateDto } from "../dto/register-candidate-dto";
 
 @Injectable()
 export class EmployeeAuthService {
@@ -16,7 +16,7 @@ export class EmployeeAuthService {
     @InjectModel(EmployeeProfile.name) private readonly employeeModel: Model<EmployeeProfileDocument>,
     @InjectModel(EmployeeSystemRole.name) private readonly employeeSystemRoleModel: Model<EmployeeSystemRoleDocument>,
     @InjectModel(Candidate.name) private readonly candidateModel: Model<CandidateDocument>,
-  ) {}
+  ) { }
 
   async hashPassword(password: string): Promise<string> {
     const saltRounds = 10;
@@ -64,6 +64,13 @@ export class EmployeeAuthService {
 
     // Hash password
     const hashedPassword = await this.hashPassword(dto.password);
+
+    // BR 2g, 2n, 2o: Validate contact info - at least one contact method required
+    const hasPhone = !!(dto.mobilePhone);
+    const hasEmail = !!(dto.personalEmail || dto.workEmail);
+    if (!hasPhone && !hasEmail) {
+      throw new BadRequestException('At least one contact method is required: phone (mobile) or email (personal or work)');
+    }
 
     // Create full name
     const fullName = dto.middleName

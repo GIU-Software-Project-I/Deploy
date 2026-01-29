@@ -20,7 +20,7 @@ import { ConfigStatus } from '../../payroll/payroll-configuration/enums/payroll-
 import { PayrollExecutionService } from '../../payroll/payroll-execution/services/payroll-execution.service';
 
 // DTOs
-import {CreateOnboardingDto, CreateOnboardingTaskDto, UpdateTaskStatusDto, UploadDocumentDto, ReserveEquipmentDto, ProvisionAccessDto, TriggerPayrollInitiationDto, ScheduleAccessRevocationDto, CancelOnboardingDto,} from '../dto/onboarding';
+import { CreateOnboardingDto, CreateOnboardingTaskDto, UpdateTaskStatusDto, UploadDocumentDto, ReserveEquipmentDto, ProvisionAccessDto, TriggerPayrollInitiationDto, ScheduleAccessRevocationDto, CancelOnboardingDto, } from '../dto/onboarding';
 
 // Enums
 import { OnboardingTaskStatus } from '../enums/onboarding-task-status.enum';
@@ -28,7 +28,7 @@ import { DocumentType } from '../enums/document-type.enum';
 import { OfferResponseStatus } from '../enums/offer-response-status.enum';
 
 // Shared Services
-import { SharedRecruitmentService } from '../../shared/services/shared-recruitment.service';
+import { SharedRecruitmentService } from '../../integration/services/shared-recruitment.service';
 
 @Injectable()
 export class OnboardingService {
@@ -53,7 +53,7 @@ export class OnboardingService {
         // Services
         @Inject(forwardRef(() => PayrollExecutionService)) private readonly payrollExecutionService: PayrollExecutionService,
         private readonly sharedRecruitmentService: SharedRecruitmentService,
-    ) {}
+    ) { }
 
     private validateObjectId(id: string, fieldName: string): void {
         if (!Types.ObjectId.isValid(id)) {
@@ -752,6 +752,7 @@ export class OnboardingService {
         signingBonus?: number;
         benefits?: string[];
         hasOnboarding: boolean;
+        sourceType?: 'CONTRACT' | 'OFFER'; // Optional to maintain compat
     }[]> {
         // Get all contracts that are fully signed
         const contracts = await this.contractModel
@@ -763,50 +764,35 @@ export class OnboardingService {
             .populate('documentId')
             .exec();
 
-        // Get all existing onboarding records to check which contracts already have onboarding
+        // Also fetch Accepted Offers (bridge for missing Contracts)
+        const acceptedOffers = await this.offerModel
+            .find({
+                applicantResponse: 'accepted',
+                finalStatus: 'approved'
+            })
+            .exec();
+
+        // Get all existing onboarding records
         const existingOnboardings = await this.onboardingModel.find().exec();
         const contractIdsWithOnboarding = new Set(
             existingOnboardings.map(o => o.contractId.toString())
         );
 
-        // Filter to only contracts without onboarding and build response
-        const pendingContracts: {
-            _id: string;
-            candidateId: string;
-            candidateName: string;
-            candidateEmail: string;
-            jobTitle: string;
-            departmentId?: string;
-            departmentName: string;
-            positionId?: string;
-            positionTitle: string;
-            contractSignedDate?: Date;
-            startDate?: Date;
-            salary: number;
-            signingBonus?: number;
-            benefits?: string[];
-            hasOnboarding: boolean;
-        }[] = [];
+        // Filter to only contracts/offers without onboarding and build response
+        const pendingContracts: any[] = [];
 
+        // 1. Process Contracts
         for (const contract of contracts) {
-            const hasOnboarding = contractIdsWithOnboarding.has(contract._id.toString());
+            if (contractIdsWithOnboarding.has(contract._id.toString())) continue;
 
-            // Skip if already has onboarding
-            if (hasOnboarding) continue;
-
-            // Get offer details
             const offer = await this.offerModel.findById(contract.offerId).exec();
             if (!offer) continue;
 
-            // Get candidate details using shared service
             let candidate: any;
             try {
                 candidate = await this.sharedRecruitmentService.validateCandidateExists(offer.candidateId.toString());
-            } catch {
-                continue; // Skip if candidate not found
-            }
+            } catch { continue; }
 
-            // Check if candidate is already hired
             if (candidate.status === 'HIRED') continue;
 
             pendingContracts.push({
@@ -816,7 +802,7 @@ export class OnboardingService {
                 candidateEmail: candidate.personalEmail || '',
                 jobTitle: contract.role || offer.role || '',
                 departmentId: candidate.departmentId?.toString(),
-                departmentName: '', // Would need department lookup
+                departmentName: '',
                 positionId: candidate.positionId?.toString(),
                 positionTitle: contract.role || '',
                 contractSignedDate: contract.employeeSignedAt,
@@ -825,6 +811,40 @@ export class OnboardingService {
                 signingBonus: contract.signingBonus,
                 benefits: contract.benefits,
                 hasOnboarding: false,
+                sourceType: 'CONTRACT'
+            });
+        }
+
+        // 2. Process Offers
+        const processedOfferIds = new Set(contracts.map(c => c.offerId.toString()));
+        for (const offer of acceptedOffers) {
+            if (processedOfferIds.has(offer._id.toString())) continue;
+            if (contractIdsWithOnboarding.has(offer._id.toString())) continue; // If offer ID used as contract ID
+
+            let candidate: any;
+            try {
+                candidate = await this.sharedRecruitmentService.validateCandidateExists(offer.candidateId.toString());
+            } catch { continue; }
+
+            if (candidate.status === 'HIRED') continue;
+
+            pendingContracts.push({
+                _id: offer._id.toString(),
+                candidateId: offer.candidateId.toString(),
+                candidateName: candidate.fullName || `${candidate.firstName} ${candidate.lastName}`,
+                candidateEmail: candidate.personalEmail || '',
+                jobTitle: offer.role || '',
+                departmentId: candidate.departmentId?.toString(),
+                departmentName: '',
+                positionId: candidate.positionId?.toString(),
+                positionTitle: offer.role || '',
+                contractSignedDate: offer.candidateSignedAt || (offer as any).updatedAt,
+                startDate: offer.deadline,
+                salary: offer.grossSalary,
+                signingBonus: offer.signingBonus,
+                benefits: offer.benefits,
+                hasOnboarding: false,
+                sourceType: 'OFFER'
             });
         }
 
@@ -854,23 +874,63 @@ export class OnboardingService {
         temporaryPassword: string;
         contract: Contract;
     }> {
-        const contract = await this.contractModel
+        let contract = await this.contractModel
             .findById(contractId)
             .populate('offerId')
             .exec();
+
+        // CRM-UPDATE: If Contract not found, check if it's an Offer ID and auto-generate Contract
+        // This supports the "Offer as Contract" bridge flow
+        if (!contract) {
+            const offer = await this.offerModel.findById(contractId).exec();
+            if (offer) {
+                // Check if a contract already exists for this offer (to avoid duplicates if called twice)
+                const existingContract = await this.contractModel.findOne({ offerId: offer._id }).exec();
+                if (existingContract) {
+                    contract = existingContract;
+                } else {
+                    // Create new Contract from Offer details
+                    contract = await this.contractModel.create({
+                        offerId: offer._id,
+                        grossSalary: offer.grossSalary,
+                        signingBonus: offer.signingBonus,
+                        role: offer.role,
+                        benefits: offer.benefits,
+                        acceptanceDate: offer.deadline || new Date(),
+                        employeeSignedAt: offer.candidateSignedAt || new Date(),
+                        employerSignedAt: offer.hrSignedAt || new Date(),
+                        // Add dummy signatures if needed or mark as system generated
+                        employeeSignatureUrl: 'system-generated',
+                        employerSignatureUrl: 'system-generated'
+                    });
+                }
+                // Populate offer for downstream usage
+                // We mock the population by attaching the offer document we found
+                (contract as any).offerId = offer;
+            }
+        }
 
         if (!contract) {
             throw new NotFoundException(`Contract with ID ${contractId} not found`);
         }
 
         if (!contract.employeeSignedAt || !contract.employerSignedAt) {
+            // If we auto-generated, we ensured these are set. If not, normal validation applies.
             throw new BadRequestException('Contract must be fully signed before creating employee profile');
         }
 
-        const offer = await this.offerModel.findById(contract.offerId).exec();
+        const offer = (contract as any).offerId.candidateId
+            ? (contract as any).offerId
+            : await this.offerModel.findById(contract.offerId).exec();
+
         if (!offer) {
             throw new NotFoundException('Associated offer not found');
         }
+
+        // BR 3f, 3g: Contract type is required during employee onboarding
+        // For now, default to FULL_TIME_CONTRACT if not specified
+        // In production, contract type should be part of the contract/offer schema
+        const contractType = 'FULL_TIME_CONTRACT'; // TODO: Get from contract or offer when available
 
         const { employee, temporaryPassword } = await this.sharedRecruitmentService.createEmployeeFromContract({
             candidateId: offer.candidateId.toString(),
@@ -879,7 +939,23 @@ export class OnboardingService {
             signingBonus: contract.signingBonus,
             benefits: contract.benefits,
             acceptanceDate: contract.acceptanceDate,
+            contractType: contractType, // BR 3f, 3g: Pass contract type
         });
+
+        // Automatically create onboarding checklist with default tasks
+        // This triggers IT (Access Provisioning) and HR (Payroll) tasks creation
+        try {
+            await this.createOnboarding({
+                employeeId: (employee as any)._id.toString(),
+                contractId: contract._id.toString(),
+                tasks: [], // Default tasks are auto-generated in createOnboarding
+            });
+            this.logger.log(`Auto-created onboarding checklist for new employee ${(employee as any)._id}`);
+        } catch (error) {
+            this.logger.warn(`Failed to auto-create onboarding checklist: ${error.message}`);
+            // We don't throw here to avoid rolling back employee creation, 
+            // but HR will need to manually create onboarding if this fails.
+        }
 
         return { employee, temporaryPassword, contract };
     }
@@ -888,6 +964,7 @@ export class OnboardingService {
         const onboarding = await this.onboardingModel
             .findOne({ employeeId: new Types.ObjectId(employeeId) })
             .populate('contractId')
+            .populate('employeeId', 'firstName lastName employeeNumber fullName')
             .populate('tasks.documentId')
             .exec();
 
@@ -902,6 +979,7 @@ export class OnboardingService {
         return this.onboardingModel
             .find()
             .populate('contractId')
+            .populate('employeeId', 'firstName lastName employeeNumber fullName')
             .sort({ createdAt: -1 })
             .exec();
     }
@@ -910,6 +988,7 @@ export class OnboardingService {
         const onboarding = await this.onboardingModel
             .findById(id)
             .populate('contractId')
+            .populate('employeeId', 'firstName lastName employeeNumber fullName')
             .populate('tasks.documentId')
             .exec();
 
@@ -1099,16 +1178,19 @@ export class OnboardingService {
      */
     async getOnboardingTracker(employeeId: string): Promise<{
         employeeId: string;
+        employeeName: string;
+        employeeNumber: string;
         onboardingId: string;
         isComplete: boolean;
         completedAt?: Date;
-        summary: {
+        progress: {
             totalTasks: number;
             completedTasks: number;
             inProgressTasks: number;
             pendingTasks: number;
             overdueTasks: number;
             progressPercentage: number;
+            isComplete: boolean;
         };
         tasksByStatus: {
             completed: any[];
@@ -1129,11 +1211,14 @@ export class OnboardingService {
             deadline?: Date;
             notes?: string;
         };
+        overdueTasks: any[];
+        upcomingDeadlines: any[];
     }> {
         this.validateObjectId(employeeId, 'employeeId');
 
         const onboarding = await this.onboardingModel
             .findOne({ employeeId: new Types.ObjectId(employeeId) })
+            .populate('employeeId', 'firstName lastName employeeNumber fullName')
             .populate('tasks.documentId')
             .exec();
 
@@ -1183,18 +1268,27 @@ export class OnboardingService {
             notes: incompleteTasks[0].notes,
         } : undefined;
 
+        // Get overdue tasks and upcoming deadlines for separate display
+        const overdueTasks = overdue;
+        const upcomingDeadlines = pendingAll
+            .filter(t => t.deadline)
+            .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime());
+
         return {
             employeeId,
+            employeeName: onboarding.employeeId ? (onboarding.employeeId as any).fullName || `${(onboarding.employeeId as any).firstName} ${(onboarding.employeeId as any).lastName}` : 'Unknown',
+            employeeNumber: onboarding.employeeId ? (onboarding.employeeId as any).employeeNumber : 'N/A',
             onboardingId: onboarding._id.toString(),
             isComplete: onboarding.completed,
             completedAt: onboarding.completedAt,
-            summary: {
+            progress: {
                 totalTasks: tasks.length,
                 completedTasks: completed.length,
                 inProgressTasks: inProgress.length,
                 pendingTasks: pending.length,
                 overdueTasks: overdue.length,
                 progressPercentage: tasks.length > 0 ? Math.round((completed.length / tasks.length) * 100) : 0,
+                isComplete: onboarding.completed,
             },
             tasksByStatus: {
                 completed,
@@ -1204,6 +1298,8 @@ export class OnboardingService {
             },
             tasksByDepartment,
             nextTask,
+            overdueTasks,
+            upcomingDeadlines,
         };
     }
 
@@ -1641,10 +1737,47 @@ export class OnboardingService {
     }
 
     async getDocumentsByOwner(ownerId: string): Promise<Document[]> {
-        return this.documentModel
-            .find({ ownerId: new Types.ObjectId(ownerId) })
-            .sort({ uploadedAt: -1 })
-            .exec();
+        this.validateObjectId(ownerId, 'ownerId');
+
+        // Find documents owned by this ID (could be candidate or employee)
+        const directDocs = await this.documentModel.find({ ownerId: new Types.ObjectId(ownerId) }).exec();
+
+        // Try to find if this owner has an associated identity (employee <=> candidate)
+        let crossDocs: DocumentDocument[] = [];
+        try {
+            // First treat as employeeId to find candidateId
+            const onboarding = await this.onboardingModel.findOne({ employeeId: new Types.ObjectId(ownerId) }).exec();
+            if (onboarding) {
+                const contract = await this.contractModel.findById(onboarding.contractId).exec();
+                if (contract) {
+                    const offer = await this.offerModel.findById(contract.offerId).exec();
+                    if (offer && offer.candidateId.toString() !== ownerId) {
+                        crossDocs = await this.documentModel.find({ ownerId: offer.candidateId }).exec();
+                    }
+                }
+            } else {
+                // Then treat as candidateId to find employeeId
+                const offer = await this.offerModel.findOne({ candidateId: new Types.ObjectId(ownerId) }).exec();
+                if (offer) {
+                    const contract = await this.contractModel.findOne({ offerId: offer._id }).exec();
+                    if (contract) {
+                        const employeeOnboarding = await this.onboardingModel.findOne({ contractId: contract._id }).exec();
+                        if (employeeOnboarding && employeeOnboarding.employeeId.toString() !== ownerId) {
+                            crossDocs = await this.documentModel.find({ ownerId: employeeOnboarding.employeeId }).exec();
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            this.logger.warn(`Soft failed cross-referencing documents for owner ${ownerId}: ${error.message}`);
+        }
+
+        // Merge and remove duplicates by ID
+        const allDocs = [...directDocs, ...crossDocs];
+        const uniqueDocsMap = new Map();
+        allDocs.forEach(doc => uniqueDocsMap.set(doc._id.toString(), doc));
+
+        return Array.from(uniqueDocsMap.values());
     }
 
     async linkDocumentToTask(onboardingId: string, taskName: string, documentId: string): Promise<Onboarding> {
@@ -1707,8 +1840,8 @@ export class OnboardingService {
             // Find and update IT provisioning task
             const itTaskIndex = onboarding.tasks.findIndex(
                 t => t.department === 'IT' ||
-                     t.name.toLowerCase().includes('system access') ||
-                     t.name.toLowerCase().includes('provision')
+                    t.name.toLowerCase().includes('system access') ||
+                    t.name.toLowerCase().includes('provision')
             );
 
             if (itTaskIndex !== -1 && onboarding.tasks[itTaskIndex].status !== OnboardingTaskStatus.COMPLETED) {
@@ -1801,9 +1934,9 @@ export class OnboardingService {
             // Find Admin/Equipment task
             const adminTask = onboarding.tasks.find(
                 t => t.department === 'Admin' ||
-                     t.department === 'Facilities' ||
-                     t.name.toLowerCase().includes('equipment') ||
-                     t.name.toLowerCase().includes('workspace')
+                    t.department === 'Facilities' ||
+                    t.name.toLowerCase().includes('equipment') ||
+                    t.name.toLowerCase().includes('workspace')
             );
 
             // Only include if Admin task exists and is not completed
@@ -1875,9 +2008,9 @@ export class OnboardingService {
             // Find and update Admin/Equipment task
             const adminTaskIndex = onboarding.tasks.findIndex(
                 t => t.department === 'Admin' ||
-                     t.department === 'Facilities' ||
-                     t.name.toLowerCase().includes('equipment') ||
-                     t.name.toLowerCase().includes('workspace')
+                    t.department === 'Facilities' ||
+                    t.name.toLowerCase().includes('equipment') ||
+                    t.name.toLowerCase().includes('workspace')
             );
 
             // Normalize all task statuses before any comparison or update
@@ -2291,73 +2424,127 @@ export class OnboardingService {
      * Useful for System Admin to see who needs access setup
      */
     async getEmployeesPendingProvisioning(): Promise<{
-        total: number;
-        employees: {
-            employeeId: string;
-            employeeName: string;
-            workEmail?: string;
-            onboardingId: string;
-            startDate?: Date;
-            itTaskStatus: string;
-        }[];
-    }> {
+        employeeId: string;
+        employeeName: string;
+        employeeNumber: string;
+        department?: string;
+        position?: string;
+        startDate?: Date;
+        daysUntilStart: number;
+        isUrgent: boolean;
+        onboardingId: string;
+        itTasksStatus: {
+            total: number;
+            completed: number;
+            pending: string[];
+        };
+    }[]> {
         // Find all incomplete onboardings
         const onboardings = await this.onboardingModel
             .find({ completed: false })
+            .populate({
+                path: 'employeeId',
+                populate: [
+                    { path: 'primaryDepartmentId', select: 'name' },
+                    { path: 'primaryPositionId', select: 'title' }
+                ]
+            })
             .exec();
 
-        const employees: {
+        const results: {
             employeeId: string;
             employeeName: string;
-            workEmail?: string;
-            onboardingId: string;
+            employeeNumber: string;
+            department?: string;
+            position?: string;
             startDate?: Date;
-            itTaskStatus: string;
+            daysUntilStart: number;
+            isUrgent: boolean;
+            onboardingId: string;
+            itTasksStatus: {
+                total: number;
+                completed: number;
+                pending: string[];
+            };
         }[] = [];
 
         for (const onboarding of onboardings) {
-            // Find IT task
-            const itTask = onboarding.tasks.find(
+            // Skip if employeeId is null
+            if (!onboarding.employeeId) {
+                continue;
+            }
+
+            // Find all IT-related tasks
+            const itTasks = onboarding.tasks.filter(
                 t => t.department === 'IT' ||
-                     t.name.toLowerCase().includes('system access') ||
-                     t.name.toLowerCase().includes('provision')
+                    t.name.toLowerCase().includes('system access') ||
+                    t.name.toLowerCase().includes('provision') ||
+                    t.name.toLowerCase().includes('email') ||
+                    t.name.toLowerCase().includes('sso')
             );
 
-            // Only include if IT task exists and is not completed
-            if (itTask && itTask.status !== OnboardingTaskStatus.COMPLETED) {
-                try {
-                    const employee = await this.sharedRecruitmentService.validateEmployeeExists(
-                        onboarding.employeeId.toString()
-                    );
+            // Check if there are pending IT tasks
+            const pendingItTasks = itTasks.filter(t => t.status !== OnboardingTaskStatus.COMPLETED);
+            if (pendingItTasks.length === 0) continue; // Skip if all IT tasks are done
 
-                    // Get contract for start date
-                    const contract = await this.contractModel.findById(onboarding.contractId).exec();
+            try {
+                // employeeId is populated, so it's the full employee object
+                const employee = onboarding.employeeId as any;
 
-                    employees.push({
-                        employeeId: onboarding.employeeId.toString(),
-                        employeeName: employee.fullName || `${employee.firstName} ${employee.lastName}`,
-                        workEmail: employee.workEmail,
-                        onboardingId: onboarding._id.toString(),
-                        startDate: contract?.acceptanceDate,
-                        itTaskStatus: itTask.status,
-                    });
-                } catch (error) {
-                    this.logger.warn(`Failed to get employee details for ${onboarding.employeeId}: ${error.message}`);
+                // Get the actual employee ID (handle both populated and non-populated cases)
+                const employeeIdStr = employee._id ? employee._id.toString() : String(employee);
+
+                // If not populated (just an ObjectId), fetch employee data
+                let employeeData = employee;
+                if (!employee._id) {
+                    employeeData = await this.sharedRecruitmentService.validateEmployeeExists(employeeIdStr);
                 }
+
+                // Get contract for start date
+                const contract = await this.contractModel.findById(onboarding.contractId).exec();
+                const startDate = contract?.acceptanceDate;
+
+                // Calculate days until start
+                let daysUntilStart = 999;
+                if (startDate) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const start = new Date(startDate);
+                    start.setHours(0, 0, 0, 0);
+                    daysUntilStart = Math.ceil((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                }
+
+                results.push({
+                    employeeId: employeeIdStr,
+                    employeeName: employeeData.fullName || `${employeeData.firstName} ${employeeData.lastName}`,
+                    employeeNumber: employeeData.employeeNumber || 'N/A',
+                    department: employeeData.primaryDepartmentId?.name || employeeData.primaryDepartmentId?.toString() || 'Unassigned',
+                    position: employeeData.primaryPositionId?.title || employeeData.primaryPositionId?.toString() || 'Unassigned',
+                    startDate: startDate,
+                    daysUntilStart: daysUntilStart,
+                    isUrgent: daysUntilStart <= 3,
+                    onboardingId: onboarding._id.toString(),
+                    itTasksStatus: {
+                        total: itTasks.length,
+                        completed: itTasks.filter(t => t.status === OnboardingTaskStatus.COMPLETED).length,
+                        pending: pendingItTasks.map(t => t.name),
+                    },
+                });
+            } catch (error) {
+                this.logger.warn(`Failed to get employee details for onboarding ${onboarding._id}: ${error.message}`);
             }
         }
 
-        // Sort by start date (earliest first)
-        employees.sort((a, b) => {
+        // Sort by start date (earliest first) and urgent first
+        results.sort((a, b) => {
+            if (a.isUrgent && !b.isUrgent) return -1;
+            if (!a.isUrgent && b.isUrgent) return 1;
             if (!a.startDate) return 1;
             if (!b.startDate) return -1;
             return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
         });
 
-        return {
-            total: employees.length,
-            employees,
-        };
+        return results;
     }
 
     async getOnboardingProgress(onboardingId: string): Promise<{

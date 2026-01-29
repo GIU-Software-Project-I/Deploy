@@ -2,8 +2,15 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { payrollTrackingService } from '@/app/services/payroll-tracking';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import {
+  FileText, History, Calculator, ShieldCheck,
+  AlertTriangle, CalendarOff, Gift, Download,
+  Receipt, PlayCircle, Plus, AlertCircle, ArrowLeft
+} from 'lucide-react';
 
 /**
  * Payroll Tracking Main Page - Department Employee
@@ -34,21 +41,21 @@ export default function PayrollTrackingPage() {
         setLoading(false);
         return;
       }
-      
+
       try {
         // Fetch payslips to get stats
         const payslipsResponse = await payrollTrackingService.getEmployeePayslips(user.id);
         const payslips: any[] = (payslipsResponse?.data as any[]) || [];
-        
+
         // Fetch claims/disputes tracking
         const trackingResponse = await payrollTrackingService.trackClaimsAndDisputes(user.id);
         const tracking: any = trackingResponse?.data || { claims: [], disputes: [] };
-        
+
         const pendingClaims = tracking.claims?.filter((c: any) => c.status === 'PENDING' || c.status === 'IN_REVIEW')?.length || 0;
         const pendingDisputes = tracking.disputes?.filter((d: any) => d.status === 'PENDING' || d.status === 'IN_REVIEW')?.length || 0;
-        
+
         const lastPayslip = payslips[0];
-        
+
         setStats({
           totalPayslips: payslips.length,
           pendingClaims,
@@ -71,213 +78,197 @@ export default function PayrollTrackingPage() {
       title: 'My Payslips',
       description: 'View and download your monthly payslips with detailed breakdown of earnings and deductions.',
       href: '/dashboard/department-employee/payroll-tracking/payslips',
-      icon: '',
+      icon: <FileText className="w-8 h-8 text-primary" />,
       color: 'blue',
       features: ['View monthly payslips', 'Download PDF', 'See payment status'],
-      requirement: 'REQ-PY-1, REQ-PY-2'
     },
     {
       title: 'Salary History',
       description: 'Track your salary changes over time including base salary, bonuses, and adjustments.',
       href: '/dashboard/department-employee/payroll-tracking/salary-history',
-      icon: '',
+      icon: <History className="w-8 h-8 text-primary" />,
       color: 'green',
       features: ['Base salary info', 'Historical records', 'Contract details'],
-      requirement: 'REQ-PY-3, REQ-PY-13'
     },
     {
       title: 'Tax Deductions',
       description: 'View detailed tax deductions with law references and tax brackets (BR 5, BR 6).',
       href: '/dashboard/department-employee/payroll-tracking/tax-deductions',
-      icon: '',
+      icon: <Calculator className="w-8 h-8 text-primary" />,
       color: 'blue',
       features: ['Income tax breakdown', 'Law references', 'Tax brackets'],
-      requirement: 'REQ-PY-8'
     },
     {
       title: 'Insurance Deductions',
       description: 'View itemized insurance deductions (health, pension, unemployment, etc.).',
       href: '/dashboard/department-employee/payroll-tracking/insurance-deductions',
-      icon: '',
+      icon: <ShieldCheck className="w-8 h-8 text-primary" />,
       color: 'green',
       features: ['Health insurance', 'Pension contributions', 'Unemployment'],
-      requirement: 'REQ-PY-9'
     },
     {
       title: 'Misconduct & Absenteeism',
       description: 'View salary deductions due to misconduct or unapproved absenteeism.',
       href: '/dashboard/department-employee/payroll-tracking/misconduct-deductions',
-      icon: '',
+      icon: <AlertTriangle className="w-8 h-8 text-primary" />,
       color: 'red',
       features: ['Absenteeism records', 'Policy violations', 'Time management integration'],
-      requirement: 'REQ-PY-10'
     },
     {
       title: 'Unpaid Leave Deductions',
       description: 'View deductions for unpaid leave days with daily/hourly calculations (BR 11).',
       href: '/dashboard/department-employee/payroll-tracking/unpaid-leave-deductions',
-      icon: '',
+      icon: <CalendarOff className="w-8 h-8 text-primary" />,
       color: 'orange',
       features: ['Daily rate calculations', 'Leave integration', 'Period filtering'],
-      requirement: 'REQ-PY-11'
     },
     {
       title: 'Compensation & Benefits',
       description: 'View leave compensation, transportation allowance, and employer contributions.',
       href: '/dashboard/department-employee/payroll-tracking/contributions',
-      icon: '',
+      icon: <Gift className="w-8 h-8 text-primary" />,
       color: 'purple',
       features: ['Leave encashment', 'Transportation', 'Employer contributions'],
-      requirement: 'REQ-PY-5, REQ-PY-7, REQ-PY-14'
     },
     {
       title: 'Tax Documents',
       description: 'Download annual tax statements and other tax-related documents for official purposes.',
       href: '/dashboard/department-employee/payroll-tracking/tax-documents',
-      icon: '',
+      icon: <Download className="w-8 h-8 text-primary" />,
       color: 'amber',
       features: ['Annual statements', 'Tax certificates', 'Download documents'],
-      requirement: 'REQ-PY-15'
     },
     {
       title: 'Claims & Disputes',
       description: 'Submit expense claims, dispute payroll errors, and track request status.',
       href: '/dashboard/department-employee/payroll-tracking/claims-disputes',
-      icon: '',
+      icon: <Receipt className="w-8 h-8 text-primary" />,
       color: 'orange',
       features: ['Submit claims', 'File disputes', 'Track status'],
-      requirement: 'REQ-PY-16, REQ-PY-17, REQ-PY-18'
     },
   ];
 
-  const colorClasses: Record<string, { border: string; bg: string; text: string; hover: string }> = {
-    blue: { border: 'border-blue-300', bg: 'bg-blue-50', text: 'text-blue-600', hover: 'hover:border-blue-400' },
-    green: { border: 'border-green-300', bg: 'bg-green-50', text: 'text-green-600', hover: 'hover:border-green-400' },
-    red: { border: 'border-red-300', bg: 'bg-red-50', text: 'text-red-600', hover: 'hover:border-red-400' },
-    purple: { border: 'border-purple-300', bg: 'bg-purple-50', text: 'text-purple-600', hover: 'hover:border-purple-400' },
-    amber: { border: 'border-amber-300', bg: 'bg-amber-50', text: 'text-amber-600', hover: 'hover:border-amber-400' },
-    orange: { border: 'border-orange-300', bg: 'bg-orange-50', text: 'text-orange-600', hover: 'hover:border-orange-400' },
-  };
 
   return (
-    <div
-      className="space-y-8"
-      style={{
-        ['--background' as any]: '#ffffff',
-        ['--foreground' as any]: '#111827',
-        ['--card' as any]: '#ffffff',
-        ['--card-foreground' as any]: '#111827',
-        ['--primary' as any]: '#111827',
-        ['--muted' as any]: '#f3f4f6',
-        ['--border' as any]: '#e5e7eb',
-      } as any}
-    >
+    <div className="space-y-6 lg:space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Payroll Tracking</h1>
-        <p className="text-slate-600 mt-2">View your payslips, salary history, deductions, and manage claims</p>
+        <h1 className="text-3xl font-black tracking-tighter text-foreground">Payroll Tracking</h1>
+        <p className="text-muted-foreground mt-1">View your payslips, salary history, deductions, and manage claims</p>
       </div>
 
       {/* Overview Stats */}
-      <div className="bg-white rounded-lg border border-slate-200 p-8 text-slate-900 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Payroll Tracking Overview</h2>
-            <p className="text-amber-100 mt-2">Your payroll information at a glance</p>
+      <GlassCard className="bg-gradient-to-br from-primary to-primary/80 border-primary/20 p-8 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10"></div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Payroll Tracking Overview</h2>
+              <p className="text-white/70 mt-1">Your payroll information at a glance</p>
+            </div>
+            <PlayCircle className="w-12 h-12 text-white/20" />
           </div>
-          <div className="text-6xl"></div>
+
+          {loading ? (
+            <div className="flex items-center text-white/80">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
+              <span>Loading stats...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                { label: 'Total Payslips', value: stats.totalPayslips, icon: <FileText className="w-4 h-4" /> },
+                { label: 'Last Payslip', value: stats.lastPayslipDate, icon: <History className="w-4 h-4" /> },
+                { label: 'Pending Claims', value: stats.pendingClaims, icon: <AlertCircle className="w-4 h-4" /> },
+                { label: 'Pending Disputes', value: stats.pendingDisputes, icon: <AlertTriangle className="w-4 h-4" /> }
+              ].map((stat, i) => (
+                <div key={i} className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20">
+                  <div className="flex items-center gap-2 text-white/70 text-sm mb-2">
+                    {stat.icon}
+                    {stat.label}
+                  </div>
+                  <p className="text-2xl font-black text-white">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        
-        {loading ? (
-          <div className="mt-6 flex items-center">
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent mr-3"></div>
-            <span>Loading stats...</span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6">
-            <div className="bg-white/20 rounded-lg p-4">
-              <p className="text-amber-100 text-sm">Total Payslips</p>
-              <p className="text-3xl font-bold mt-1">{stats.totalPayslips}</p>
-            </div>
-            <div className="bg-white/20 rounded-lg p-4">
-              <p className="text-amber-100 text-sm">Last Payslip</p>
-              <p className="text-2xl font-bold mt-1">{stats.lastPayslipDate}</p>
-            </div>
-            <div className="bg-white/20 rounded-lg p-4">
-              <p className="text-amber-100 text-sm">Pending Claims</p>
-              <p className="text-3xl font-bold mt-1">{stats.pendingClaims}</p>
-            </div>
-            <div className="bg-white/20 rounded-lg p-4">
-              <p className="text-amber-100 text-sm">Pending Disputes</p>
-              <p className="text-3xl font-bold mt-1">{stats.pendingDisputes}</p>
-            </div>
-          </div>
-        )}
-      </div>
+      </GlassCard>
 
       {/* Payroll Features Grid */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-6">Payroll Services</h2>
+        <h2 className="text-xl font-bold text-foreground mb-6">Payroll Services</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {payrollFeatures.map((feature) => (
             <Link key={feature.href} href={feature.href}>
-              <div className={`group bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-lg ${colorClasses[feature.color].hover} transition-all p-6 cursor-pointer h-full`}>
-                <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">{feature.icon}</div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
-                <p className="text-slate-600 text-sm mb-4">{feature.description}</p>
-                <div className="space-y-2 mb-4">
+              <GlassCard
+                className="group h-full p-6 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 border-border/50 hover:border-primary/20"
+                variant="hover"
+              >
+                <div className="mb-6 p-4 rounded-2xl bg-primary/5 w-fit group-hover:scale-110 group-hover:bg-primary/10 transition-all duration-300">
+                  {feature.icon}
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2 group-hover:text-primary transition-colors">
+                  {feature.title}
+                </h3>
+                <p className="text-muted-foreground text-sm mb-6 line-clamp-2">
+                  {feature.description}
+                </p>
+                <div className="space-y-2 mb-6">
                   {feature.features.map((f, idx) => (
-                    <div key={idx} className="flex items-center text-sm text-slate-700">
-                      <span className="mr-2 text-green-500"></span> {f}
+                    <div key={idx} className="flex items-center text-xs font-medium text-muted-foreground">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary/40 mr-2"></div>
+                      {f}
                     </div>
                   ))}
                 </div>
-                <div className={`${colorClasses[feature.color].text} font-semibold text-sm group-hover:translate-x-1 transition-transform`}>
-                  Access {feature.title} →
+                <div className="flex items-center text-primary font-semibold text-sm group-hover:translate-x-1 transition-transform">
+                  Access Service <ArrowLeft className="w-4 h-4 ml-1 rotate-180" />
                 </div>
-              </div>
+              </GlassCard>
             </Link>
           ))}
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <GlassCard className="p-8">
+        <h2 className="text-xl font-bold text-foreground mb-6">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link href="/dashboard/department-employee/payroll-tracking/payslips">
-            <button className="w-full p-4 bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-colors text-center group">
-              <div className="text-2xl mb-2"></div>
-              <p className="font-medium text-slate-900 text-sm">Download Latest Payslip</p>
-            </button>
+            <Button variant="outline" className="w-full h-auto py-6 flex flex-col gap-3 rounded-xl hover:bg-muted/50 hover:border-primary/30 group">
+              <Download className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
+              <span className="font-medium">Latest Payslip</span>
+            </Button>
           </Link>
           <Link href="/dashboard/department-employee/payroll-tracking/claims-disputes">
-            <button className="w-full p-4 bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-colors text-center group">
-              <div className="text-2xl mb-2"></div>
-              <p className="font-medium text-slate-900 text-sm">Submit New Claim</p>
-            </button>
+            <Button variant="outline" className="w-full h-auto py-6 flex flex-col gap-3 rounded-xl hover:bg-muted/50 hover:border-primary/30 group">
+              <Plus className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
+              <span className="font-medium">New Claim</span>
+            </Button>
           </Link>
           <Link href="/dashboard/department-employee/payroll-tracking/tax-documents">
-            <button className="w-full p-4 bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-colors text-center group">
-              <div className="text-2xl mb-2"></div>
-              <p className="font-medium text-slate-900 text-sm">Tax Documents</p>
-            </button>
+            <Button variant="outline" className="w-full h-auto py-6 flex flex-col gap-3 rounded-xl hover:bg-muted/50 hover:border-primary/30 group">
+              <FileText className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
+              <span className="font-medium">Tax Documents</span>
+            </Button>
           </Link>
           <Link href="/dashboard/department-employee/payroll-tracking/claims-disputes">
-            <button className="w-full p-4 bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-colors text-center group">
-              <div className="text-2xl mb-2"></div>
-              <p className="font-medium text-slate-900 text-sm">Report Issue</p>
-            </button>
+            <Button variant="outline" className="w-full h-auto py-6 flex flex-col gap-3 rounded-xl hover:bg-muted/50 hover:border-primary/30 group">
+              <AlertTriangle className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
+              <span className="font-medium">Report Issue</span>
+            </Button>
           </Link>
         </div>
-      </div>
+      </GlassCard>
 
       {/* Back to Dashboard */}
-      <div className="pt-4">
+      <div>
         <Link href="/dashboard/department-employee">
-          <button className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium">
-            ← Back to Dashboard
-          </button>
+          <Button variant="ghost" className="hover:bg-transparent hover:text-primary pl-0 gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Button>
         </Link>
       </div>
     </div>

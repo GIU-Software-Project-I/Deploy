@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { payrollTrackingService } from '@/app/services/payroll-tracking';
 
 /**
@@ -154,7 +154,7 @@ export default function TaxDeductionsPage() {
         </div>
         <Link href="/dashboard/department-employee/payroll-tracking">
           <button className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
-            Back to Payroll Tracking
+            ← Back to Payroll Tracking
           </button>
         </Link>
       </div>
@@ -169,7 +169,7 @@ export default function TaxDeductionsPage() {
               Across {taxData.length} payslip{taxData.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className="text-6xl"></div>
+          <div className="text-6xl">🏛️</div>
         </div>
       </div>
 
@@ -250,7 +250,7 @@ export default function TaxDeductionsPage() {
                         )}
                         {tax.lawReference && (
                           <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
-                            <span></span>
+                            <span>📜</span>
                             <span>Law Reference: {tax.lawReference}</span>
                           </p>
                         )}
@@ -339,4 +339,3 @@ export default function TaxDeductionsPage() {
     </div>
   );
 }
-

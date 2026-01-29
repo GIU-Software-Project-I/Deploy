@@ -391,77 +391,76 @@ export default function PerformanceReportsPage() {
                         {dept.total > 0 ? ((dept.completed / dept.total) * 100).toFixed(1) : 0}%
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-sm font-medium rounded ${
-                          (dept.averageRating || 0) >= 4 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                          (dept.averageRating || 0) >= 3 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                          'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        <span className={`px-2 py-1 text-sm font-medium rounded ${(dept.averageRating || 0) >= 4 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                            (dept.averageRating || 0) >= 3 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                        'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                         }`}>
-                          {dept.averageRating?.toFixed(1) || 'N/A'}
-                        </span>
-                      </td>
+                        {dept.averageRating?.toFixed(1) || 'N/A'}
+                      </span>
+                    </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+              </tbody>
+            </table>
+          </div>
           </div>
         )}
 
-        {/* Quick Links */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link
-            href="/dashboard/hr-manager/performance-dashboard"
-            className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div>
-                <h4 className="font-semibold text-foreground">Dashboard</h4>
-                <p className="text-sm text-muted-foreground">Real-time progress</p>
-              </div>
+      {/* Quick Links */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link
+          href="/dashboard/hr-manager/performance-dashboard"
+          className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
             </div>
-          </Link>
+            <div>
+              <h4 className="font-semibold text-foreground">Dashboard</h4>
+              <p className="text-sm text-muted-foreground">Real-time progress</p>
+            </div>
+          </div>
+        </Link>
 
-          <Link
-            href="/dashboard/hr-manager/performance-cycles"
-            className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div>
-                <h4 className="font-semibold text-foreground">Manage Cycles</h4>
-                <p className="text-sm text-muted-foreground">View all cycles</p>
-              </div>
+        <Link
+          href="/dashboard/hr-manager/performance-cycles"
+          className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
             </div>
-          </Link>
+            <div>
+              <h4 className="font-semibold text-foreground">Manage Cycles</h4>
+              <p className="text-sm text-muted-foreground">View all cycles</p>
+            </div>
+          </div>
+        </Link>
 
-          <Link
-            href="/dashboard/hr-manager/disputes"
-            className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div>
-                <h4 className="font-semibold text-foreground">Disputes</h4>
-                <p className="text-sm text-muted-foreground">Review objections</p>
-              </div>
+        <Link
+          href="/dashboard/hr-manager/disputes"
+          className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
             </div>
-          </Link>
-        </div>
+            <div>
+              <h4 className="font-semibold text-foreground">Disputes</h4>
+              <p className="text-sm text-muted-foreground">Review objections</p>
+            </div>
+          </div>
+        </Link>
       </div>
     </div>
+    </div >
   );
 }
 

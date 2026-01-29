@@ -1,24 +1,24 @@
-import {Controller, Post, Body, HttpCode, HttpStatus, Req, Res, UseGuards, InternalServerErrorException, BadRequestException, Patch, Param, HttpException,} from '@nestjs/common';
+import { Controller, Get, Post, Body, HttpCode, HttpStatus, Req, Res, UseGuards, InternalServerErrorException, BadRequestException, Patch, Param, HttpException, } from '@nestjs/common';
 import type { Response } from 'express';
-import { Public } from '../decorators/public-decorator'; 
-import { Roles } from '../decorators/roles-decorator';
+import { Public } from '../../common/decorators/public-decorator';
+import { Roles } from '../../common/decorators/roles-decorator';
 import { AuthService } from '../services/authentication-service';
 
-import { AuthenticationGuard} from '../guards/authentication-guard';
-import { AuthorizationGuard } from '../guards/authorization-guard';
+import { AuthenticationGuard } from '../../common/guards/authentication-guard';
+import { AuthorizationGuard } from '../../common/guards/authorization-guard';
 import { SystemRole } from '../../employee/enums/employee-profile.enums';
-import {RegisterEmployeeDto} from "../dto/register-employee-dto";
-import {RegisterCandidateDto} from "../dto/register-candidate-dto";
-import {LoginDto} from "../dto/login";
+import { RegisterEmployeeDto } from "../dto/register-employee-dto";
+import { RegisterCandidateDto } from "../dto/register-candidate-dto";
+import { LoginDto } from "../dto/login";
 import { ApiTags, ApiBody, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 
 
 @Controller('auth')
 @ApiTags('auth')
 export class AuthController {
-    constructor(private readonly auth: AuthService) {}
+    constructor(private readonly auth: AuthService) { }
 
-   // @UseGuards(AuthenticationGuard, AuthorizationGuard)
+    // @UseGuards(AuthenticationGuard, AuthorizationGuard)
     //@Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
     @Post('register-employee')
     @ApiConsumes('application/json')
@@ -61,20 +61,36 @@ export class AuthController {
     @ApiBody({ type: LoginDto })
     @ApiOperation({ summary: 'Login (returns cookie-set JWT)' })
     async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-        const result = await this.auth.login(dto.email, dto.password);
-        const cookie = await this.auth.getCookieWithJwtToken(result.access_token);
-        res.setHeader('Set-Cookie', cookie);
-        const responseBody: any = {
-            message: 'Login successful',
-            user: result.user,
-            userType: result.userType,
-            expiresIn: '7d'
-        };
-        // For local testing convenience, optionally expose the raw access token in the response body
-        if (process.env.EXPOSE_JWT_ON_LOGIN === 'true' || process.env.NODE_ENV !== 'production') {
-            responseBody.access_token = result.access_token;
+        console.log('[AuthController] Login attempt for:', dto.email);
+        try {
+            const result = await this.auth.login(dto.email, dto.password);
+            console.log('[AuthController] Login successful for:', dto.email, 'UserType:', result.userType);
+
+            // Use res.cookie for better cross-origin support (3000 -> 9000)
+            res.cookie('access_token', result.access_token, {
+                httpOnly: true,
+                secure: true, // Required for SameSite=None, usually works on localhost over HTTP in modern browsers
+                sameSite: 'none', // Required for cross-origin fetch if localhost:3000 is seen as cross-site to :9000
+                path: '/',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            });
+            console.log('[AuthController] Cookie set via res.cookie (SameSite=None, Secure=true)');
+
+            const responseBody: any = {
+                message: 'Login successful',
+                user: result.user,
+                userType: result.userType,
+                expiresIn: '7d'
+            };
+
+            if (process.env.EXPOSE_JWT_ON_LOGIN === 'true' || process.env.NODE_ENV !== 'production') {
+                responseBody.access_token = result.access_token;
+            }
+            return responseBody;
+        } catch (e: any) {
+            console.error('[AuthController] Login error:', e.message);
+            throw e;
         }
-        return responseBody;
     }
 
     @UseGuards(AuthenticationGuard)
@@ -82,14 +98,25 @@ export class AuthController {
     @Post('logout')
     async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
         const token = req.cookies?.access_token;
+        console.log('[AuthController] Logout request, token present:', !!token);
         if (token) {
             await this.auth.logout(token);
         }
-        const cookie = await this.auth.getCookieForLogout();
-        res.setHeader('Set-Cookie', cookie);
+        res.clearCookie('access_token', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            path: '/',
+        });
         return { message: 'Logout successful' };
     }
 
-
+    @UseGuards(AuthenticationGuard)
+    @Get('me')
+    @ApiOperation({ summary: 'Get current user profile' })
+    async getMe(@Req() req: any) {
+        console.log('[AuthController] getMe called for user:', req.user?.sub);
+        return this.auth.getMe(req.user);
+    }
 }
 

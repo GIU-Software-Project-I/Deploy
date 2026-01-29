@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { organizationStructureService } from '@/app/services/organization-structure';
-import { StatusBadge } from '@/app/components/ui/status-badge';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { useAuth } from '@/context/AuthContext';
 
 /**
  * Change Requests Management - System Admin
@@ -39,13 +40,14 @@ const requestTypeLabels: Record<string, string> = {
   CLOSE_POSITION: 'Close Position',
 };
 
-// Helper to check if status is actionable (case-insensitive)
+// Helper to check if status is actionable
 const isActionableStatus = (status: string): boolean => {
   const normalizedStatus = status?.toUpperCase();
-  return normalizedStatus === 'SUBMITTED' || normalizedStatus === 'UNDER_REVIEW' || normalizedStatus === 'PENDING';
+  return normalizedStatus === 'SUBMITTED' || normalizedStatus === 'UNDER_REVIEW';
 };
 
 export default function ChangeRequestsPage() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -73,6 +75,7 @@ export default function ChangeRequestsPage() {
         setRequests(Array.isArray(data) ? data : (data.data || []));
       }
     } catch (err: any) {
+      console.error('Error fetching requests:', err);
       setError(err.message || 'Failed to load change requests');
     } finally {
       setLoading(false);
@@ -80,28 +83,60 @@ export default function ChangeRequestsPage() {
   };
 
   const handleApprove = async () => {
-    if (!selectedRequest) return;
+    if (!selectedRequest || !user) return;
 
     try {
       setActionLoading(true);
+      setError(null);
+      
+      console.log('[FRONTEND] Approving request:', {
+        requestId: selectedRequest._id,
+        userId: user.id,
+        userName: `${user.firstName} ${user.lastName}`
+      });
+
+      // IMPORTANT: Make sure your user object has the correct ID field
+      // Check what field contains the employee ID in your user object
+      const approverEmployeeId = user.id ;
+      
+      if (!approverEmployeeId) {
+        setError('Cannot determine your employee ID. Please log in again.');
+        return;
+      }
+
       await organizationStructureService.submitApprovalDecision(selectedRequest._id, {
         decision: 'APPROVED',
         comments: decisionComment || undefined,
+        approverEmployeeId: approverEmployeeId, // Make sure this is sent
       });
 
       setSuccess('Request approved successfully');
       setSelectedRequest(null);
       setDecisionComment('');
-      fetchRequests();
+      fetchRequests(); // Refresh the list
     } catch (err: any) {
-      setError(err.message || 'Failed to approve request');
+      console.error('[FRONTEND] Approval error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      // Extract better error message
+      let errorMessage = 'Failed to approve request';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(`Error: ${errorMessage}`);
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleReject = async () => {
-    if (!selectedRequest) return;
+    if (!selectedRequest || !user) return;
 
     if (!decisionComment.trim()) {
       setError('Please provide a reason for rejection');
@@ -110,21 +145,69 @@ export default function ChangeRequestsPage() {
 
     try {
       setActionLoading(true);
+      setError(null);
+      
+      console.log('[FRONTEND] Rejecting request:', {
+        requestId: selectedRequest._id,
+        userId: user.id
+      });
+
+      // IMPORTANT: Make sure your user object has the correct ID field
+      const approverEmployeeId = user.id ;
+      
+      if (!approverEmployeeId) {
+        setError('Cannot determine your employee ID. Please log in again.');
+        return;
+      }
+
       await organizationStructureService.submitApprovalDecision(selectedRequest._id, {
         decision: 'REJECTED',
         comments: decisionComment,
+        approverEmployeeId: approverEmployeeId, // Make sure this is sent
       });
 
       setSuccess('Request rejected');
       setSelectedRequest(null);
       setDecisionComment('');
-      fetchRequests();
+      fetchRequests(); // Refresh the list
     } catch (err: any) {
-      setError(err.message || 'Failed to reject request');
+      console.error('[FRONTEND] Rejection error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      // Extract better error message
+      let errorMessage = 'Failed to reject request';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(`Error: ${errorMessage}`);
     } finally {
       setActionLoading(false);
     }
   };
+
+  const handleViewDetails = (request: ChangeRequest) => {
+    setSelectedRequest(request);
+    setDecisionComment(''); // Clear any previous comments
+  };
+
+  // Debug: Check what user object looks like
+  useEffect(() => {
+    if (user && process.env.NODE_ENV === 'development') {
+      console.log('[DEBUG] User object:', {
+        id: user.id,
+        employeeNumber: user.employeeNumber,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
+      });
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -158,6 +241,9 @@ export default function ChangeRequestsPage() {
               <p className="text-muted-foreground text-sm mt-1">
                 REQ-OSM-04: Review and approve structural change requests
               </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Logged in as: {user?.firstName} {user?.lastName} ({user?.role})
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -167,29 +253,57 @@ export default function ChangeRequestsPage() {
               className="px-4 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="DRAFT">Draft</option>
-              <option value="SUBMITTED">Submitted</option>
+              <option value="SUBMITTED">Submitted (Pending Review)</option>
               <option value="UNDER_REVIEW">Under Review</option>
+              <option value="DRAFT">Draft</option>
               <option value="APPROVED">Approved</option>
               <option value="REJECTED">Rejected</option>
               <option value="CANCELED">Canceled</option>
               <option value="IMPLEMENTED">Implemented</option>
             </select>
+            <button
+              onClick={fetchRequests}
+              className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-lg text-sm transition-colors"
+            >
+              Refresh
+            </button>
           </div>
         </div>
 
+        {/* Error/Success Messages */}
         {error && (
           <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
-            {error}
-            <button onClick={() => setError(null)} className="float-right">&times;</button>
+            <div className="flex justify-between items-center">
+              <span>{error}</span>
+              <button 
+                onClick={() => setError(null)} 
+                className="text-destructive hover:text-destructive/80"
+              >
+                ×
+              </button>
+            </div>
           </div>
         )}
 
         {success && (
           <div className="bg-green-50 border border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 px-4 py-3 rounded-lg">
-            {success}
-            <button onClick={() => setSuccess(null)} className="float-right">&times;</button>
+            <div className="flex justify-between items-center">
+              <span>{success}</span>
+              <button 
+                onClick={() => setSuccess(null)} 
+                className="text-green-700 dark:text-green-400 hover:opacity-80"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Debug Info (remove in production) */}
+        {process.env.NODE_ENV === 'development' && user && (
+          <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+            <p>Debug: User ID for approvals: {user.id || 'No ID found'}</p>
+            <p>Available fields: id={user.id}</p>
           </div>
         )}
 
@@ -202,8 +316,18 @@ export default function ChangeRequestsPage() {
               </svg>
               <h3 className="font-medium text-foreground">No Change Requests</h3>
               <p className="text-muted-foreground text-sm mt-1">
-                {filterStatus === 'SUBMITTED' || filterStatus === 'UNDER_REVIEW' ? 'No pending requests to review' : 'No requests found'}
+                {filterStatus === 'SUBMITTED' || filterStatus === 'UNDER_REVIEW' 
+                  ? 'No pending requests to review' 
+                  : 'No requests found'}
               </p>
+              {!filterStatus && (
+                <button
+                  onClick={() => setFilterStatus('SUBMITTED')}
+                  className="mt-4 px-4 py-2 text-sm text-primary hover:text-primary/80"
+                >
+                  Show only pending requests
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -245,10 +369,10 @@ export default function ChangeRequestsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <button
-                          onClick={() => setSelectedRequest(request)}
-                          className="text-sm text-primary hover:text-primary/80"
+                          onClick={() => handleViewDetails(request)}
+                          className={`text-sm ${isActionableStatus(request.status) ? 'text-primary hover:text-primary/80' : 'text-muted-foreground hover:text-foreground'}`}
                         >
-                          {isActionableStatus(request.status) ? 'Review' : 'View'}
+                          {isActionableStatus(request.status) ? 'Review & Decide' : 'View Details'}
                         </button>
                       </td>
                     </tr>
@@ -265,7 +389,10 @@ export default function ChangeRequestsPage() {
             <div className="bg-card border border-border rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="px-6 py-4 border-b border-border flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-foreground">
-                  {isActionableStatus(selectedRequest.status) ? 'Review Request' : 'Request Details'}
+                  {isActionableStatus(selectedRequest.status) ? 'Review & Decide' : 'Request Details'}
+                  <span className="text-sm text-muted-foreground block font-normal">
+                    {selectedRequest.requestNumber}
+                  </span>
                 </h2>
                 <button
                   onClick={() => {
@@ -273,6 +400,7 @@ export default function ChangeRequestsPage() {
                     setDecisionComment('');
                   }}
                   className="p-2 text-muted-foreground hover:text-foreground rounded-lg"
+                  disabled={actionLoading}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -281,6 +409,17 @@ export default function ChangeRequestsPage() {
               </div>
 
               <div className="p-6 space-y-6">
+                {/* Current User Info */}
+                {isActionableStatus(selectedRequest.status) && user && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <p className="text-xs text-blue-700 dark:text-blue-400">
+                      You are approving as: <span className="font-medium">{user.firstName} {user.lastName}</span>
+                      <br />
+                      User ID: <span className="font-mono text-xs">{user.id }</span>
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm text-muted-foreground">Request Number</label>
@@ -334,34 +473,60 @@ export default function ChangeRequestsPage() {
                 {isActionableStatus(selectedRequest.status) && (
                   <div>
                     <label className="text-sm text-muted-foreground block mb-2">
-                      Decision Comment (Required for rejection)
+                      Decision Comment <span className="text-destructive">*</span>
+                      <span className="text-xs text-muted-foreground block font-normal">
+                        Required for rejection, optional for approval
+                      </span>
                     </label>
                     <textarea
                       value={decisionComment}
                       onChange={(e) => setDecisionComment(e.target.value)}
                       className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px]"
-                      placeholder="Add your comments..."
+                      placeholder="Add your comments or reason for decision..."
+                      disabled={actionLoading}
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Your decision will be recorded under your name: {user?.firstName} {user?.lastName}
+                    </p>
                   </div>
                 )}
               </div>
 
               {isActionableStatus(selectedRequest.status) && (
-                <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
-                  <button
-                    onClick={handleReject}
-                    disabled={actionLoading}
-                    className="px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    Reject
-                  </button>
-                  <button
-                    onClick={handleApprove}
-                    disabled={actionLoading}
-                    className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-                  >
-                    {actionLoading ? 'Processing...' : 'Approve'}
-                  </button>
+                <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Approving as: <span className="font-medium">{user?.firstName} {user?.lastName}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        setSelectedRequest(null);
+                        setDecisionComment('');
+                      }}
+                      className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                      disabled={actionLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleReject}
+                      disabled={actionLoading || (!decisionComment.trim() && !actionLoading)}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        !decisionComment.trim() 
+                          ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed' 
+                          : 'text-destructive hover:bg-destructive/10 disabled:opacity-50'
+                      }`}
+                    >
+                      {actionLoading ? 'Processing...' : 'Reject'}
+                    </button>
+                    <button
+                      onClick={handleApprove}
+                      disabled={actionLoading}
+                      className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      {actionLoading ? 'Processing...' : 'Approve'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -371,4 +536,3 @@ export default function ChangeRequestsPage() {
     </div>
   );
 }
-

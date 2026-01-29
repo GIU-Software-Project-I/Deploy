@@ -27,12 +27,12 @@ import { EmployeeModule } from '../../employee/employee.module';
 // import leaves module
 import { LeavesModule } from '../../leaves/leaves.module';
 // import auth module for guards/services
-import { AuthModule } from '../../auth/auth-module';
+import { AuthModule } from '../../auth/auth.module';
 // import shared module for SharedPayrollService
-import { SharedModule } from '../../shared/shared.module';
+import { IntegrationModule } from '../../integration/Integration.module';
 
 @Module({
-  imports: [forwardRef(() => PayrollTrackingModule), PayrollConfigurationModule, TimeManagementModule, EmployeeModule, LeavesModule, AuthModule, SharedModule,
+  imports: [forwardRef(() => PayrollTrackingModule), PayrollConfigurationModule, TimeManagementModule, EmployeeModule, LeavesModule, AuthModule, IntegrationModule,
   MongooseModule.forFeature([
     { name: payrollRuns.name, schema: payrollRunsSchema },
     { name: paySlip.name, schema: paySlipSchema },

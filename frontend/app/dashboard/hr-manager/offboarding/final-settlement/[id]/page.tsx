@@ -8,6 +8,7 @@ import {
   TerminationRequest,
   TerminationStatus,
   ClearanceCompletionStatus,
+  FinalSettlementPreview,
 } from '@/app/services/offboarding';
 
 export default function FinalSettlementPage() {
@@ -18,6 +19,7 @@ export default function FinalSettlementPage() {
   const [error, setError] = useState<string | null>(null);
   const [request, setRequest] = useState<TerminationRequest | null>(null);
   const [clearanceStatus, setClearanceStatus] = useState<ClearanceCompletionStatus | null>(null);
+  const [settlementPreview, setSettlementPreview] = useState<FinalSettlementPreview | null>(null);
   const [triggering, setTriggering] = useState(false);
   const [triggered, setTriggered] = useState(false);
 
@@ -35,12 +37,21 @@ export default function FinalSettlementPage() {
       setRequest(requestData);
 
       if (requestData.status === TerminationStatus.APPROVED) {
+        // Fetch Clearance Status
         try {
           const checklist = await offboardingService.getClearanceChecklistByTerminationId(terminationId);
           const status = await offboardingService.getClearanceCompletionStatus(checklist._id);
           setClearanceStatus(status);
         } catch {
-          // Clearance might not exist
+          // Clearance might not exist yet
+        }
+
+        // Fetch Settlement Preview
+        try {
+          const preview = await offboardingService.previewFinalSettlement(terminationId);
+          setSettlementPreview(preview);
+        } catch (err) {
+          console.error('Failed to fetch settlement preview', err);
         }
       }
     } catch (err: any) {
@@ -136,11 +147,10 @@ export default function FinalSettlementPage() {
           <div>
             <dt className="text-sm font-medium text-muted-foreground">Status</dt>
             <dd className="mt-1">
-              <span className={`px-2 py-1 text-sm font-medium rounded-full ${
-                request.status === TerminationStatus.APPROVED
+              <span className={`px-2 py-1 text-sm font-medium rounded-full ${request.status === TerminationStatus.APPROVED
                   ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
                   : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300'
-              }`}>
+                }`}>
                 {request.status.replace('_', ' ').toUpperCase()}
               </span>
             </dd>
@@ -220,29 +230,54 @@ export default function FinalSettlementPage() {
       <div className="bg-card rounded-lg border border-border p-6">
         <h2 className="text-lg font-semibold mb-4 text-foreground">Settlement Components</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Per BR 11: Leaves balance must be reviewed and settled (unused annuals to be encashed).
-          Benefits plans are set to be auto-terminated as of the end of the notice period.
+          Per BR 11: Leaves balance has been reviewed. Unused annual leaves will be encashed.
+          Benefits will be auto-terminated.
         </p>
         <div className="space-y-3">
           <div className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-            <span className="text-foreground">Unused Annual Leave Encashment</span>
-            <span className="text-muted-foreground text-sm">Calculated from Leaves Module</span>
+            <div>
+              <span className="text-foreground block font-medium">Unused Annual Leave Encashment</span>
+              <span className="text-muted-foreground text-xs">
+                {settlementPreview ? `${settlementPreview.leaveEncashment.unusedDays} days @ ${settlementPreview.leaveEncashment.dailyRate}/day` : 'Calculating...'}
+              </span>
+            </div>
+            <span className="text-foreground font-bold">
+              {settlementPreview ? `${settlementPreview.leaveEncashment.encashmentAmount.toLocaleString()} SAR` : '-'}
+            </span>
           </div>
+
           <div className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-            <span className="text-foreground">Final Salary (Pro-rated)</span>
-            <span className="text-muted-foreground text-sm">Calculated from Payroll Module</span>
+            <div>
+              <span className="text-foreground block font-medium">Termination Benefit</span>
+              <span className="text-muted-foreground text-xs">Excludes leave encashment</span>
+            </div>
+            <span className="text-foreground font-bold">
+              {settlementPreview ? `${settlementPreview.terminationBenefit.baseAmount.toLocaleString()} SAR` : '-'}
+            </span>
           </div>
+
           <div className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-            <span className="text-foreground">Pending Allowances</span>
-            <span className="text-muted-foreground text-sm">Calculated from Payroll Module</span>
+            <span className="text-foreground font-medium">Final Salary (Pro-rated)</span>
+            <span className="text-muted-foreground text-sm italic">Calculated in Payroll Run</span>
           </div>
+
           <div className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-            <span className="text-foreground">Deductions (Loans, Advances)</span>
-            <span className="text-muted-foreground text-sm">Calculated from Payroll Module</span>
+            <span className="text-foreground font-medium">Pending Allowances/Deductions</span>
+            <span className="text-muted-foreground text-sm italic">Calculated in Payroll Run</span>
           </div>
+
           <div className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-            <span className="text-foreground">Benefits Termination</span>
-            <span className="text-muted-foreground text-sm">Auto-terminated at end of notice period</span>
+            <span className="text-foreground font-medium">Benefits Termination</span>
+            <span className="text-muted-foreground text-sm">Auto-terminated (Health, Insurance)</span>
+          </div>
+
+          <div className="flex justify-between items-center p-4 bg-primary/5 border border-primary/20 rounded-lg mt-2">
+            <span className="text-foreground font-bold text-lg">Estimated Final Payout</span>
+            <span className="text-primary font-bold text-xl">
+              {settlementPreview
+                ? `${(settlementPreview.leaveEncashment.encashmentAmount + settlementPreview.terminationBenefit.baseAmount).toLocaleString()} SAR + Monthly Salary`
+                : '-'}
+            </span>
           </div>
         </div>
       </div>
@@ -259,13 +294,12 @@ export default function FinalSettlementPage() {
             <button
               onClick={handleTriggerSettlement}
               disabled={triggering || triggered}
-              className={`px-6 py-3 rounded-md text-primary-foreground font-medium ${
-                triggered
+              className={`px-6 py-3 rounded-md text-primary-foreground font-medium ${triggered
                   ? 'bg-green-500 cursor-not-allowed'
                   : triggering
-                  ? 'bg-muted cursor-not-allowed'
-                  : 'bg-primary hover:bg-primary/90'
-              }`}
+                    ? 'bg-muted cursor-not-allowed'
+                    : 'bg-primary hover:bg-primary/90'
+                }`}
             >
               {triggered ? 'Settlement Triggered' : triggering ? 'Processing...' : 'Trigger Final Settlement'}
             </button>
@@ -289,4 +323,3 @@ export default function FinalSettlementPage() {
     </div>
   );
 }
-

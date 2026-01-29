@@ -1,44 +1,11 @@
 
-// Force the correct API URL - environment variable may not be loading correctly
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000';
-
-// Log the API URL at startup for debugging
-if (typeof window !== 'undefined') {
-  console.log('[API] Base URL:', API_BASE_URL);
-  console.log('[API] Env value:', process.env.NEXT_PUBLIC_API_URL);
-}
+// API Base URL - always use localhost:9000
+const API_BASE_URL = 'http://localhost:5000';
 
 export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   status: number;
-}
-
-// Get access token from cookie
-export function getAccessToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === 'access_token') {
-      return decodeURIComponent(value);
-    }
-  }
-  return null;
-}
-
-// Set access token in cookie
-export function setAccessToken(token: string): void {
-  if (typeof window === 'undefined') return;
-  // Set cookie with 7 days expiry, secure in production
-  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = `access_token=${encodeURIComponent(token)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secure}`;
-}
-
-// Remove access token from cookie
-export function removeAccessToken(): void {
-  if (typeof window === 'undefined') return;
-  document.cookie = 'access_token=; path=/; max-age=0';
 }
 
 class ApiService {
@@ -59,12 +26,6 @@ class ApiService {
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
     };
-
-    // Add authorization header if we have a token
-    const token = getAccessToken();
-    if (token) {
-      (defaultHeaders as Record<string, string>)['Authorization'] = `Bearer ${token}`;
-    }
 
     const config: RequestInit = {
       ...options,
@@ -139,18 +100,12 @@ class ApiService {
 
   async postFormData<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
-    
-    const headers: HeadersInit = {};
-    const token = getAccessToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+
     // Note: Don't set Content-Type for FormData - browser sets it with boundary
 
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers,
         body: formData,
         credentials: 'include',
       });
@@ -185,18 +140,9 @@ class ApiService {
   async downloadFile(endpoint: string): Promise<{ blob?: Blob; filename?: string; error?: string; status: number }> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    const defaultHeaders: HeadersInit = {};
-
-    // Add authorization header if we have a token
-    const token = getAccessToken();
-    if (token) {
-      (defaultHeaders as Record<string, string>)['Authorization'] = `Bearer ${token}`;
-    }
-
     try {
       const response = await fetch(url, {
         method: 'GET',
-        headers: defaultHeaders,
         credentials: 'include',
       });
 
@@ -238,4 +184,3 @@ const apiService = new ApiService(API_BASE_URL);
 
 export default apiService;
 export { API_BASE_URL };
-

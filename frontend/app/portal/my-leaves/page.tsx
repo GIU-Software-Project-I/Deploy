@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { leavesService } from '@/app/services/leaves';
 import { notificationsService, type Notification } from '@/app/services/notifications';
-import { useAuth } from '@/app/context/AuthContext';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
+import { useAuth } from '@/context/AuthContext';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { RefreshCw, Plus, AlertCircle, Bell, Calendar } from 'lucide-react';
-import type { LeaveBalanceSummary } from '@/app/types/leaves';
+import type { LeaveBalanceSummary } from '@/types/leaves';
 
 type LeaveBalance = LeaveBalanceSummary[];
 
@@ -24,6 +24,8 @@ interface LeaveRequest {
   createdAt: string;
   approvedBy?: string;
   rejectionReason?: string;
+  flaggedIrregular?: boolean;
+  irregularReason?: string;
 }
 
 // Backend leave request structure
@@ -40,6 +42,14 @@ interface BackendLeaveRequest {
   status: string;
   createdAt?: string;
   updatedAt?: string;
+  irregularPatternFlag?: boolean;
+  approvalFlow?: Array<{
+    role: string;
+    status: string;
+    decidedBy?: string;
+    decidedAt?: string | Date;
+    reason?: string;
+  }>;
 }
 
 export default function MyLeavesPage() {
@@ -100,6 +110,19 @@ export default function MyLeavesPage() {
   // Fetch only leave requests with current filters
   const fetchRequests = async (employeeId: string) => {
     try {
+      // Always load leave types to ensure they're available for matching
+      const typesRes = await leavesService.getLeaveTypes();
+      let currentLeaveTypes = leaveTypes;
+      if (Array.isArray(typesRes.data)) {
+        const fetchedLeaveTypes = typesRes.data as Array<{ _id?: string; id?: string; name?: string; code?: string }>;
+        currentLeaveTypes = fetchedLeaveTypes.map(lt => ({
+          _id: String(lt._id || lt.id || ''),
+          name: lt.name || '',
+          code: lt.code,
+        })).filter(lt => lt._id && lt._id !== 'undefined' && lt._id !== 'null');
+        setLeaveTypes(currentLeaveTypes);
+      }
+
       const params: {
         status?: string;
         leaveTypeId?: string;
@@ -154,19 +177,96 @@ export default function MyLeavesPage() {
           return date.toISOString().split('T')[0];
         };
 
-        // Find leave type name from leaveTypes
-        const leaveType = leaveTypes.find(lt => lt._id === req.leaveTypeId);
+        // Find leave type name from leaveTypes - handle both string and object ID formats
+        // Use currentLeaveTypes from the closure (freshly loaded) instead of state
+        const leaveType = currentLeaveTypes.find(lt => {
+          const ltId = String(lt._id || '').trim();
+          const reqId = String(req.leaveTypeId || '').trim();
+          // Compare as strings to handle ObjectId vs string mismatches
+          return ltId === reqId || ltId.includes(reqId) || reqId.includes(ltId);
+        });
         const normalizedStatus = (req.status || 'pending').toUpperCase() as LeaveRequest['status'];
+
+        // Extract irregular reason from approvalFlow if available
+        const irregularEntry = req.approvalFlow?.find(
+          (entry) => entry.role === 'manager' && entry.status === 'irregular_flag'
+        );
+        const irregularReason = irregularEntry?.reason;
+
+        // Calculate calendar days from dates (inclusive of both start and end dates)
+        const calculateCalendarDays = (from: string | Date | undefined, to: string | Date | undefined): number => {
+          if (!from || !to) return req.durationDays || 0;
+          
+          const start = typeof from === 'string' ? new Date(from) : from;
+          const end = typeof to === 'string' ? new Date(to) : to;
+          
+          if (isNaN(start.getTime()) || isNaN(end.getTime())) return req.durationDays || 0;
+          
+          // Calculate difference in milliseconds
+          const diffTime = Math.abs(end.getTime() - start.getTime());
+          // Convert to days and add 1 to include both start and end dates
+          const calendarDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          
+          return calendarDays;
+        };
+
+        const startDateStr = formatDate(req.dates?.from);
+        const endDateStr = formatDate(req.dates?.to);
+        const calendarDays = calculateCalendarDays(req.dates?.from, req.dates?.to);
+
+        // Get leave type name with multiple fallbacks
+        let leaveTypeName = '';
+        
+        // Priority 1: Use leaveTypeName from request if available
+        if (req.leaveTypeName) {
+          leaveTypeName = req.leaveTypeName;
+        }
+        // Priority 2: Find in leaveTypes array
+        else if (leaveType?.name) {
+          leaveTypeName = leaveType.name;
+        }
+        // Priority 3: Try to find by ID in the types array (use currentLeaveTypes from closure)
+        else if (req.leaveTypeId && currentLeaveTypes.length > 0) {
+          const reqId = String(req.leaveTypeId).trim();
+          const foundType = currentLeaveTypes.find(lt => {
+            const ltId = String(lt._id || '').trim();
+            // Try exact match first
+            if (ltId === reqId) return true;
+            // Try without ObjectId wrapper (handle MongoDB ObjectId format)
+            if (ltId.includes(reqId) || reqId.includes(ltId)) return true;
+            return false;
+          });
+          if (foundType?.name) {
+            leaveTypeName = foundType.name;
+          }
+        }
+        
+        // Debug logging
+        if (!leaveTypeName && req.leaveTypeId) {
+          console.warn('Could not find leave type name:', {
+            leaveTypeId: req.leaveTypeId,
+            leaveTypeName: req.leaveTypeName,
+            leaveTypesCount: leaveTypes.length,
+            leaveTypesIds: leaveTypes.map(lt => lt._id),
+          });
+        }
+        
+        // If still no name found, use a default
+        if (!leaveTypeName) {
+          leaveTypeName = 'Leave';
+        }
 
         return {
           _id: req._id,
-          type: leaveType?.name || req.leaveTypeName || 'Unknown',
-          startDate: formatDate(req.dates?.from),
-          endDate: formatDate(req.dates?.to),
-          days: req.durationDays || 0,
+          type: leaveTypeName,
+          startDate: startDateStr,
+          endDate: endDateStr,
+          days: calendarDays, // Use calculated calendar days instead of working days
           reason: req.justification || '',
           status: normalizedStatus,
           createdAt: req.createdAt || new Date().toISOString(),
+          flaggedIrregular: req.irregularPatternFlag || false,
+          irregularReason: irregularReason,
         };
       });
 
@@ -842,7 +942,9 @@ export default function MyLeavesPage() {
                         <div className={`w-1 h-12 rounded-full ${getLeaveTypeColor(request.type)}`}></div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-medium text-foreground capitalize">{request.type || 'Unknown'} Leave</h3>
+                            <h3 className="font-medium text-foreground capitalize">
+                              {request.type || 'Leave'}
+                            </h3>
                             <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusConfig.bg} ${statusConfig.text}`}>
                               {statusConfig.label}
                             </span>
@@ -859,6 +961,19 @@ export default function MyLeavesPage() {
                           )}
                           {request.rejectionReason && (
                             <p className="text-sm text-destructive mt-2">Reason: {request.rejectionReason}</p>
+                          )}
+                          {request.flaggedIrregular && (
+                            <div className="mt-2 p-2 bg-warning/10 dark:bg-warning/20 border border-warning/20 rounded-lg">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-warning">Irregular Pattern Flagged</p>
+                                  {request.irregularReason && (
+                                    <p className="text-xs text-warning/80 mt-1">{request.irregularReason}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>

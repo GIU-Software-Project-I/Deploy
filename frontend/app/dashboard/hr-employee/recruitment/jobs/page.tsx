@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/app/components/ui/button';
-import { Card } from '@/app/components/ui/card';
-import { Input } from '@/app/components/ui/input';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { getJobs, publishJob, closeJob } from '@/app/services/recruitment';
-import { JobRequisition } from '@/app/types/recruitment';
+import { JobRequisition } from '@/types/recruitment';
 
 // =====================================================
 // Types

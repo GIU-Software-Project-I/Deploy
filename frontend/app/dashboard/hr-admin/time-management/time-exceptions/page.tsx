@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { timeManagementService } from '@/app/services/time-management';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface TimeException {
   _id: string;

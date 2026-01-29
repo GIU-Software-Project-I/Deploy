@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { employeeProfileService } from '@/app/services/employee-profile';
-import { RoleAssignmentModal, Employee } from '@/app/components/hr-admin';
+import { RoleAssignmentModal, Employee } from '@/components/hr-admin';
 
 const ROLE_INFO = [
   { value: 'department employee', label: 'Department Employee', color: 'bg-muted-foreground', description: 'Basic employee access', count: 0 },

@@ -2,16 +2,34 @@
 
 import { useState, useEffect } from 'react';
 import { onboardingService, Onboarding, OnboardingTaskStatus } from '@/app/services/onboarding';
+import {
+  LucideLaptop,
+  LucideMonitor,
+  LucideKeyboard,
+  LucideMouse,
+  LucideHeadphones,
+  LucideSmartphone,
+  LucideContact2,
+  LucideHome,
+  LucidePackage,
+  LucideCheckCircle2,
+  LucideAlertCircle,
+  LucideLoader2,
+  LucideChevronRight,
+  LucideBox,
+  LucideLayers,
+  LucideHistory
+} from 'lucide-react';
 
 const EQUIPMENT_TYPES = [
-  { id: 'laptop', name: 'Laptop', description: 'Standard work laptop' },
-  { id: 'monitor', name: 'Monitor', description: 'External display' },
-  { id: 'keyboard', name: 'Keyboard', description: 'Wired or wireless keyboard' },
-  { id: 'mouse', name: 'Mouse', description: 'Wired or wireless mouse' },
-  { id: 'headset', name: 'Headset', description: 'Communication headset' },
-  { id: 'phone', name: 'Desk Phone', description: 'IP desk phone' },
-  { id: 'access_card', name: 'Access Card', description: 'Building access card' },
-  { id: 'desk', name: 'Desk/Workspace', description: 'Assigned workspace' },
+  { id: 'laptop', name: 'Workstation', description: 'Performance Laptop', icon: LucideLaptop },
+  { id: 'monitor', name: 'Display', description: 'External 4K Monitor', icon: LucideMonitor },
+  { id: 'keyboard', name: 'Primary HIDs', description: 'Mechanical Keyboard', icon: LucideKeyboard },
+  { id: 'mouse', name: 'Precision Mouse', description: 'Wireless Optical', icon: LucideMouse },
+  { id: 'headset', name: 'Audio Gear', description: 'ANC Headset', icon: LucideHeadphones },
+  { id: 'phone', name: 'Mobile/IP', description: 'Corporate Device', icon: LucideSmartphone },
+  { id: 'access_card', name: 'Security Pass', description: 'Proximity Card', icon: LucideContact2 },
+  { id: 'desk', name: 'Workspace', description: 'Assigned Station', icon: LucideHome },
 ];
 
 export default function EquipmentReservationPage() {
@@ -81,7 +99,7 @@ export default function EquipmentReservationPage() {
 
     const equipment = selectedEquipment[onboarding._id] || [];
     if (equipment.length === 0) {
-      setError('Please select at least one equipment item');
+      setError('Please select at least one asset item');
       return;
     }
 
@@ -105,12 +123,12 @@ export default function EquipmentReservationPage() {
         }
       }
 
-      setSuccess(`Equipment reserved successfully`);
+      setSuccess(`Assets reserved and provisioned for ${employeeId}`);
       setSelectedEquipment(prev => ({ ...prev, [onboarding._id]: [] }));
       setTimeout(() => setSuccess(null), 4000);
       await fetchData();
     } catch (err: any) {
-      setError(err.message || 'Failed to reserve equipment');
+      setError(err.message || 'Failed to reserve assets');
     } finally {
       setProcessing(null);
     }
@@ -118,280 +136,242 @@ export default function EquipmentReservationPage() {
 
   const stats = {
     total: onboardings.length,
-    pendingAdmin: onboardings.filter(o => !o.completed && hasAdminPendingTasks(o)).length,
-    completedAdmin: onboardings.filter(o => o.completed || !hasAdminPendingTasks(o)).length,
+    pending: onboardings.filter(o => !o.completed && hasAdminPendingTasks(o)).length,
+    completed: onboardings.filter(o => o.completed || !hasAdminPendingTasks(o)).length,
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6 lg:p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="h-24 bg-white rounded-xl shadow-sm"></div>
-              <div className="h-24 bg-white rounded-xl shadow-sm"></div>
-              <div className="h-24 bg-white rounded-xl shadow-sm"></div>
-            </div>
-            <div className="h-96 bg-white rounded-xl shadow-sm"></div>
+      <div className="min-h-screen bg-white p-8 animate-pulse">
+        <div className="max-w-7xl mx-auto space-y-12">
+          <div className="h-12 bg-gray-100 rounded-2xl w-64"></div>
+          <div className="grid grid-cols-3 gap-6">
+            <div className="h-32 bg-gray-50 rounded-3xl"></div>
+            <div className="h-32 bg-gray-50 rounded-3xl"></div>
+            <div className="h-32 bg-gray-50 rounded-3xl"></div>
           </div>
+          <div className="h-96 bg-gray-50 rounded-[40px]"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-semibold text-gray-900">Equipment Reservation</h1>
-          <p className="text-gray-500 mt-1">Reserve equipment, desk and access cards for new hires</p>
+    <div className="min-h-screen bg-[#fafafa] p-6 lg:p-10 font-sans text-black">
+      <div className="max-w-7xl mx-auto space-y-10">
+
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-[0.2em]">
+              <LucideBox className="w-3.5 h-3.5" />
+              Asset Inventory
+            </div>
+            <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-black">
+              Equipment
+            </h1>
+            <p className="text-gray-400 text-xl font-medium max-w-2xl leading-relaxed">
+              Logistical resource allocation. Assigning hardware, physical security credentials, and workspace environments.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <StatCard label="Total Requests" value={stats.total} icon={LucideLayers} color="black" />
+            <StatCard label="Pending Prep" value={stats.pending} icon={LucidePackage} color="amber" />
+            <StatCard label="Ready for Day 1" value={stats.completed} icon={LucideCheckCircle2} color="green" />
+          </div>
         </div>
 
+        {/* Global Feedback */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-3">
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {error}
+          <div className="bg-red-50 border border-red-100 text-red-900 px-8 py-5 rounded-3xl flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
+            <LucideAlertCircle className="w-6 h-6 text-red-600" />
+            <p className="font-black text-sm uppercase tracking-widest">{error}</p>
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-3">
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {success}
+          <div className="bg-black text-white px-8 py-5 rounded-3xl flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl">
+            <LucideCheckCircle2 className="w-6 h-6 text-white" />
+            <p className="font-black text-sm uppercase tracking-[0.1em]">{success}</p>
           </div>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+        {/* Control Center */}
+        <div className="flex flex-col lg:flex-row gap-8">
+
+          {/* Main List Section */}
+          <div className="flex-1 space-y-8">
+            <div className="flex items-center justify-between px-3">
+              <div className="flex items-center gap-6">
+                {['pending', 'completed', 'all'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setFilterStatus(tab as any)}
+                    className={`text-[10px] font-black uppercase tracking-[0.25em] transition-all duration-300 relative py-2 ${filterStatus === tab ? 'text-black' : 'text-gray-300 hover:text-gray-500'
+                      }`}
+                  >
+                    {tab}
+                    {filterStatus === tab && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black rounded-full" />}
+                  </button>
+                ))}
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Total Onboardings</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
-              </div>
+              <button onClick={fetchData} className="p-2 hover:bg-black/5 rounded-full transition-colors">
+                <LucideHistory className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+              {filteredOnboardings.length === 0 ? (
+                <div className="py-32 text-center bg-white border border-gray-100 rounded-[48px] shadow-sm">
+                  <LucidePackage className="w-16 h-16 text-gray-100 mx-auto mb-6" />
+                  <p className="text-xl font-black text-black">No Assignments Found</p>
+                  <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-2 px-8 max-w-md mx-auto">
+                    The resource queue is currently empty for the selected filter criteria.
+                  </p>
+                </div>
+              ) : (
+                filteredOnboardings.map((onboarding) => (
+                  <OnboardingAssetCard
+                    key={onboarding._id}
+                    onboarding={onboarding}
+                    isSelected={selectedEquipment[onboarding._id] || []}
+                    onToggle={(eqId) => handleEquipmentToggle(onboarding._id, eqId)}
+                    onAction={() => handleReserveEquipment(onboarding)}
+                    isProcessing={processing === onboarding._id}
+                    hasPending={hasAdminPendingTasks(onboarding)}
+                  />
+                ))
+              )}
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Pending Equipment</p>
-                <p className="text-2xl font-semibold text-amber-600">{stats.pendingAdmin}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Completed</p>
-                <p className="text-2xl font-semibold text-green-600">{stats.completedAdmin}</p>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Info Notice */}
-        <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 flex gap-3">
-          <svg className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <h3 className="font-medium text-purple-900">Equipment Reservation Guidelines</h3>
-            <p className="text-sm text-purple-700 mt-1">
-              Ensure all equipment is reserved and ready before the employee's first day. Standard equipment includes laptop, monitor, and access card.
-            </p>
-          </div>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="flex gap-2">
-          {[
-            { key: 'pending', label: 'Pending', count: stats.pendingAdmin, color: 'amber' },
-            { key: 'completed', label: 'Completed', count: stats.completedAdmin, color: 'green' },
-            { key: 'all', label: 'All', count: stats.total, color: 'gray' },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setFilterStatus(tab.key as any)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                filterStatus === tab.key
-                  ? tab.color === 'amber' 
-                    ? 'bg-amber-600 text-white' 
-                    : tab.color === 'green'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              {tab.label}
-              <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-                filterStatus === tab.key
-                  ? 'bg-white/20 text-white'
-                  : 'bg-gray-100 text-gray-600'
-              }`}>
-                {tab.count}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Onboarding List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900">Equipment Assignments</h2>
-          </div>
-
-          {filteredOnboardings.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-              <p className="text-gray-500">No onboardings found matching the selected filter</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {filteredOnboardings.map((onboarding) => {
-                const employeeIdDisplay = typeof onboarding.employeeId === 'object'
-                  ? (onboarding.employeeId as any)?._id || (onboarding.employeeId as any)?.firstName || 'Unknown'
-                  : onboarding.employeeId;
-                const hasPending = hasAdminPendingTasks(onboarding);
-                const selected = selectedEquipment[onboarding._id] || [];
-
-                return (
-                  <div key={onboarding._id} className="p-6">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900">Employee: {employeeIdDisplay}</h3>
-                            <p className="text-sm text-gray-500">
-                              Started: {new Date(onboarding.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-                        hasPending ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
-                      }`}>
-                        {hasPending ? 'pending' : 'complete'}
-                      </span>
+          {/* Quick Guide Sidebar */}
+          <div className="lg:w-96 space-y-8">
+            <div className="bg-white rounded-[40px] p-8 border border-gray-100 shadow-sm space-y-8">
+              <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Resource Matrix</h3>
+              <div className="space-y-6">
+                {EQUIPMENT_TYPES.map((eq) => (
+                  <div key={eq.id} className="flex gap-4 group">
+                    <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all duration-500 overflow-hidden">
+                      <eq.icon className="w-5 h-5 transition-transform duration-500 group-hover:scale-110" />
                     </div>
-
-                    {hasPending && (
-                      <>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                          {EQUIPMENT_TYPES.map((eq) => (
-                            <button
-                              key={eq.id}
-                              onClick={() => handleEquipmentToggle(onboarding._id, eq.id)}
-                              className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                selected.includes(eq.id)
-                                  ? 'border-blue-500 bg-blue-50'
-                                  : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                                  selected.includes(eq.id) 
-                                    ? 'border-blue-500 bg-blue-500' 
-                                    : 'border-gray-300'
-                                }`}>
-                                  {selected.includes(eq.id) && (
-                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  )}
-                                </div>
-                                <span className="text-sm font-medium text-gray-900">{eq.name}</span>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-500">
-                            {selected.length} item{selected.length !== 1 ? 's' : ''} selected
-                          </p>
-                          <button
-                            onClick={() => handleReserveEquipment(onboarding)}
-                            disabled={processing === onboarding._id || selected.length === 0}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                          >
-                            {processing === onboarding._id ? (
-                              <>
-                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Processing...
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                                Reserve Equipment
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </>
-                    )}
+                    <div>
+                      <p className="text-sm font-black text-black">{eq.name}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-tight">{eq.description}</p>
+                    </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          )}
+
+            <div className="bg-[#111] rounded-[40px] p-10 text-white relative overflow-hidden">
+              <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
+              <LucideCheckCircle2 className="w-12 h-12 text-white/20 mb-6" />
+              <h4 className="text-2xl font-black mb-4">Deployment Ready</h4>
+              <p className="text-white/40 text-sm font-medium leading-[1.6]">
+                Upon reservation confirmation, procurement tasks are automatically updated and notifications are dispatched to the facility team for setup.
+              </p>
+            </div>
+          </div>
+
         </div>
 
-        {/* Equipment Legend */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Equipment Types</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {EQUIPMENT_TYPES.map((eq) => (
-              <div key={eq.id} className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{eq.name}</p>
-                  <p className="text-xs text-gray-500">{eq.description}</p>
-                </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon: Icon, color }: { label: string, value: number, icon: any, color: 'black' | 'amber' | 'green' }) {
+  const colorMap = {
+    black: 'bg-black text-white shadow-black/10',
+    amber: 'bg-amber-500 text-white shadow-amber-500/10',
+    green: 'bg-green-600 text-white shadow-green-600/10'
+  };
+  return (
+    <div className={`p-6 rounded-[32px] ${colorMap[color]} shadow-xl flex items-center gap-5 transition-transform duration-300 hover:-translate-y-1`}>
+      <div className="p-3 bg-white/10 rounded-2xl">
+        <Icon className="w-6 h-6" />
+      </div>
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-widest opacity-60">{label}</p>
+        <p className="text-3xl font-black">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function OnboardingAssetCard({ onboarding, isSelected, onToggle, onAction, isProcessing, hasPending }: {
+  onboarding: Onboarding,
+  isSelected: string[],
+  onToggle: (id: string) => void,
+  onAction: () => void,
+  isProcessing: boolean,
+  hasPending: boolean
+}) {
+  const employeeData = typeof onboarding.employeeId === 'object' ? (onboarding.employeeId as any) : null;
+  const name = employeeData ? `${employeeData.firstName} ${employeeData.lastName}` : 'System Entity';
+  const dept = employeeData?.primaryDepartmentId?.name || 'Unassigned';
+  const start = onboarding.createdAt ? new Date(onboarding.createdAt).toLocaleDateString() : 'TBD';
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-[48px] p-8 md:p-10 hover:shadow-2xl hover:shadow-black/5 transition-all duration-700 group">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-10">
+        <div className="flex items-center gap-8">
+          <div className="w-20 h-20 bg-gray-50 rounded-[30px] flex items-center justify-center group-hover:bg-black transition-all duration-500">
+            <p className="text-2xl font-black text-black group-hover:text-white">{name.charAt(0)}</p>
+          </div>
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h4 className="text-2xl font-black tracking-tight">{name}</h4>
+              <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${hasPending ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                {hasPending ? 'PENDING' : 'PREPARED'}
               </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest">{dept}</p>
+              <span className="w-1 h-1 rounded-full bg-gray-200"></span>
+              <p className="text-xs font-bold text-gray-400">Onboarding initiated {start}</p>
+            </div>
+          </div>
+        </div>
+
+        {hasPending && (
+          <button
+            onClick={onAction}
+            disabled={isProcessing || isSelected.length === 0}
+            className="px-8 py-5 bg-black text-white rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-black/10 hover:bg-gray-800 disabled:opacity-30 disabled:hover:bg-black transition-all active:scale-95 flex items-center gap-3"
+          >
+            {isProcessing ? <LucideLoader2 className="w-4 h-4 animate-spin" /> : <LucidePackage className="w-4 h-4" />}
+            Confirm Reservation
+          </button>
+        )}
+      </div>
+
+      {hasPending && (
+        <div className="mt-12 space-y-8">
+          <div className="flex items-center justify-between">
+            <h5 className="text-xs font-black text-gray-400 uppercase tracking-[0.15em]">Select Hardware & Identity Assets</h5>
+            <p className="text-[10px] font-black text-black uppercase tracking-widest">{isSelected.length} items configured</p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-4">
+            {EQUIPMENT_TYPES.map((eq) => (
+              <button
+                key={eq.id}
+                onClick={() => onToggle(eq.id)}
+                className={`flex flex-col items-center gap-3 p-5 rounded-[28px] border-2 transition-all duration-500 ${isSelected.includes(eq.id)
+                    ? 'border-black bg-black text-white scale-105 shadow-xl shadow-black/10'
+                    : 'border-gray-50 bg-gray-50/50 text-gray-400 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+              >
+                <eq.icon className="w-6 h-6" />
+                <p className="text-[8px] font-black uppercase tracking-widest text-center">{eq.name}</p>
+              </button>
             ))}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

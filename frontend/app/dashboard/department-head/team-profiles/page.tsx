@@ -9,7 +9,7 @@ import {
   TeamMemberDetailModal,
   TeamSearchFilter,
   TeamMember,
-} from '@/app/components/team-management';
+} from '@/components/team-management';
 
 export default function TeamProfilesPage() {
   const [loading, setLoading] = useState(true);

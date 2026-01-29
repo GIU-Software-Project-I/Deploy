@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { employeeProfileService } from '@/app/services/employee-profile';
-import ChangeRequestCard, { ChangeRequest } from '@/app/components/hr-admin/ChangeRequestCard';
+import ChangeRequestCard, { ChangeRequest } from '@/components/hr-admin/ChangeRequestCard';
 
 export default function ChangeRequestsPage() {
     const [loading, setLoading] = useState(true);

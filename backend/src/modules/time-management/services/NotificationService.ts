@@ -96,8 +96,8 @@ export class NotificationService {
                 };
             }
 
-            // Automatically find HR users
-            const hrUsers = await this.findHRUsers();
+            // Automatically find HR Admins only for shift expiry notifications
+            const hrUsers = await this.findHRAdmins();
             const notificationsCreated: any[] = [];
 
             for (const a of assignments) {
@@ -375,15 +375,53 @@ export class NotificationService {
         }
     }
 
+    /**
+     * Find HR Admins only (for shift expiry notifications)
+     */
+    private async findHRAdmins(): Promise<any[]> {
+        const HR_ADMIN_ROLES = [
+            'HR Admin', 'HR_ADMIN', 'HRAdmin', 'hr admin',
+            'HR Administrator', 'HR_ADMINISTRATOR',
+            'System Admin', 'SYSTEM_ADMIN', 'SystemAdmin'
+        ];
+        return this.findUsersByRoleCandidates(HR_ADMIN_ROLES);
+    }
+
+    /**
+     * Find HR Managers only
+     */
+    private async findHRManagers(): Promise<any[]> {
+        const HR_MANAGER_ROLES = [
+            'HR Manager', 'HR_MANAGER', 'HRManager', 'hr manager'
+        ];
+        return this.findUsersByRoleCandidates(HR_MANAGER_ROLES);
+    }
+
+    /**
+     * Find all HR users (both Admins and Managers) - legacy method for backward compatibility
+     */
     private async findHRUsers(): Promise<any[]> {
+        const hrAdmins = await this.findHRAdmins();
+        const hrManagers = await this.findHRManagers();
+
+        // Combine both lists, avoiding duplicates by employeeProfileId
+        const allHRUsers = new Map<string, any>();
+        hrAdmins.forEach(hr => allHRUsers.set(hr.employeeProfileId.toString(), hr));
+        hrManagers.forEach(hr => allHRUsers.set(hr.employeeProfileId.toString(), hr));
+
+        return Array.from(allHRUsers.values());
+    }
+
+    /**
+     * Helper to find users by role candidates
+     */
+    private async findUsersByRoleCandidates(roleCandidates: string[]): Promise<any[]> {
         try {
             if (!this.connection.db) {
                 this.logger.warn('Database connection not available');
                 return [];
             }
 
-            // IMPORTANT: Use Main2's better HR detection
-            const HR_ROLE_CANDIDATES = ['HR Admin', 'HR Manager', 'HR', 'HR_ADMIN', 'HR_MANAGER', 'HR_ADMINISTRATOR', 'HR Administrator', 'System Admin'];
 
             // Try embedded roles first
             const profileCollections = ['employee_profiles', 'employeeprofiles', 'employee_profiles_v1'];
@@ -393,7 +431,7 @@ export class NotificationService {
                     if (probe && Object.prototype.hasOwnProperty.call(probe, 'roles')) {
                         const directHr = await this.connection.db
                             .collection(colName)
-                            .find({ roles: { $in: HR_ROLE_CANDIDATES } })
+                            .find({ roles: { $in: roleCandidates } })
                             .project({ _id: 1, workEmail: 1, roles: 1, status: 1 })
                             .toArray();
 
@@ -414,7 +452,7 @@ export class NotificationService {
             for (const rc of roleCollections) {
                 try {
                     const hrRoles = await this.connection.db.collection(rc).find({
-                        roles: { $in: HR_ROLE_CANDIDATES },
+                        roles: { $in: roleCandidates },
                         isActive: true
                     }).toArray();
 
@@ -491,7 +529,7 @@ export class NotificationService {
     }
 
     /**
-     * Get all HR/Admin users in the system
+     * Get all HR/Admin users in the system (both Admins and Managers)
      */
     async getHRUsers() {
         try {
@@ -503,12 +541,16 @@ export class NotificationService {
                 };
             }
 
-            const hrUsers = await this.findHRUsers();
+            const hrAdmins = await this.findHRAdmins();
+            const hrManagers = await this.findHRManagers();
+            const allHRUsers = await this.findHRUsers();
 
             return {
-                message: `Found ${hrUsers.length} HR/Admin user(s)`,
-                users: hrUsers,
-                note: 'These users will automatically receive shift expiry notifications.'
+                message: `Found ${allHRUsers.length} HR user(s) (${hrAdmins.length} Admins, ${hrManagers.length} Managers)`,
+                users: allHRUsers,
+                hrAdminsCount: hrAdmins.length,
+                hrManagersCount: hrManagers.length,
+                note: 'Shift expiry notifications go to HR Admins only. Repeated lateness notifications go to both HR Admins and HR Managers.'
             };
         } catch (error) {
             this.logger.error('Failed to fetch HR users', error);

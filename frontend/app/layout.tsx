@@ -1,20 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/app/context/AuthContext";
-import { ThemeProvider } from "@/app/components/theme-provider";
-import { SidebarConfigProvider } from "@/app/context/sidebar-context";
-import { GlobalThemeCustomizer } from "@/app/components/GlobalThemeCustomizer";
-import { Toaster } from "@/app/components/ui/sonner";
+import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/components/theme-provider";
+import { GlobalThemeCustomizer } from "@/components/GlobalThemeCustomizer";
+import { Toaster } from "sonner";
+import { SidebarConfigProvider } from "@/context/sidebar-context";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+
+const inter = Inter({
   subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const outfit = Outfit({
   subsets: ["latin"],
+  variable: "--font-outfit",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -31,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${outfit.variable} antialiased font-sans`}
         suppressHydrationWarning
       >
         <ThemeProvider defaultTheme="system" storageKey="hr-system-theme">

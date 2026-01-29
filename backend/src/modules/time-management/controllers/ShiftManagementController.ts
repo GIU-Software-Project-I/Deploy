@@ -13,9 +13,9 @@ import {
 import {ShiftManagementService} from "../services/ShiftManagementService";
 import { RepeatedLatenessService } from '../services/RepeatedLatenessService';
 import { RepeatedLatenessEvaluateRequestDto, RepeatedLatenessEvaluateResponseDto } from '../dto/ShiftManagementDtos';
-import {AuthenticationGuard} from "../../auth/guards/authentication-guard";
-import {AuthorizationGuard} from "../../auth/guards/authorization-guard";
-import {Roles} from "../../auth/decorators/roles-decorator";
+import {AuthenticationGuard} from "../../common/guards/authentication-guard";
+import {AuthorizationGuard} from "../../common/guards/authorization-guard";
+import {Roles} from "../../common/decorators/roles-decorator";
 import {SystemRole} from "../../employee/enums/employee-profile.enums";
 
 @ApiTags('Shift Management')
@@ -719,12 +719,44 @@ export class ShiftManagementController {
 
 
     // Repeated lateness utilities
+
+    @Get('repeated-lateness/counts')
+    @ApiOperation({ summary: 'Get lateness counts for all employees', description: 'Returns lateness counts for all employees with at least 1 late record, in a single aggregation query.' })
+    @ApiResponse({ status: 200, description: 'Array of { employeeId, count } objects', schema: { type: 'array', items: { type: 'object', properties: { employeeId: { type: 'string' }, count: { type: 'integer' } } } } })
+    getAllLatenessCounts() {
+        return this.repeatedLatenessService.getAllLatenessCounts();
+    }
+
+    @Delete('repeated-lateness/cleanup-orphaned')
+    @ApiOperation({ summary: 'Cleanup orphaned TimeException records', description: 'Deletes TimeException records where the referenced AttendanceRecord no longer exists in the database.' })
+    @ApiResponse({ status: 200, description: 'Cleanup completed', schema: { properties: { deletedCount: { type: 'number' }, orphanedIds: { type: 'array', items: { type: 'string' } } } } })
+    cleanupOrphanedExceptions() {
+        return this.repeatedLatenessService.cleanupOrphanedExceptions();
+    }
+
     @Get('repeated-lateness/:employeeId/count')
     @ApiOperation({ summary: 'Get repeated lateness count for an employee', description: 'Returns number of LATE exceptions (total, not limited to a window).' })
     @ApiParam({ name: 'employeeId', description: 'employee ID (ObjectId)' })
     @ApiResponse({ status: 200, description: 'Total count of LATE exceptions for the employee', schema: { type: 'integer', example: 4 } })
     getRepeatedLatenessCount(@Param('employeeId') employeeId: string) {
         return this.repeatedLatenessService.getLateCount(employeeId);
+    }
+
+    ///////////////////////////////////////////////////////////////////////
+
+    @Get('repeated-lateness/:employeeId/records')
+    @ApiOperation({ summary: 'Get actual lateness records for an employee', description: 'Returns detailed LATE exception records with attendance info.' })
+    @ApiParam({ name: 'employeeId', description: 'employee ID (ObjectId)' })
+    @ApiResponse({ status: 200, description: 'Lateness records with details' })
+    getLatenessRecords(
+        @Param('employeeId') employeeId: string,
+        @Query('onlyUnresolved') onlyUnresolved?: string,
+        @Query('windowDays') windowDays?: string
+    ) {
+        return this.repeatedLatenessService.getLatenessRecords(employeeId, {
+            onlyUnresolved: onlyUnresolved === 'true',
+            windowDays: windowDays ? parseInt(windowDays, 10) : undefined
+        });
     }
 
     ///////////////////////////////////////////////////////////////////////
@@ -767,6 +799,7 @@ export class ShiftManagementController {
             notifyHrId: body?.notifyHrId,
         });
     }
+
 
     //////////////////////////////OVERTIME & SHORT-TIME RULES/////////////////////////////////////////
 

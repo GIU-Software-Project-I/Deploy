@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Button } from '@/app/components/ui/button';
-import { Card } from '@/app/components/ui/card';
-import { Input } from '@/app/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { getJobTemplates, createJobTemplate, updateJobTemplate, deleteJobTemplate } from '@/app/services/recruitment';
 import { organizationStructureService } from '@/app/services/organization-structure';
-import { JobTemplate as ApiJobTemplate } from '@/app/types/recruitment';
+import { JobTemplate as ApiJobTemplate } from '@/types/recruitment';
 
 // ==================== INTERFACES ====================
 interface JobTemplate {

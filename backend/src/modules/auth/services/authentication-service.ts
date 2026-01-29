@@ -7,10 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-
-
 import { EmployeeAuthService } from './employee-auth.service';
-
 import { BlacklistedToken, BlackListedTokenDocument } from '../token/blacklisted-token.schema';
 import { SystemRole } from '../../employee/enums/employee-profile.enums';
 import { RegisterEmployeeDto } from "../dto/register-employee-dto";
@@ -58,7 +55,7 @@ export class AuthService {
         };
     }
 
-    private toSafeCandidate(doc: any): SafeCandidate {
+    private toSafeCandidate(doc: any): SafeCandidate & { roles: SystemRole[] } {
         const obj = typeof doc.toObject === 'function' ? doc.toObject() : doc;
         return {
             _id: String(obj._id),
@@ -66,6 +63,7 @@ export class AuthService {
             candidateNumber: obj.candidateNumber,
             firstName: obj.firstName,
             lastName: obj.lastName,
+            roles: [SystemRole.JOB_CANDIDATE],
         };
     }
 
@@ -89,7 +87,7 @@ export class AuthService {
     }
 
     async login(email: string, plainPassword: string) {
-        // Try to login as employee first (using workEmail)
+
         try {
             const { employee, roles } = await this.employeeAuthService.validateEmployeeCredentials(email, plainPassword);
 
@@ -133,11 +131,11 @@ export class AuthService {
     }
 
     async getCookieWithJwtToken(token: string) {
-        return `access_token=${token}; HttpOnly; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=None; Secure`;
+        return `access_token=${token}; HttpOnly; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax`;
     }
 
     async getCookieForLogout() {
-        return `access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure`;
+        return `access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`;
     }
 
     async logout(token: string) {
@@ -167,6 +165,19 @@ export class AuthService {
     async isAccessTokenBlacklisted(token: string) {
         const hit = await this.blacklistModel.findOne({ token }).select('_id').lean();
         return !!hit;
+    }
+
+    async getMe(payload: any) {
+        if (payload.userType === 'employee') {
+            const employee = await this.employeeAuthService.findEmployeeById(payload.sub);
+            if (!employee) throw new NotFoundException('Employee not found');
+            const roles = await this.employeeAuthService.getEmployeeRoles(payload.sub);
+            return this.toSafeEmployee(employee, roles);
+        } else {
+            const candidate = await this.employeeAuthService.findCandidateById(payload.sub);
+            if (!candidate) throw new NotFoundException('Candidate not found');
+            return this.toSafeCandidate(candidate);
+        }
     }
 
     // HR Admin function to reset employee passwords

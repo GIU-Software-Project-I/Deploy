@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { performanceService } from '@/app/services/performance';
 import { employeeProfileService } from '@/app/services/employee-profile';
+import { organizationStructureService } from '@/app/services/organization-structure';
 
 /**
  * Performance Management - HR Employee
@@ -78,10 +79,17 @@ export default function HREmployeePerformancePage() {
   const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [bulkFormData, setBulkFormData] = useState({
     cycleId: '',
+    templateId: '',
+    departmentId: '',
     employeeProfileIds: [] as string[],
     dueDate: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedCycle, setSelectedCycle] = useState<Cycle | null>(null);
+
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -109,14 +117,46 @@ export default function HREmployeePerformancePage() {
         setBulkFormData(prev => ({ ...prev, cycleId: activeCycle._id }));
       }
 
-      // Fetch employees
-      const employeesRes = await employeeProfileService.getAllEmployees();
-      const employeesData = employeesRes.data as Employee[] | { data: Employee[] };
-      if (Array.isArray(employeesData)) {
+      // Fetch employees (with pagination - backend max limit is 100)
+      try {
+        const employeesRes = await employeeProfileService.getAllEmployees(1, 100); // Max limit is 100 per backend
+        let employeesData: Employee[] = [];
+        
+        console.log('Employees API response:', employeesRes); // Debug log
+        
+        if (employeesRes.error) {
+          console.error('Error fetching employees:', employeesRes.error);
+          setError(`Failed to load employees: ${employeesRes.error}`);
+        } else if (employeesRes && employeesRes.data) {
+          // Backend returns PaginatedResult: { data: [...], pagination: {...} }
+          if (Array.isArray(employeesRes.data)) {
+            employeesData = employeesRes.data;
+          } else if (typeof employeesRes.data === 'object' && 'data' in employeesRes.data) {
+            // Handle nested structure if API wraps it
+            const nestedData = (employeesRes.data as any).data;
+            if (Array.isArray(nestedData)) {
+              employeesData = nestedData;
+            }
+          }
+        }
+        
+        console.log('Parsed employees:', employeesData.length, employeesData.slice(0, 2)); // Debug log
         setEmployees(employeesData);
-      } else if (employeesData && 'data' in employeesData) {
-        setEmployees(employeesData.data);
+      } catch (err: any) {
+        console.error('Exception fetching employees:', err);
+        setError(`Failed to load employees: ${err.message || 'Unknown error'}`);
+        setEmployees([]);
       }
+      
+      // Fetch templates
+      const templatesRes = await performanceService.getTemplates();
+      const templatesData = Array.isArray(templatesRes.data) ? templatesRes.data : [];
+      setTemplates(templatesData.filter((t: any) => t.isActive));
+      
+      // Fetch departments from organization structure service
+      const departmentsRes = await organizationStructureService.getDepartments(true); // Only active departments
+      const departmentsData = Array.isArray(departmentsRes.data) ? departmentsRes.data : [];
+      setDepartments(departmentsData);
     } catch (err: any) {
       setError(err.message || 'Failed to load data');
     } finally {
@@ -142,8 +182,8 @@ export default function HREmployeePerformancePage() {
   };
 
   const handleBulkAssign = async () => {
-    if (!bulkFormData.cycleId || bulkFormData.employeeProfileIds.length === 0) {
-      setError('Please select a cycle and at least one employee');
+    if (!bulkFormData.cycleId || !bulkFormData.templateId || !bulkFormData.departmentId || bulkFormData.employeeProfileIds.length === 0) {
+      setError('Please select a cycle, template, department, and at least one employee');
       return;
     }
 
@@ -153,6 +193,8 @@ export default function HREmployeePerformancePage() {
 
       const response = await performanceService.bulkCreateAssignments({
         cycleId: bulkFormData.cycleId,
+        templateId: bulkFormData.templateId,
+        departmentId: bulkFormData.departmentId,
         employeeProfileIds: bulkFormData.employeeProfileIds,
         dueDate: bulkFormData.dueDate || undefined,
       });
@@ -164,7 +206,7 @@ export default function HREmployeePerformancePage() {
 
       setSuccess(`Successfully assigned ${bulkFormData.employeeProfileIds.length} employees`);
       setShowBulkAssign(false);
-      setBulkFormData({ cycleId: selectedCycleId, employeeProfileIds: [], dueDate: '' });
+      setBulkFormData({ cycleId: selectedCycleId, templateId: '', departmentId: '', employeeProfileIds: [], dueDate: '' });
       fetchAssignments();
 
       setTimeout(() => setSuccess(null), 3000);
@@ -176,20 +218,45 @@ export default function HREmployeePerformancePage() {
   };
 
   const handleSelectAllEmployees = () => {
-    if (bulkFormData.employeeProfileIds.length === employees.length) {
+    // Select all employees (no department filtering)
+    const allEmployeeIds = employees
+      .map(e => e._id?.toString() || e._id)
+      .filter(id => id); // Remove any undefined/null values
+    
+    const currentIds = bulkFormData.employeeProfileIds.map(id => id.toString());
+    const allSelected = allEmployeeIds.length > 0 && 
+                        allEmployeeIds.every(id => currentIds.includes(id.toString()));
+    
+    if (allSelected) {
       setBulkFormData(prev => ({ ...prev, employeeProfileIds: [] }));
     } else {
-      setBulkFormData(prev => ({ ...prev, employeeProfileIds: employees.map(e => e._id) }));
+      setBulkFormData(prev => ({ ...prev, employeeProfileIds: allEmployeeIds.map(id => id.toString()) }));
     }
   };
 
   const handleToggleEmployee = (employeeId: string) => {
-    setBulkFormData(prev => ({
-      ...prev,
-      employeeProfileIds: prev.employeeProfileIds.includes(employeeId)
-        ? prev.employeeProfileIds.filter(id => id !== employeeId)
-        : [...prev.employeeProfileIds, employeeId]
-    }));
+    if (!employeeId) {
+      console.warn('Empty employee ID provided');
+      return;
+    }
+    setBulkFormData(prev => {
+      const currentIds = prev.employeeProfileIds.map(id => String(id));
+      const newId = String(employeeId);
+      const isSelected = currentIds.includes(newId);
+      
+      console.log('Toggling employee:', newId, 'Currently selected:', currentIds, 'Will be:', !isSelected);
+      
+      const updatedIds = isSelected
+        ? currentIds.filter(id => id !== newId)
+        : [...currentIds, newId];
+      
+      console.log('Updated IDs:', updatedIds);
+      
+      return {
+        ...prev,
+        employeeProfileIds: updatedIds
+      };
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -404,7 +471,10 @@ export default function HREmployeePerformancePage() {
                           : '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="text-sm text-primary hover:text-primary/80 font-medium">
+                        <button
+                          onClick={() => setSelectedAssignment(assignment)}
+                          className="text-sm text-primary hover:text-primary/80 font-medium"
+                        >
                           View Details
                         </button>
                       </td>
@@ -434,16 +504,68 @@ export default function HREmployeePerformancePage() {
 
               <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Appraisal Cycle</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Appraisal Cycle *</label>
                   <select
                     value={bulkFormData.cycleId}
-                    onChange={(e) => setBulkFormData(prev => ({ ...prev, cycleId: e.target.value }))}
+                    onChange={async (e) => {
+                      const cycleId = e.target.value;
+                      setBulkFormData(prev => ({ ...prev, cycleId, templateId: '', departmentId: '' }));
+                      if (cycleId) {
+                        try {
+                          const cycleRes = await performanceService.getCycleById(cycleId);
+                          setSelectedCycle(cycleRes.data as Cycle);
+                        } catch (err) {
+                          console.error('Failed to fetch cycle details:', err);
+                        }
+                      } else {
+                        setSelectedCycle(null);
+                      }
+                    }}
                     className="w-full px-4 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
                   >
                     <option value="">Select Cycle</option>
                     {cycles.filter(c => c.status === 'ACTIVE' || c.status === 'PLANNED').map(cycle => (
                       <option key={cycle._id} value={cycle._id}>
                         {cycle.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Appraisal Template *</label>
+                  <select
+                    value={bulkFormData.templateId}
+                    onChange={(e) => setBulkFormData(prev => ({ ...prev, templateId: e.target.value }))}
+                    className="w-full px-4 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                    disabled={!bulkFormData.cycleId}
+                  >
+                    <option value="">Select Template</option>
+                    {templates.map(template => (
+                      <option key={template._id} value={template._id}>
+                        {template.name} ({template.templateType})
+                      </option>
+                    ))}
+                  </select>
+                  {!bulkFormData.cycleId && (
+                    <p className="text-xs text-muted-foreground mt-1">Please select a cycle first</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Department *</label>
+                  <select
+                    value={bulkFormData.departmentId}
+                    onChange={(e) => {
+                      // Department is used for assignment context, not for filtering employees
+                      setBulkFormData(prev => ({ ...prev, departmentId: e.target.value }));
+                    }}
+                    className="w-full px-4 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map(dept => (
+                      <option key={dept._id} value={dept._id}>
+                        {dept.name}
                       </option>
                     ))}
                   </select>
@@ -472,27 +594,43 @@ export default function HREmployeePerformancePage() {
                     </button>
                   </div>
                   <div className="border border-border rounded-lg max-h-64 overflow-y-auto">
-                    {employees.map((employee) => (
-                      <label
-                        key={employee._id}
-                        className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b border-border last:border-0"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={bulkFormData.employeeProfileIds.includes(employee._id)}
-                          onChange={() => handleToggleEmployee(employee._id)}
-                          className="w-4 h-4 rounded border-input text-primary focus:ring-primary"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground text-sm">
-                            {employee.firstName} {employee.lastName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {employee.employeeNumber} • {employee.primaryDepartmentId?.name || 'No Department'}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
+                    {employees.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground">
+                        No employees available. Please ensure employees are loaded.
+                      </div>
+                    ) : (
+                      employees.map((employee) => {
+                        const employeeId = employee._id?.toString() || employee._id || '';
+                        if (!employeeId) {
+                          console.warn('Employee missing ID:', employee);
+                          return null;
+                        }
+                        return (
+                          <label
+                            key={employeeId}
+                            className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b border-border last:border-0"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={bulkFormData.employeeProfileIds.map(id => String(id)).includes(String(employeeId))}
+                              onChange={() => {
+                                console.log('Checkbox clicked for employee:', employeeId, employee.firstName, employee.lastName);
+                                handleToggleEmployee(employeeId);
+                              }}
+                              className="w-4 h-4 rounded border-input text-primary focus:ring-primary"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-foreground text-sm">
+                                {employee.firstName} {employee.lastName}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {employee.employeeNumber} • {employee.primaryDepartmentId?.name || 'No Department'}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      }).filter(Boolean)
+                    )}
                   </div>
                 </div>
               </div>
@@ -506,10 +644,84 @@ export default function HREmployeePerformancePage() {
                 </button>
                 <button
                   onClick={handleBulkAssign}
-                  disabled={isSubmitting || !bulkFormData.cycleId || bulkFormData.employeeProfileIds.length === 0}
+                  disabled={isSubmitting || !bulkFormData.cycleId || !bulkFormData.templateId || !bulkFormData.departmentId || bulkFormData.employeeProfileIds.length === 0}
                   className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
                 >
                   {isSubmitting ? 'Assigning...' : `Assign ${bulkFormData.employeeProfileIds.length} Employees`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View Details Modal */}
+        {selectedAssignment && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-foreground">Assignment Details</h3>
+                <button
+                  onClick={() => setSelectedAssignment(null)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Cycle</p>
+                    <p className="font-medium text-foreground">{selectedAssignment.cycleId.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <p className="font-medium text-foreground">
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusColor(selectedAssignment.status)}`}>
+                        {selectedAssignment.status.replace('_', ' ')}
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Employee</p>
+                    <p className="font-medium text-foreground">
+                      {selectedAssignment.employeeProfileId.firstName} {selectedAssignment.employeeProfileId.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{selectedAssignment.employeeProfileId.employeeNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Department</p>
+                    <p className="font-medium text-foreground">{selectedAssignment.employeeProfileId.primaryDepartmentId?.name || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Manager</p>
+                    <p className="font-medium text-foreground">
+                      {selectedAssignment.managerProfileId ? `${selectedAssignment.managerProfileId.firstName} ${selectedAssignment.managerProfileId.lastName}` : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Due Date</p>
+                    <p className="font-medium text-foreground">
+                      {selectedAssignment.dueDate ? new Date(selectedAssignment.dueDate).toLocaleDateString() : '-'}
+                    </p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground">Created At</p>
+                    <p className="font-medium text-foreground">
+                      {new Date(selectedAssignment.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setSelectedAssignment(null)}
+                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+                >
+                  Close
                 </button>
               </div>
             </div>
@@ -519,4 +731,3 @@ export default function HREmployeePerformancePage() {
     </div>
   );
 }
-

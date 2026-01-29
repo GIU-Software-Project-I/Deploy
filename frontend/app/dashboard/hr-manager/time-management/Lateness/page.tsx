@@ -4,6 +4,23 @@ import { useState, useEffect, useCallback } from 'react';
 import { timeManagementService } from '@/app/services/time-management';
 import { employeeProfileService } from '@/app/services/employee-profile';
 
+interface LatenessRecord {
+    _id: string;
+    employeeId: string;
+    type: string;
+    status: string;
+    reason?: string;
+    createdAt?: string;
+    attendanceRecordId?: {
+        _id: string;
+        employeeId: string;
+        date?: string;
+        punches?: Array<{ type: string; time: string }>;
+        totalWorkMinutes?: number;
+        finalisedForPayroll?: boolean;
+    };
+}
+
 interface EmployeeWithLateness {
     _id: string;
     firstName: string;
@@ -12,64 +29,27 @@ interface EmployeeWithLateness {
     department?: string;
     position?: string;
     latenessCount: number;
-    escalationStatus?: 'ESCALATED' | 'NORMAL';
-    lastUpdated?: string;
+    exceedsThreshold?: boolean;
 }
 
-interface EmployeesResponseData {
-    employees?: Array<{
-        _id: string;
-        firstName: string;
-        lastName: string;
-        email: string;
-        department?: { name: string };
-        departmentId?: { name: string };
-        position?: { name: string };
-        positionId?: { name: string };
-    }>;
-}
-
-interface LatenessCountResponse {
-    data?: number;
-}
-
-interface EvaluateLatenessResponse {
-    data?: {
-        escalated?: boolean;
-        count?: number;
-        alreadyEscalated?: boolean;
-    };
-}
+// Lateness threshold configuration
+const LATENESS_THRESHOLD = 3; // Maximum allowed lateness per month
 
 export default function RepeatedLatenessPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
 
-    // Data state
+    // View state: 'list' or 'detail'
+    const [view, setView] = useState<'list' | 'detail'>('list');
+
+    // Employee list
     const [employees, setEmployees] = useState<EmployeeWithLateness[]>([]);
-    const [allEmployeesLateness, setAllEmployeesLateness] = useState<EmployeeWithLateness[]>([]); // All records including 0 lateness
-    const [filteredEmployees, setFilteredEmployees] = useState<EmployeeWithLateness[]>([]);
 
-    // Filter & search state
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterByThreshold, setFilterByThreshold] = useState<number | null>(null);
-    const [sortBy, setSortBy] = useState<'name' | 'lateness' | 'department'>('lateness');
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-    const [viewMode, setViewMode] = useState<'flagged' | 'all'>('flagged'); // New view mode state
+    // Selected employee and their records
+    const [selectedEmployee, setSelectedEmployee] = useState<EmployeeWithLateness | null>(null);
+    const [latenessRecords, setLatenessRecords] = useState<LatenessRecord[]>([]);
+    const [loadingRecords, setLoadingRecords] = useState(false);
 
-    // Modal state for evaluation
-    const [showEvaluateModal, setShowEvaluateModal] = useState(false);
-    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-    const [evaluateWindowDays, setEvaluateWindowDays] = useState(90);
-    const [evaluateThreshold, setEvaluateThreshold] = useState(3);
-    const [evaluatingEmployeeId, setEvaluatingEmployeeId] = useState<string | null>(null);
-
-    // Configuration state
-    const latenessConfig = {
-        defaultWindowDays: 90,
-        defaultThreshold: 3,
-    };
 
     /**
      * Fetch all employees and their lateness counts
@@ -79,526 +59,496 @@ export default function RepeatedLatenessPage() {
             setLoading(true);
             setError(null);
 
-            // Fetch all employees with pagination (large limit to get all)
-            const employeesResponse = await employeeProfileService.getAllEmployees(1, 1000) as EmployeesResponseData;
-            const allEmployees = employeesResponse?.employees || [];
+            // Fetch lateness counts for all employees in a single batch request
+            console.log('[Lateness] Fetching all lateness counts...');
+            const latenessCounts = await timeManagementService.getAllLatenessCounts();
+            console.log('[Lateness] Lateness counts response:', latenessCounts);
 
-            // Fetch lateness count for each employee
-            const employeesWithLateness: EmployeeWithLateness[] = await Promise.all(
-                allEmployees.map(async (emp: any) => {
-                    try {
-                        const latenessResponse = await timeManagementService.getRepeatedLatenessCount(emp._id) as LatenessCountResponse;
-                        const latenessCount = latenessResponse?.data || 0;
+            if (!latenessCounts || latenessCounts.length === 0) {
+                console.log('[Lateness] No employees with lateness found');
+                setEmployees([]);
+                setLoading(false);
+                return;
+            }
 
-                        return {
-                            _id: emp._id,
-                            firstName: emp.firstName || '',
-                            lastName: emp.lastName || '',
-                            email: emp.email || '',
-                            department: emp.department?.name || emp.departmentId?.name || 'N/A',
-                            position: emp.position?.name || emp.positionId?.name || 'N/A',
-                            latenessCount: latenessCount,
-                            lastUpdated: new Date().toISOString(),
-                        };
-                    } catch (err) {
-                        console.warn(`Failed to fetch lateness count for employee ${emp._id}`, err);
-                        return {
-                            _id: emp._id,
-                            firstName: emp.firstName || '',
-                            lastName: emp.lastName || '',
-                            email: emp.email || '',
-                            department: emp.department?.name || emp.departmentId?.name || 'N/A',
-                            position: emp.position?.name || emp.positionId?.name || 'N/A',
-                            latenessCount: 0,
-                            lastUpdated: new Date().toISOString(),
-                        };
+            // Create a map of employeeId -> count for quick lookup
+            const countsMap = new Map<string, number>();
+            for (const item of latenessCounts) {
+                countsMap.set(item.employeeId, item.count);
+            }
+
+            // Fetch employee details only for employees with lateness
+            const employeeIds = latenessCounts.map(item => item.employeeId);
+            console.log('[Lateness] Fetching details for', employeeIds.length, 'employees with lateness');
+
+            // Fetch all employees using pagination (max 100 per page)
+            let allEmployees: any[] = [];
+            let page = 1;
+            let hasMore = true;
+
+            while (hasMore) {
+                const employeesResponse = await employeeProfileService.getAllEmployees(page, 100) as any;
+
+                let pageEmployees: any[] = [];
+
+                // Extract employees from response
+                if (employeesResponse?.data?.data && Array.isArray(employeesResponse.data.data)) {
+                    pageEmployees = employeesResponse.data.data;
+                } else if (employeesResponse?.data && Array.isArray(employeesResponse.data)) {
+                    pageEmployees = employeesResponse.data;
+                }
+
+                if (pageEmployees.length > 0) {
+                    allEmployees = [...allEmployees, ...pageEmployees];
+
+                    // Check if there are more pages
+                    const pagination = employeesResponse?.data?.pagination;
+                    if (pagination?.hasNextPage) {
+                        page++;
+                    } else {
+                        hasMore = false;
                     }
-                })
-            );
+                } else {
+                    hasMore = false;
+                }
 
-            // Filter out employees with 0 lateness
-            const flaggedList = employeesWithLateness.filter(emp => emp.latenessCount > 0);
-            setEmployees(flaggedList);
-            setAllEmployeesLateness(employeesWithLateness); // Store all records
-            setFilteredEmployees(flaggedList);
+                // Safety limit to prevent infinite loops
+                if (page > 20) {
+                    hasMore = false;
+                }
+            }
+
+            console.log('[Lateness] Total employees fetched:', allEmployees.length);
+
+            // Filter and map employees with lateness counts
+            const employeesWithLateness: EmployeeWithLateness[] = [];
+
+            for (const emp of allEmployees) {
+                const latenessCount = countsMap.get(emp._id);
+                if (latenessCount && latenessCount > 0) {
+                    employeesWithLateness.push({
+                        _id: emp._id,
+                        firstName: emp.firstName || '',
+                        lastName: emp.lastName || '',
+                        email: emp.workEmail || emp.email || '',
+                        department: emp.primaryDepartmentId?.name || emp.department?.name || 'N/A',
+                        position: emp.primaryPositionId?.title || emp.position?.name || 'N/A',
+                        latenessCount: latenessCount,
+                        exceedsThreshold: latenessCount >= LATENESS_THRESHOLD,
+                    });
+                }
+            }
+
+            // Sort by lateness count descending
+            employeesWithLateness.sort((a, b) => b.latenessCount - a.latenessCount);
+            setEmployees(employeesWithLateness);
         } catch (err: any) {
             console.error('Failed to fetch employees:', err);
-            setError(err?.response?.data?.message || err?.message || 'Failed to load employees');
+            setError(err?.message || 'Failed to load employees');
         } finally {
             setLoading(false);
         }
     }, []);
 
     /**
-     * Apply filters and sorting to employees
+     * Handle clicking on an employee - fetch their lateness records and show detail view
      */
-    useEffect(() => {
-        // Start with the appropriate dataset based on view mode
-        let filtered = viewMode === 'all' ? [...allEmployeesLateness] : [...employees];
-
-        // Search filter - by employee ID, name, email, or department
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(emp =>
-                emp._id.toLowerCase().includes(term) ||
-                emp.firstName.toLowerCase().includes(term) ||
-                emp.lastName.toLowerCase().includes(term) ||
-                emp.email.toLowerCase().includes(term) ||
-                emp.department?.toLowerCase().includes(term)
-            );
-        }
-
-        // Threshold filter
-        if (filterByThreshold !== null) {
-            filtered = filtered.filter(emp => emp.latenessCount >= filterByThreshold);
-        }
-
-        // Sorting
-        filtered.sort((a, b) => {
-            let compareValue = 0;
-
-            if (sortBy === 'name') {
-                compareValue = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-            } else if (sortBy === 'lateness') {
-                compareValue = a.latenessCount - b.latenessCount;
-            } else if (sortBy === 'department') {
-                compareValue = (a.department || '').localeCompare(b.department || '');
-            }
-
-            return sortOrder === 'asc' ? compareValue : -compareValue;
-        });
-
-        setFilteredEmployees(filtered);
-    }, [employees, allEmployeesLateness, viewMode, searchTerm, filterByThreshold, sortBy, sortOrder]);
-
-    /**
-     * Handle evaluate and escalate for an employee
-     */
-    const handleEvaluateEmployee = async () => {
-        if (!selectedEmployeeId) return;
+    const handleEmployeeClick = async (employee: EmployeeWithLateness) => {
+        setSelectedEmployee(employee);
+        setView('detail');
+        setLoadingRecords(true);
+        setLatenessRecords([]);
 
         try {
-            setEvaluatingEmployeeId(selectedEmployeeId);
+            const recordsResponse = await timeManagementService.getRepeatedLatenessRecords(employee._id) as any;
 
-            const response = await timeManagementService.evaluateRepeatedLateness(
-                selectedEmployeeId,
-                {
-                    windowDays: evaluateWindowDays,
-                    threshold: evaluateThreshold,
-                }
-            ) as EvaluateLatenessResponse;
-
-            if (response?.data?.escalated) {
-                setSuccess(
-                    `Escalation created for employee. ${response.data.count || 0} late events found in the last ${evaluateWindowDays} days.`
-                );
-            } else if (response?.data?.alreadyEscalated) {
-                setSuccess('Employee already has an active escalation.');
-            } else {
-                setSuccess(
-                    `No escalation needed. Employee has ${response.data?.count || 0} late events (threshold: ${evaluateThreshold}).`
-                );
+            let records: LatenessRecord[] = [];
+            if (Array.isArray(recordsResponse?.data)) {
+                records = recordsResponse.data;
+            } else if (Array.isArray(recordsResponse)) {
+                records = recordsResponse;
             }
 
-            // Refresh the data
-            await fetchEmployeesWithLateness();
-            setShowEvaluateModal(false);
-        } catch (err: any) {
-            console.error('Failed to evaluate repeated lateness:', err);
-            setError(err?.message || 'Failed to evaluate repeated lateness');
+            // Debug: log all records to see their structure
+            console.log('[Lateness] Raw records:', records);
+            records.forEach((r, i) => {
+                console.log(`[Lateness] Record ${i}:`, {
+                    _id: r._id,
+                    type: r.type,
+                    status: r.status,
+                    reason: r.reason,
+                    createdAt: r.createdAt,
+                    hasAttendanceRecord: !!r.attendanceRecordId,
+                    attendanceDate: r.attendanceRecordId?.date,
+                    punchCount: r.attendanceRecordId?.punches?.length
+                });
+            });
+
+            // Filter out records where attendanceRecordId failed to populate (orphaned exceptions)
+            const validRecords = records.filter(r => {
+                // Only keep record if attendanceRecordId was properly populated (is an object with _id, not just a string ObjectId)
+                // When Mongoose populate fails, attendanceRecordId remains as string/ObjectId or null
+                const isPopulated = r.attendanceRecordId &&
+                    typeof r.attendanceRecordId === 'object' &&
+                    r.attendanceRecordId._id;
+
+                if (!isPopulated) {
+                    console.warn('[Lateness] Orphaned TimeException found:', r._id, '- attendanceRecordId not populated');
+                }
+                return isPopulated;
+            });
+
+            console.log('[Lateness] Valid records:', validRecords.length, 'of', records.length, '(filtered', records.length - validRecords.length, 'orphaned)');
+
+            setLatenessRecords(validRecords);
+        } catch (err) {
+            console.error('Failed to fetch lateness records:', err);
+            setError('Failed to fetch lateness records');
         } finally {
-            setEvaluatingEmployeeId(null);
+            setLoadingRecords(false);
         }
     };
 
     /**
-     * Open evaluate modal
+     * Go back to list view
      */
-    const openEvaluateModal = (employeeId: string) => {
-        setSelectedEmployeeId(employeeId);
-        setEvaluateWindowDays(latenessConfig.defaultWindowDays);
-        setEvaluateThreshold(latenessConfig.defaultThreshold);
-        setShowEvaluateModal(true);
+    const handleBackToList = () => {
+        setView('list');
+        setSelectedEmployee(null);
+        setLatenessRecords([]);
     };
 
     /**
-     * Close evaluate modal
+     * Format date time
      */
-    const closeEvaluateModal = () => {
-        setShowEvaluateModal(false);
-        setSelectedEmployeeId(null);
+    const formatDateTime = (dateStr?: string) => {
+        if (!dateStr) return 'N/A';
+        return new Date(dateStr).toLocaleString();
     };
+
+    /**
+     * Format date only
+     */
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return 'N/A';
+        return new Date(dateStr).toLocaleDateString();
+    };
+
+    /**
+     * Get the best available date for a lateness record
+     * Falls back through: createdAt -> attendanceRecordId.date -> first punch time
+     */
+    const getRecordDate = (record: LatenessRecord): string => {
+        // Try createdAt first (if schema adds timestamps in the future)
+        if (record.createdAt) {
+            return formatDate(record.createdAt);
+        }
+        // Try attendance record date
+        if (record.attendanceRecordId?.date) {
+            return formatDate(record.attendanceRecordId.date);
+        }
+        // Try first punch time
+        if (record.attendanceRecordId?.punches && record.attendanceRecordId.punches.length > 0) {
+            return formatDate(record.attendanceRecordId.punches[0].time);
+        }
+        return 'N/A';
+    };
+
 
     // Initial load
     useEffect(() => {
         fetchEmployeesWithLateness();
     }, [fetchEmployeesWithLateness]);
 
-    return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
+    // LIST VIEW
+    if (view === 'list') {
+        const employeesExceedingThreshold = employees.filter(e => e.exceedsThreshold);
+        const employeesBelowThreshold = employees.filter(e => !e.exceedsThreshold);
+
+        return (
+            <div className="space-y-6">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Repeated Lateness Tracking</h1>
-                    <p className="mt-2 text-gray-600">
-                        Monitor and flag repeated offenders for disciplinary action and tracking
-                    </p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-foreground">Repeated Lateness</h1>
+                        <p className="text-muted-foreground">
+                            Employees with lateness records • Threshold: <span className="font-semibold text-amber-600 dark:text-amber-400">{LATENESS_THRESHOLD} times/month</span>
+                        </p>
+                    </div>
+                    <button
+                        onClick={fetchEmployeesWithLateness}
+                        disabled={loading}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                    >
+                        {loading ? 'Loading...' : 'Refresh'}
+                    </button>
                 </div>
 
-                {/* Alert Messages */}
-                {error && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-800">{error}</p>
-                    </div>
-                )}
-                {success && (
-                    <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-green-800">{success}</p>
-                    </div>
-                )}
-
-                {/* Controls Section */}
-                <div className="bg-white rounded-lg shadow p-6 mb-6">
-                    {/* View Mode Toggle */}
-                    <div className="mb-6 flex gap-2">
-                        <button
-                            onClick={() => setViewMode('flagged')}
-                            className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                                viewMode === 'flagged'
-                                    ? 'bg-red-600 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            }`}
-                        >
-                            Flagged Only ({employees.length})
-                        </button>
-                        <button
-                            onClick={() => setViewMode('all')}
-                            className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                                viewMode === 'all'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            }`}
-                        >
-                            View All ({allEmployeesLateness.length})
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Search */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Search
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="ID, name, email, or department..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-
-                        {/* Filter by Threshold */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Minimum Lateness Count
-                            </label>
-                            <select
-                                value={filterByThreshold?.toString() || ''}
-                                onChange={(e) => setFilterByThreshold(e.target.value ? Number(e.target.value) : null)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="">All</option>
-                                <option value="2">2+</option>
-                                <option value="3">3+</option>
-                                <option value="5">5+</option>
-                                <option value="10">10+</option>
-                            </select>
-                        </div>
-
-                        {/* Sort By */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Sort By
-                            </label>
-                            <select
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value as 'name' | 'lateness' | 'department')}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="lateness">Lateness Count</option>
-                                <option value="name">Employee Name</option>
-                                <option value="department">Department</option>
-                            </select>
-                        </div>
-
-                        {/* Sort Order */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Order
-                            </label>
-                            <select
-                                value={sortOrder}
-                                onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="desc">Descending</option>
-                                <option value="asc">Ascending</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Refresh Button */}
-                    <div className="mt-4 flex justify-end">
-                        <button
-                            onClick={fetchEmployeesWithLateness}
-                            disabled={loading}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            {loading ? 'Refreshing...' : 'Refresh Data'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Statistics */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-gray-500 text-sm font-medium">Total Employees</p>
-                                <p className="text-3xl font-bold text-gray-900">{employees.length}</p>
-                            </div>
-                            <div className="bg-blue-100 rounded-full p-3">
-                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-2a6 6 0 0112 0v2z" />
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-card rounded-xl border border-border p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                             </div>
+                            <div>
+                                <p className="text-2xl font-bold text-foreground">{employees.length}</p>
+                                <p className="text-sm text-muted-foreground">Total with Lateness</p>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-gray-500 text-sm font-medium">Avg Lateness Count</p>
-                                <p className="text-3xl font-bold text-gray-900">
-                                    {employees.length > 0
-                                        ? (employees.reduce((sum, emp) => sum + emp.latenessCount, 0) / employees.length).toFixed(1)
-                                        : 0}
-                                </p>
+                    <div className="rounded-xl border border-red-200 dark:border-red-900/50 p-4 bg-red-50/50 dark:bg-red-900/10">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                                <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
                             </div>
-                            <div className="bg-yellow-100 rounded-full p-3">
-                                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div>
+                                <p className="text-2xl font-bold text-red-600 dark:text-red-400">{employeesExceedingThreshold.length}</p>
+                                <p className="text-sm text-red-600/80 dark:text-red-400/80">Exceeded Threshold (≥{LATENESS_THRESHOLD})</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-card rounded-xl border border-border p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                                <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-gray-500 text-sm font-medium">High Offenders (5+)</p>
-                                <p className="text-3xl font-bold text-gray-900">
-                                    {employees.filter(emp => emp.latenessCount >= 5).length}
-                                </p>
-                            </div>
-                            <div className="bg-red-100 rounded-full p-3">
-                                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4v2m0 4v2M6.458 20H3a1 1 0 01-1-1V4a1 1 0 011-1h18a1 1 0 011 1v15a1 1 0 01-1 1h-3.458" />
-                                </svg>
+                                <p className="text-2xl font-bold text-foreground">{employeesBelowThreshold.length}</p>
+                                <p className="text-sm text-muted-foreground">Below Threshold</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Employees Table */}
-                <div className="bg-white rounded-lg shadow overflow-hidden">
+                {/* Error */}
+                {error && (
+                    <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
+                        {error}
+                    </div>
+                )}
+
+                {/* Employee List */}
+                <div className="bg-card rounded-xl border border-border">
                     {loading ? (
-                        <div className="p-8 text-center">
-                            <p className="text-gray-500">Loading employees...</p>
-                        </div>
-                    ) : filteredEmployees.length === 0 ? (
-                        <div className="p-8 text-center">
-                            <p className="text-gray-500">
-                                {employees.length === 0
-                                    ? 'No employees with lateness records found.'
-                                    : 'No employees match the current filters.'}
-                            </p>
+                        <div className="p-8 text-center text-muted-foreground">Loading employees...</div>
+                    ) : employees.length === 0 ? (
+                        <div className="p-8 text-center text-muted-foreground">
+                            No employees with lateness records found.
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Employee
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Email
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Department
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Position
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Lateness Count
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Status
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Actions
-                                    </th>
-                                </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredEmployees.map((employee) => (
-                                    <tr key={employee._id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                                                    {`${employee.firstName[0]}${employee.lastName[0]}`.toUpperCase()}
+                        <div className="divide-y divide-border">
+                            {/* Employees Exceeding Threshold */}
+                            {employeesExceedingThreshold.length > 0 && (
+                                <>
+                                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-900/50">
+                                        <p className="text-sm font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            Exceeded Threshold ({employeesExceedingThreshold.length})
+                                        </p>
+                                    </div>
+                                    {employeesExceedingThreshold.map((employee) => (
+                                        <button
+                                            key={employee._id}
+                                            onClick={() => handleEmployeeClick(employee)}
+                                            className="w-full p-4 text-left hover:bg-red-50/50 dark:hover:bg-red-900/10 transition-colors flex items-center justify-between border-l-4 border-red-500"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold">
+                                                    {employee.firstName[0]}{employee.lastName[0]}
                                                 </div>
-                                                <div className="ml-4">
-                                                    <p className="text-sm font-medium text-gray-900">
-                                                        {employee.firstName} {employee.lastName}
-                                                    </p>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-semibold text-foreground">
+                                                            {employee.firstName} {employee.lastName}
+                                                        </p>
+                                                        <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-medium rounded-full">
+                                                            ⚠ Threshold Exceeded
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">{employee.email}</p>
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                            {employee.email}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                            {employee.department || 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                            {employee.position || 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span
-                            className={`inline-flex items-center justify-center h-8 w-8 rounded-full font-bold text-sm ${
-                                employee.latenessCount >= 5
-                                    ? 'bg-red-100 text-red-800'
-                                    : employee.latenessCount >= 3
-                                        ? 'bg-yellow-100 text-yellow-800'
-                                        : 'bg-orange-100 text-orange-800'
-                            }`}
-                        >
-                          {employee.latenessCount}
-                        </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            {employee.latenessCount >= 5 ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            High Risk
-                          </span>
-                                            ) : employee.latenessCount >= 3 ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            Medium Risk
-                          </span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                            Low Risk
-                          </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                            <button
-                                                onClick={() => openEvaluateModal(employee._id)}
-                                                disabled={evaluatingEmployeeId === employee._id}
-                                                className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                            >
-                                                {evaluatingEmployeeId === employee._id ? 'Evaluating...' : 'Flag'}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                </tbody>
-                            </table>
+                                            <div className="flex items-center gap-3">
+                                                <span className="px-4 py-2 rounded-full text-lg font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                    {employee.latenessCount} late
+                                                </span>
+                                                <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </>
+                            )}
+
+                            {/* Employees Below Threshold */}
+                            {employeesBelowThreshold.length > 0 && (
+                                <>
+                                    <div className="p-3 bg-muted/50">
+                                        <p className="text-sm font-semibold text-muted-foreground">
+                                            Below Threshold ({employeesBelowThreshold.length})
+                                        </p>
+                                    </div>
+                                    {employeesBelowThreshold.map((employee) => (
+                                        <button
+                                            key={employee._id}
+                                            onClick={() => handleEmployeeClick(employee)}
+                                            className="w-full p-4 text-left hover:bg-accent/50 transition-colors flex items-center justify-between"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                                                    {employee.firstName[0]}{employee.lastName[0]}
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-foreground">
+                                                        {employee.firstName} {employee.lastName}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">{employee.email}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`px-4 py-2 rounded-full text-lg font-bold ${
+                                                    employee.latenessCount >= 2
+                                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                }`}>
+                                                    {employee.latenessCount} late
+                                                </span>
+                                                <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
+            </div>
+        );
+    }
 
-                {/* Results Info */}
-                {!loading && filteredEmployees.length > 0 && (
-                    <div className="mt-4 text-sm text-gray-600">
-                        Showing {filteredEmployees.length} of {viewMode === 'all' ? allEmployeesLateness.length : employees.length} employees with lateness records
+    // DETAIL VIEW - Show lateness attendance records for selected employee
+    return (
+        <div className="space-y-6">
+            {/* Back Button & Header */}
+            <div className="flex items-center gap-4">
+                <button
+                    onClick={handleBackToList}
+                    className="p-2 rounded-lg hover:bg-accent transition-colors"
+                >
+                    <svg className="w-6 h-6 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">
+                        {selectedEmployee?.firstName} {selectedEmployee?.lastName}
+                    </h1>
+                    <p className="text-muted-foreground">
+                        {selectedEmployee?.latenessCount} lateness records
+                    </p>
+                </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+                <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
+                    {error}
+                </div>
+            )}
+
+            {/* Lateness Records */}
+            <div className="bg-card rounded-xl border border-border">
+                <div className="p-4 border-b border-border">
+                    <h2 className="font-semibold text-foreground">Attendance Records with Lateness</h2>
+                </div>
+
+                {loadingRecords ? (
+                    <div className="p-8 text-center text-muted-foreground">Loading records...</div>
+                ) : latenessRecords.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">No lateness records found.</div>
+                ) : (
+                    <div className="divide-y divide-border">
+                        {latenessRecords.map((record, index) => (
+                            <div key={record._id} className="p-4">
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                                            <span className="text-red-600 dark:text-red-400 font-bold">#{index + 1}</span>
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-foreground">{getRecordDate(record)}</p>
+                                            <p className="text-sm text-muted-foreground">Type: {record.type}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                        record.status === 'ESCALATED'
+                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                            : record.status === 'RESOLVED'
+                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                    }`}>
+                                        {record.status}
+                                    </span>
+                                </div>
+
+                                {record.reason && (
+                                    <p className="text-sm text-muted-foreground mb-3 ml-13">
+                                        <span className="font-medium">Reason:</span> {record.reason}
+                                    </p>
+                                )}
+
+                                {/* Attendance Punch Details */}
+                                {record.attendanceRecordId && (
+                                    <div className="ml-13 mt-3 p-4 bg-muted/30 rounded-lg">
+                                        <p className="text-sm font-medium text-foreground mb-2">Punch Records</p>
+                                        {record.attendanceRecordId.punches && record.attendanceRecordId.punches.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {record.attendanceRecordId.punches.map((punch, idx) => (
+                                                    <div key={idx} className="flex items-center gap-3">
+                                                        <span className={`px-3 py-1 rounded text-xs font-bold ${
+                                                            punch.type === 'IN'
+                                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                        }`}>
+                                                            {punch.type}
+                                                        </span>
+                                                        <span className="text-sm text-foreground">{formatDateTime(punch.time)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">No punch details available</p>
+                                        )}
+
+                                        {record.attendanceRecordId.totalWorkMinutes !== undefined && (
+                                            <div className="mt-3 pt-3 border-t border-border">
+                                                <p className="text-sm text-muted-foreground">
+                                                    <span className="font-medium">Total Work Time:</span>{' '}
+                                                    {Math.floor(record.attendanceRecordId.totalWorkMinutes / 60)}h {record.attendanceRecordId.totalWorkMinutes % 60}m
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
-
-            {/* Evaluate Modal */}
-            {showEvaluateModal && selectedEmployeeId && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                        <h2 className="text-xl font-bold text-gray-900 mb-4">
-                            Flag Employee for Discipline Review
-                        </h2>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Time Window (Days)
-                                </label>
-                                <input
-                                    type="number"
-                                    value={evaluateWindowDays}
-                                    onChange={(e) => setEvaluateWindowDays(Number(e.target.value))}
-                                    min="1"
-                                    max="365"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Review lateness records from the last X days
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Escalation Threshold
-                                </label>
-                                <input
-                                    type="number"
-                                    value={evaluateThreshold}
-                                    onChange={(e) => setEvaluateThreshold(Number(e.target.value))}
-                                    min="1"
-                                    max="50"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Flag for discipline if lateness count exceeds this threshold
-                                </p>
-                            </div>
-
-                            <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                                <p className="text-sm text-blue-800">
-                                    <strong>Note:</strong> This action will evaluate the employee's lateness record and create an escalation if the threshold is met.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={closeEvaluateModal}
-                                disabled={evaluatingEmployeeId !== null}
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleEvaluateEmployee}
-                                disabled={evaluatingEmployeeId !== null}
-                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                {evaluatingEmployeeId === selectedEmployeeId ? 'Processing...' : 'Flag for Discipline'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

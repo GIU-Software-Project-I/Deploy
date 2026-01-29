@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 import { payrollSpecialistService } from '@/app/services/payroll-specialist';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
 

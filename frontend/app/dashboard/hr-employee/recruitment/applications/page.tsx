@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Button } from '@/app/components/ui/button';
-import { Card } from '@/app/components/ui/card';
-import { Input } from '@/app/components/ui/input';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
-import { ApplicationStage, ApplicationStatus } from '@/app/types/enums';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ApplicationStage, ApplicationStatus } from '@/types/enums';
 import { getApplications, getReferrals, updateApplicationStage } from '@/app/services/recruitment';
 
 // =====================================================

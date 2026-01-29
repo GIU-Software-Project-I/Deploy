@@ -48,20 +48,51 @@ export default function MyPerformancePage() {
 
       // Fetch appraisal history
       const appraisalRes = await performanceService.getAppraisalHistory?.() || { data: [] };
-      if (appraisalRes.data) {
-        const data = Array.isArray(appraisalRes.data) ? appraisalRes.data : [];
-        setAppraisals(data);
-        if (data.length > 0) {
-          setLatestAppraisal(data[0]);
-        }
+      const rawData = Array.isArray(appraisalRes.data) ? appraisalRes.data : (Array.isArray(appraisalRes) ? appraisalRes : []);
+
+      // Mapping backend AppraisalRecord to frontend Appraisal interface
+      const mappedAppraisals: Appraisal[] = rawData.map((item: any) => {
+        // Map backend statuses to frontend statuses
+        let mappedStatus: Appraisal['status'] = 'PENDING';
+        if (item.status === 'HR_PUBLISHED') mappedStatus = 'COMPLETED';
+        else if (item.status === 'ARCHIVED') mappedStatus = 'COMPLETED';
+        else if (item.status === 'MANAGER_SUBMITTED') mappedStatus = 'IN_PROGRESS';
+        else if (item.status === 'DRAFT') mappedStatus = 'IN_PROGRESS';
+
+        return {
+          _id: item._id,
+          cycleId: typeof item.cycleId === 'object' ? item.cycleId?._id : item.cycleId,
+          cycleName: typeof item.cycleId === 'object' ? item.cycleId?.name : 'Performance Cycle',
+          templateName: typeof item.templateId === 'object' ? item.templateId?.name : 'Standard Appraisal',
+          status: mappedStatus,
+          overallRating: item.totalScore || 0,
+          feedback: item.managerSummary || '',
+          // Handle strengths as string (from backend) or array
+          strengths: typeof item.strengths === 'string'
+            ? item.strengths.split('\n').map((s: string) => s.trim()).filter((s: string) => s.length > 0)
+            : (Array.isArray(item.strengths) ? item.strengths : []),
+          // Handle improvementAreas (backend) mapped to areasForImprovement (frontend)
+          areasForImprovement: typeof item.improvementAreas === 'string'
+            ? item.improvementAreas.split('\n').map((s: string) => s.trim()).filter((s: string) => s.length > 0)
+            : (Array.isArray(item.improvementAreas) ? item.improvementAreas : []),
+          completedAt: item.hrPublishedAt || item.managerSubmittedAt,
+          reviewedBy: typeof item.managerProfileId === 'object' ? item.managerProfileId?.fullName : 'Manager',
+          createdAt: item.createdAt,
+        };
+      });
+
+      setAppraisals(mappedAppraisals);
+      if (mappedAppraisals.length > 0) {
+        setLatestAppraisal(mappedAppraisals[0]);
       }
 
       // Fetch goals
       const goalsRes = await performanceService.getMyGoals?.() || { data: [] };
-      if (goalsRes.data) {
-        setGoals(Array.isArray(goalsRes.data) ? goalsRes.data : []);
-      }
+      const rawGoals = Array.isArray(goalsRes.data) ? goalsRes.data : (Array.isArray(goalsRes) ? goalsRes : []);
+      setGoals(rawGoals);
+
     } catch (err: any) {
+      console.error('Error fetching performance data:', err);
       setError(err.message || 'Failed to load performance data');
     } finally {
       setLoading(false);
@@ -349,13 +380,11 @@ export default function MyPerformancePage() {
                 {appraisals.slice(0, 5).map((appraisal, idx) => (
                   <div
                     key={appraisal._id}
-                    className={`flex-shrink-0 w-32 p-4 rounded-lg border ${
-                      idx === 0 ? 'border-primary/50 bg-primary/10' : 'border-border bg-muted/50'
-                    }`}
+                    className={`flex-shrink-0 w-32 p-4 rounded-lg border ${idx === 0 ? 'border-primary/50 bg-primary/10' : 'border-border bg-muted/50'
+                      }`}
                   >
-                    <div className={`text-2xl font-bold ${
-                      idx === 0 ? 'text-primary' : 'text-foreground'
-                    }`}>
+                    <div className={`text-2xl font-bold ${idx === 0 ? 'text-primary' : 'text-foreground'
+                      }`}>
                       {appraisal.overallRating?.toFixed(1) || '--'}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1 truncate">{appraisal.cycleName}</p>

@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/app/context/AuthContext';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { DotPattern } from '@/app/components/dot-pattern';
+import { useAuth } from '@/context/AuthContext';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { DotPattern } from '@/components/dot-pattern';
 import { Eye, EyeOff, Lock, Mail, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {

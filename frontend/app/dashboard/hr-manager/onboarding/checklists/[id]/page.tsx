@@ -343,8 +343,8 @@ export default function OnboardingChecklistDetailPage() {
         <div className="bg-muted/50 border border-border rounded-xl p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-muted-foreground">Onboarding ID</p>
-              <p className="font-mono text-foreground">{onboarding._id}</p>
+              <p className="text-muted-foreground">Employee Code</p>
+              <p className="font-mono text-foreground">{typeof onboarding.employeeId === 'object' ? (onboarding.employeeId as any).employeeNumber : 'N/A'}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Contract ID</p>

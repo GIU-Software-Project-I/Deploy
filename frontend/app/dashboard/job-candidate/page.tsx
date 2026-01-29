@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { getApplicationsByCandidate, getInterviews } from '@/app/services/recruitment';
-import { Application } from '@/app/types/recruitment';
-import { ApplicationStatus, InterviewStatus, ApplicationStage } from '@/app/types/enums';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
+import { Application } from '@/types/recruitment';
+import { ApplicationStatus, InterviewStatus, ApplicationStage } from '@/types/enums';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   Briefcase,
   FileText,

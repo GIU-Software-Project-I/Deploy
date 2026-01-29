@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { Card } from '@/app/components/ui/card';
-import { Button } from '@/app/components/ui/button';
-import { JobOffer, Candidate, Application, JobRequisition } from '@/app/types/recruitment';
-import { OfferFinalStatus, OfferResponseStatus, ApprovalStatus } from '@/app/types/enums';
-import { useAuth } from '@/app/context/AuthContext';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { JobOffer, Candidate, Application, JobRequisition } from '@/types/recruitment';
+import { OfferFinalStatus, OfferResponseStatus, ApprovalStatus } from '@/types/enums';
+import { useAuth } from '@/context/AuthContext';
 import {
   getOfferById,
   approveOffer,
@@ -17,7 +17,7 @@ import {
   getApplicationById,
   getJobById,
 } from '@/app/services/recruitment';
-import OfferLetterGenerator from '@/app/components/recruitment/OfferLetterGenerator';
+import OfferLetterGenerator from '@/components/recruitment/OfferLetterGenerator';
 
 // ==================== INTERFACES ====================
 interface OfferDetail {

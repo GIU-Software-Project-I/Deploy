@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { financeStaffService, RefundGeneration, PayrollCycle, RefundRequest, ApprovedDispute, ApprovedClaim } from '@/app/services/finance-staff';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 export default function RefundsPage() {
   const { user } = useAuth();

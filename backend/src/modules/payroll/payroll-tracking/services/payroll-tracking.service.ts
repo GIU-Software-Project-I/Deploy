@@ -9,7 +9,7 @@ import { ClaimStatus, DisputeStatus, RefundStatus } from '../enums/payroll-track
 import { paySlip, PayslipDocument } from "../../payroll-execution/models/payslip.schema";
 import { employeePayrollDetails, employeePayrollDetailsDocument } from "../../payroll-execution/models/employeePayrollDetails.schema";
 import { EmployeeProfile } from "../../../employee/models/employee/employee-profile.schema";
-import { Department, DepartmentDocument } from "../../../employee/models/organization-structure/department.schema";
+import { Department, DepartmentDocument } from "../../../organization-structure/models/department.schema";
 import { ContractType, WorkType } from "../../../employee/enums/employee-profile.enums";
 import { PayrollConfigurationService } from "../../payroll-configuration/services/payroll-configuration.service";
 import { UnifiedLeaveService } from "../../../leaves/services/leaves.service";
@@ -224,6 +224,7 @@ export class PayrollTrackingService {
 
     return {
       employeeId: employee._id,
+      employeeNumber: (employee as any).employeeNumber || 'N/A',
       fullName: `${employee.firstName} ${employee.lastName}`,
       contractType: contractType || null,
       workType: workType || null,
@@ -1520,7 +1521,22 @@ export class PayrollTrackingService {
     const relatedRefunds = disputeIds.length ? await this.refundsModel.find({ disputeId: { $in: disputeIds } }).lean().exec() : [];
     const refundByDisputeId = new Map<string, any>(relatedRefunds.map((r: any) => [String(r.disputeId), r]));
 
-    // Transform to expected format - NO POPULATION, return pure strings only
+    // Fetch employee details for these disputes
+    const employeeIds = [...new Set(disputes.map(d => String(d.employeeId)).filter(Boolean))];
+    const employees = employeeIds.length ? await this.employeeModel.find(
+      { _id: { $in: employeeIds.map(id => new Types.ObjectId(id)) } },
+      { firstName: 1, lastName: 1, employeeNumber: 1 }
+    ).lean().exec() : [];
+
+    const employeeMap = new Map(employees.map(e => [
+      String(e._id),
+      {
+        name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || 'Unknown Employee',
+        number: e.employeeNumber || 'N/A'
+      }
+    ]));
+
+    // Transform to expected format
     const result = disputes.map((dispute: any) => {
       // Helper to safely convert to string - NEVER returns objects
       const toStr = (val: any): string => {
@@ -1531,13 +1547,15 @@ export class PayrollTrackingService {
         }
         return String(val);
       };
+
+      const empInfo = employeeMap.get(String(dispute.employeeId));
       const refund = refundByDisputeId.get(String(dispute._id));
 
       return {
         id: toStr(dispute._id),
-        employeeId: toStr(dispute.employeeId), // Pure string ID, no population
-        employeeName: 'Employee ' + toStr(dispute.employeeId).slice(-6), // Simple fallback
-        employeeNumber: 'N/A',
+        employeeId: toStr(dispute.employeeId), // Pure string ID
+        employeeName: empInfo?.name || 'Unknown Employee',
+        employeeNumber: empInfo?.number || 'N/A',
         department: toStr(dispute.department || 'N/A'),
         type: toStr(dispute.disputeType || dispute.type || 'Unknown'),
         description: toStr(dispute.description),
@@ -1677,7 +1695,22 @@ export class PayrollTrackingService {
     const relatedClaimRefunds = claimIds.length ? await this.refundsModel.find({ claimId: { $in: claimIds } }).lean().exec() : [];
     const refundByClaimId = new Map<string, any>(relatedClaimRefunds.map((r: any) => [String(r.claimId), r]));
 
-    // Transform to expected format - NO POPULATION, return pure strings only
+    // Fetch employee details for these claims
+    const employeeIdList = [...new Set(claims.map(c => String(c.employeeId)).filter(Boolean))];
+    const employeesData = employeeIdList.length ? await this.employeeModel.find(
+      { _id: { $in: employeeIdList.map(id => new Types.ObjectId(id)) } },
+      { firstName: 1, lastName: 1, employeeNumber: 1 }
+    ).lean().exec() : [];
+
+    const employeeDataMap = new Map(employeesData.map(e => [
+      String(e._id),
+      {
+        name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || 'Unknown Employee',
+        number: e.employeeNumber || 'N/A'
+      }
+    ]));
+
+    // Transform to expected format
     const result = claims.map((claim: any) => {
       // Helper to safely convert to string - NEVER returns objects
       const toStr = (val: any): string => {
@@ -1688,14 +1721,16 @@ export class PayrollTrackingService {
         }
         return String(val);
       };
+
+      const empInfo = employeeDataMap.get(String(claim.employeeId));
       const refund = refundByClaimId.get(String(claim._id));
 
       return {
         id: toStr(claim._id),
         claimId: toStr(claim.claimId), // Added claimId
-        employeeId: toStr(claim.employeeId), // Pure string ID, no population
-        employeeName: 'Employee ' + toStr(claim.employeeId).slice(-6), // Simple fallback
-        employeeNumber: 'N/A',
+        employeeId: toStr(claim.employeeId), // Pure string ID
+        employeeName: empInfo?.name || 'Unknown Employee',
+        employeeNumber: empInfo?.number || 'N/A',
         department: toStr(claim.department || 'N/A'),
         title: toStr(claim.title || claim.claimType || 'Expense Claim'),
         description: toStr(claim.description),
@@ -2030,16 +2065,16 @@ export class PayrollTrackingService {
     }
 
     return this.claimsModel.find(query)
-      .populate('employeeId', 'firstName lastName employeeId')
-      .populate('financeStaffId', 'firstName lastName employeeId')
-      .populate('payrollSpecialistId', 'firstName lastName employeeId')
+      .populate('employeeId', 'firstName lastName employeeNumber')
+      .populate('financeStaffId', 'firstName lastName employeeNumber')
+      .populate('payrollSpecialistId', 'firstName lastName employeeNumber')
       .sort({ createdAt: -1 })
       .exec();
   }
 
   async getClaimById(id: string) {
     const claim = await this.claimsModel.findById(id)
-      .populate('employeeId', 'firstName lastName employeeId')
+      .populate('employeeId', 'firstName lastName employeeNumber')
       .populate('financeStaffId', 'firstName lastName employeeId')
       .exec();
 
@@ -2080,7 +2115,7 @@ export class PayrollTrackingService {
     if (employeeId) query.employeeId = new Types.ObjectId(employeeId);
 
     const disputes = await this.disputesModel.find(query)
-      .populate('employeeId', 'firstName lastName employeeId')
+      .populate('employeeId', 'firstName lastName employeeNumber')
       .populate({
         path: 'payslipId',
         select: 'payrollRunId netPay totalGrossSalary',
@@ -2089,8 +2124,9 @@ export class PayrollTrackingService {
           select: 'payrollPeriod runId'
         }
       })
-      .populate('financeStaffId', 'firstName lastName employeeId')
-      .populate('payrollSpecialistId', 'firstName lastName employeeId')
+      .populate('employeeId', 'firstName lastName employeeNumber')
+      .populate('financeStaffId', 'firstName lastName employeeNumber')
+      .populate('payrollSpecialistId', 'firstName lastName employeeNumber')
       .sort({ createdAt: -1 })
       .exec();
 
@@ -2111,9 +2147,9 @@ export class PayrollTrackingService {
 
   async getDisputeById(id: string) {
     const dispute = await this.disputesModel.findById(id)
-      .populate('employeeId', 'firstName lastName employeeId')
+      .populate('employeeId', 'firstName lastName employeeNumber')
       .populate('payslipId', 'payPeriod netSalary grossSalary')
-      .populate('financeStaffId', 'firstName lastName employeeId')
+      .populate('financeStaffId', 'firstName lastName employeeNumber')
       .exec();
 
     if (!dispute) {
@@ -2156,7 +2192,7 @@ export class PayrollTrackingService {
       .populate('employeeId', 'firstName lastName employeeId')
       .populate('claimId', 'claimId description')
       .populate('disputeId', 'disputeId description')
-      .populate('financeStaffId', 'firstName lastName employeeId')
+      .populate('financeStaffId', 'firstName lastName employeeNumber')
       .populate('paidInPayrollRunId', 'runId period')
       .exec();
   }
@@ -2166,7 +2202,7 @@ export class PayrollTrackingService {
       .populate('employeeId', 'firstName lastName employeeId')
       .populate('claimId', 'claimId description amount')
       .populate('disputeId', 'disputeId description')
-      .populate('financeStaffId', 'firstName lastName employeeId')
+      .populate('financeStaffId', 'firstName lastName employeeNumber')
       .populate('paidInPayrollRunId', 'runId period')
       .exec();
 

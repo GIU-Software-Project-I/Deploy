@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { organizationStructureService } from '@/app/services/organization-structure';
 
 /**
@@ -40,18 +40,87 @@ export default function MyOrganizationPage() {
     fetchOrgChart();
   }, []);
 
+  const buildOrgTree = (data: any): OrgNode[] => {
+    // Handle case where data has departments and positions
+    if (data?.departments || data?.positions) {
+      const departments = data.departments || [];
+      const positions = data.positions || [];
+
+      // Create a map of departments
+      const deptMap = new Map<string, OrgNode>();
+      departments.forEach((dept: any) => {
+        deptMap.set(dept._id, {
+          _id: dept._id,
+          name: dept.name,
+          code: dept.code,
+          type: 'department',
+          isActive: dept.isActive !== false,
+          children: [],
+        });
+      });
+
+      // Create a map of positions
+      const posMap = new Map<string, OrgNode>();
+      positions.forEach((pos: any) => {
+        posMap.set(pos._id, {
+          _id: pos._id,
+          title: pos.title,
+          code: pos.code,
+          type: 'position',
+          parentId: pos.reportsToPositionId?._id || pos.reportsToPositionId,
+          employeeId: pos.currentHolderId,
+          isActive: pos.isActive !== false,
+          children: [],
+        });
+      });
+
+      // Build position hierarchy within each department
+      positions.forEach((pos: any) => {
+        const posNode = posMap.get(pos._id);
+        if (!posNode) return;
+
+        const parentPosId = pos.reportsToPositionId?._id || pos.reportsToPositionId;
+        const deptId = pos.departmentId?._id || pos.departmentId;
+
+        if (parentPosId && posMap.has(parentPosId)) {
+          // Position reports to another position
+          const parentPos = posMap.get(parentPosId);
+          if (parentPos && parentPos.children) {
+            parentPos.children.push(posNode);
+          }
+        } else if (deptId && deptMap.has(deptId)) {
+          // Top-level position in department
+          const dept = deptMap.get(deptId);
+          if (dept && dept.children) {
+            dept.children.push(posNode);
+          }
+        }
+      });
+
+      // Return all departments as root nodes
+      return Array.from(deptMap.values());
+    }
+
+    // Handle case where data is already an array (if API changes)
+    if (Array.isArray(data)) {
+      return data;
+    }
+
+    return [];
+  };
+
   const fetchOrgChart = async () => {
     try {
       setLoading(true);
       setError(null);
 
       const res = await organizationStructureService.getOrgChart();
-      if (res.data) {
-        setOrgData(Array.isArray(res.data) ? res.data : []);
-        // Expand first level by default
-        if (Array.isArray(res.data)) {
-          setExpandedNodes(new Set(res.data.map((n: OrgNode) => n._id)));
-        }
+      const treeData = buildOrgTree(res.data || res);
+      setOrgData(treeData);
+
+      // Expand first level by default
+      if (treeData.length > 0) {
+        setExpandedNodes(new Set(treeData.map((n: OrgNode) => n._id)));
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load organization chart');
@@ -92,6 +161,8 @@ export default function MyOrganizationPage() {
     const isExpanded = expandedNodes.has(node._id);
     const hasChildren = node.children && node.children.length > 0;
     const displayName = node.type === 'department' ? node.name : node.title;
+    // Check if the current user is assigned to this position
+    // Note: user.id is the employeeProfileId from AuthContext
     const isCurrentUser = node.employeeId?._id === user?.id;
 
     // Search filter
@@ -114,11 +185,10 @@ export default function MyOrganizationPage() {
     return (
       <div key={node._id} className="select-none">
         <div
-          className={`flex items-center gap-2 py-2 px-3 rounded-lg transition-colors ${
-            isCurrentUser 
-              ? 'bg-primary/10 border border-primary/30' 
-              : 'hover:bg-muted/50'
-          }`}
+          className={`flex items-center gap-2 py-2 px-3 rounded-lg transition-colors ${isCurrentUser
+            ? 'bg-primary/10 border border-primary/30'
+            : 'hover:bg-muted/50'
+            }`}
           style={{ marginLeft: depth * 24 }}
         >
           {hasChildren ? (
@@ -139,25 +209,25 @@ export default function MyOrganizationPage() {
             <span className="w-6"></span>
           )}
 
-          <div className={`w-2 h-2 rounded-full ${
-            node.type === 'department' 
-              ? 'bg-blue-500' 
-              : node.employeeId ? 'bg-green-500' : 'bg-amber-500'
-          }`}></div>
+          <div className={`w-2 h-2 rounded-full ${node.type === 'department'
+            ? 'bg-blue-500'
+            : node.employeeId ? 'bg-green-500' : 'bg-amber-500'
+            }`}></div>
 
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <span className={`font-medium ${isCurrentUser ? 'text-primary' : 'text-foreground'}`}>
                 {displayName}
               </span>
+              <span className="text-xs text-muted-foreground font-mono">({node.code})</span>
               {isCurrentUser && (
-                <span className="text-xs text-primary font-medium">(You)</span>
+                <span className="text-xs text-primary font-medium border border-primary/20 px-1.5 py-0.5 rounded ml-2">You</span>
               )}
             </div>
             {node.type === 'position' && (
               <div className="text-sm text-muted-foreground">
                 {node.employeeId
-                  ? `${node.employeeId.firstName} ${node.employeeId.lastName}`
+                  ? `${node.employeeId.firstName} ${node.employeeId.lastName} (${node.employeeId.employeeNumber})`
                   : 'Vacant'}
               </div>
             )}
@@ -247,6 +317,10 @@ export default function MyOrganizationPage() {
               <div className="w-2 h-2 rounded-full bg-amber-500"></div>
               <span>Vacant Position</span>
             </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="w-2 h-2 rounded-full border border-primary/50 bg-primary/10"></div>
+              <span>You</span>
+            </div>
           </div>
         </div>
 
@@ -255,7 +329,7 @@ export default function MyOrganizationPage() {
           {orgData.length === 0 ? (
             <div className="p-12 text-center">
               <svg className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
               <h3 className="font-medium text-foreground">Organization Chart Not Available</h3>
               <p className="text-muted-foreground text-sm mt-1">
@@ -272,4 +346,3 @@ export default function MyOrganizationPage() {
     </div>
   );
 }
-

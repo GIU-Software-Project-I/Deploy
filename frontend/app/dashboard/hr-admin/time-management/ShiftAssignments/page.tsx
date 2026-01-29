@@ -8,8 +8,7 @@ import {
   ShiftAssignmentStatus,
   AssignShiftDto,
 } from '@/app/services/time-management';
-import { useAuth } from '@/app/context/AuthContext';
-import notificationsService from "@/app/services/notifications";
+import { useAuth } from '@/context/AuthContext';
 
 export default function ShiftAssignmentsPage() {
   const { user } = useAuth();
@@ -41,10 +40,6 @@ export default function ShiftAssignmentsPage() {
   // Filters
   const [statusFilter, setStatusFilter] = useState<ShiftAssignmentStatus | 'ALL'>('ALL');
 
-  // Expiry notifications
-  const [expiringAssignments, setExpiringAssignments] = useState<ShiftAssignment[]>([]);
-  const [showExpiryNotifications, setShowExpiryNotifications] = useState(true);
-  const [dismissedExpiryIds, setDismissedExpiryIds] = useState<Set<string>>(new Set());
 
   // Fetch all shift assignments and shifts
   const fetchData = async () => {
@@ -157,50 +152,10 @@ export default function ShiftAssignmentsPage() {
     }
   };
 
-  // Fetch shift expiry notifications from backend (ShiftExpiryScheduler creates these daily)
-  const fetchExpiringNotifications = async () => {
-    try {
-      // Fetch SHIFT_EXPIRY notifications that were created by the backend scheduler
-      const response = await notificationsService.getAllNotifications('SHIFT_EXPIRY');
-
-      if (response.error || !response.data) {
-        console.warn('[ShiftAssignments] Failed to fetch expiring notifications:', response.error);
-        setExpiringAssignments([]);
-        return;
-      }
-
-      // Extract assignment IDs from notification messages and match with assignments
-      const expiringAssignmentIds = response.data
-        .map((notification) => {
-          // Message format: "Shift assignment <ID> for employee <empId> expires on <date>..."
-          const match = notification.message.match(/Shift assignment ([a-f\d]{24})/);
-          return match?.[1];
-        })
-        .filter(Boolean);
-
-      // Filter assignments to show only those with expiry notifications
-      const expiring = assignments.filter((a) => expiringAssignmentIds.includes(a._id));
-
-      setExpiringAssignments(expiring);
-      console.log('[ShiftAssignments] Fetched expiring assignments from backend:', expiring.length);
-    } catch (err) {
-      console.error('[ShiftAssignments] Error fetching expiring notifications:', err);
-    }
-  };
-
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Fetch expiring shift notifications from backend scheduler
-  useEffect(() => {
-    fetchExpiringNotifications();
-
-    // Re-check every 60 minutes for new notifications from the scheduler
-    const intervalId = setInterval(fetchExpiringNotifications, 60 * 60 * 1000);
-
-    return () => clearInterval(intervalId);
-  }, [assignments]);
 
   // Handle form submission
   const handleAssignShift = async (e: React.FormEvent) => {
@@ -420,27 +375,6 @@ export default function ShiftAssignmentsPage() {
     return shifts.find((s) => s._id === shiftId)?.name || shiftId;
   };
 
-  // Calculate days until expiry
-  const getDaysUntilExpiry = (endDate: string | Date): number => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(0, 0, 0, 0);
-    const timeDiff = end.getTime() - today.getTime();
-    return Math.ceil(timeDiff / (1000 * 3600 * 24));
-  };
-
-  // Dismiss an expiry notification
-  const handleDismissExpiry = (assignmentId: string) => {
-    const newDismissed = new Set(dismissedExpiryIds);
-    newDismissed.add(assignmentId);
-    setDismissedExpiryIds(newDismissed);
-  };
-
-  // Get unread expiry notifications (not dismissed)
-  const getUnreadExpiryNotifications = () => {
-    return expiringAssignments.filter(a => !dismissedExpiryIds.has(a._id));
-  };
 
   return (
     <div className="container mx-auto p-6">
@@ -466,74 +400,6 @@ export default function ShiftAssignmentsPage() {
         </div>
       )}
 
-      {/* Expiry Notifications Banner */}
-      {showExpiryNotifications && getUnreadExpiryNotifications().length > 0 && (
-        <div className="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h3 className="mb-3 flex items-center text-lg font-semibold text-orange-900">
-                <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-orange-200 text-sm font-bold">
-                  ⚠
-                </span>
-                {getUnreadExpiryNotifications().length} Shift Assignment(s) Expiring Soon
-              </h3>
-              <div className="space-y-2">
-                {getUnreadExpiryNotifications().map((assignment) => {
-                  const daysLeft = assignment.endDate ? getDaysUntilExpiry(assignment.endDate) : 0;
-                  const targetName =
-                    assignment.employeeId ? `Employee: ${assignment.employeeId}` :
-                    assignment.departmentId ? `Department: ${assignment.departmentId}` :
-                    assignment.positionId ? `Position: ${assignment.positionId}` :
-                    'Unknown Target';
-
-                  return (
-                    <div key={assignment._id} className="flex items-center justify-between rounded bg-orange-100 px-3 py-2">
-                      <div className="text-sm text-orange-800">
-                        <strong>{getShiftName(assignment.shiftId)}</strong> for {targetName} expires in{' '}
-                        <strong className="text-orange-900">
-                          {daysLeft} day{daysLeft !== 1 ? 's' : ''}
-                        </strong>
-                        {assignment.endDate && (
-                          <span className="ml-2 text-xs">
-                            ({new Date(assignment.endDate).toLocaleDateString()})
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setStatusFilter(ShiftAssignmentStatus.APPROVED);
-                            setViewType(
-                              assignment.employeeId ? 'employee' :
-                              assignment.departmentId ? 'department' :
-                              'position'
-                            );
-                          }}
-                          className="rounded bg-orange-600 px-2 py-1 text-xs text-white hover:bg-orange-700"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleDismissExpiry(assignment._id)}
-                          className="rounded bg-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-400"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setShowExpiryNotifications(false)}
-                className="mt-3 text-xs font-medium text-orange-700 hover:text-orange-900"
-              >
-                Hide All Notifications
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* View Type Tabs */}
       <div className="mb-6 border-b border-gray-200">
