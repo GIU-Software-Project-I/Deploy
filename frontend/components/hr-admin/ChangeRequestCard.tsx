@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { DS_ENGINES } from '@/app/utils/ds-engines';
+import { DS_ENGINES } from '@/app/services/analytics/ds-engines';
 
 export interface ChangeRequest {
     _id: string;

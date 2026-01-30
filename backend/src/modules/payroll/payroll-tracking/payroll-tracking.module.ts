@@ -42,6 +42,8 @@ import { Shift, ShiftSchema } from "../../time-management/models/shift.schema";
       { name: employeePayrollDetails.name, schema: employeePayrollDetailsSchema },
       { name: EmployeeProfile.name, schema: EmployeeProfileSchema },
       { name: Department.name, schema: DepartmentSchema },
+      { name: payrollRuns.name, schema: payrollRunsSchema },
+
       // Time Management schemas for attendance-based deductions
       { name: AttendanceRecord.name, schema: AttendanceRecordSchema },
       { name: TimeException.name, schema: TimeExceptionSchema },

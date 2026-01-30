@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { organizationStructureService } from '@/app/services/organization-structure';
 import { payrollConfigurationService } from '@/app/services/payroll-configuration';
 import RoleGuard from '@/components/RoleGuard';
-import { SystemRole } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 /**
  * Create/Edit Position - System Admin

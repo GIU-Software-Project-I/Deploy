@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { organizationStructureService } from '@/app/services/organization-structure';
 import RoleGuard from '@/components/RoleGuard';
-import { SystemRole } from '@/context/AuthContext';
+
 import { useAuth } from '@/context/AuthContext';
+import {SystemRole} from "@/types";
 
 /**
  * Organization Chart - Department Head View

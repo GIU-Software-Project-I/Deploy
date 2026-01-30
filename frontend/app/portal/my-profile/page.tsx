@@ -224,7 +224,7 @@ export default function MyProfilePortalPage() {
                     {/* Biography */}
                     <GlassCard className="p-6 md:p-8">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
                                 <User className="w-5 h-5" />
                             </div>
                             <h3 className="font-bold text-lg text-foreground">Biography</h3>
@@ -237,7 +237,7 @@ export default function MyProfilePortalPage() {
                     {/* Employment Details */}
                     <GlassCard className="p-6 md:p-8">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
                                 <Briefcase className="w-5 h-5" />
                             </div>
                             <h3 className="font-bold text-lg text-foreground">Employment Details</h3>
@@ -260,7 +260,7 @@ export default function MyProfilePortalPage() {
                     {/* Education */}
                     <GlassCard className="p-6 md:p-8">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
                                 <GraduationCap className="w-5 h-5" />
                             </div>
                             <h3 className="font-bold text-lg text-foreground">Education</h3>
@@ -287,7 +287,7 @@ export default function MyProfilePortalPage() {
                     {/* Skills Matrix (Radar Chart) */}
                     <GlassCard className="p-6 md:p-8">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-blue-600/10 text-blue-600">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
                                 <BrainCircuit className="w-5 h-5" />
                             </div>
                             <h3 className="font-bold text-lg text-foreground">Skills Matrix</h3>
@@ -309,7 +309,7 @@ export default function MyProfilePortalPage() {
                     {/* Personal Info */}
                     <GlassCard className="p-6 md:p-8">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                            <div className="p-2 rounded-lg bg-primary/10 text-primary">
                                 <User className="w-5 h-5" />
                             </div>
                             <h3 className="font-bold text-lg text-foreground">Personal Info</h3>

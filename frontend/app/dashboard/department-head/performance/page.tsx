@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { performanceService } from '@/app/services/performance';
+import { timeManagementService } from '@/app/services/time-management';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -88,6 +89,10 @@ export default function DepartmentHeadPerformancePage() {
     managerComments: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attendanceData, setAttendanceData] = useState<{ latenessCount: number; totalMinutes: number } | null>(null);
+  const [fetchingAttendance, setFetchingAttendance] = useState(false);
+  const [showViewFramework, setShowViewFramework] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<any>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -135,6 +140,27 @@ export default function DepartmentHeadPerformancePage() {
       managerComments: '',
     });
     setShowEvaluationForm(true);
+    fetchAttendanceMetrics(assignment.employeeProfileId._id);
+  };
+
+  const fetchAttendanceMetrics = async (employeeId: string) => {
+    try {
+      setFetchingAttendance(true);
+      const [latenessRes, attendanceRes] = await Promise.all([
+        timeManagementService.getRepeatedLatenessCount(employeeId),
+        timeManagementService.getMonthlyAttendance(employeeId, new Date().getMonth() + 1, new Date().getFullYear())
+      ]);
+
+      const latenessCount = (latenessRes as any).data?.count || 0;
+      const records = Array.isArray(attendanceRes.data) ? attendanceRes.data : [];
+      const totalMinutes = records.reduce((acc: number, curr: any) => acc + (curr.totalWorkMinutes || 0), 0);
+
+      setAttendanceData({ latenessCount, totalMinutes });
+    } catch (err) {
+      console.error('Failed to fetch attendance metrics:', err);
+    } finally {
+      setFetchingAttendance(false);
+    }
   };
 
   const handleRatingChange = (criterionKey: string, score: number) => {
@@ -228,10 +254,10 @@ export default function DepartmentHeadPerformancePage() {
   };
 
   const statusColors: Record<string, string> = {
-    PENDING: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    IN_PROGRESS: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-    SUBMITTED: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
-    PUBLISHED: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
+    PENDING: 'bg-muted text-muted-foreground border-border',
+    IN_PROGRESS: 'bg-muted-foreground text-background border-muted-foreground',
+    SUBMITTED: 'bg-foreground text-background border-foreground',
+    PUBLISHED: 'bg-foreground text-background border-foreground opacity-80',
   };
 
   if (loading) {
@@ -253,10 +279,10 @@ export default function DepartmentHeadPerformancePage() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
             <Link href="/dashboard/department-head" className="hover:text-foreground">Department Head</Link>
             <span>/</span>
-            <span className="text-foreground">Team Performance</span>
+            <span className="text-foreground font-medium">Team Performance</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Performance Evaluations</h1>
-          <p className="text-muted-foreground mt-1">Review and complete appraisal forms for your direct reports</p>
+          <h1 className="text-2xl font-bold text-foreground">Talent Evaluation Hub</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Review and finalize performance appraisals for your direct reports</p>
         </div>
       </div>
 
@@ -270,39 +296,39 @@ export default function DepartmentHeadPerformancePage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Assigned</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Assigned</p>
               <p className="text-2xl font-black text-foreground">{assignments.length}</p>
             </div>
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pending</p>
-              <p className="text-2xl font-black text-foreground">{assignments.filter(a => a.status === 'PENDING' || a.status === 'IN_PROGRESS').length}</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Pending</p>
+              <p className="text-2xl font-black text-foreground">{assignments.filter(a => a.status === 'PENDING').length}</p>
             </div>
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 bg-foreground rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-background" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Completed</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Completed</p>
               <p className="text-2xl font-black text-foreground">{assignments.filter(a => a.status === 'SUBMITTED' || a.status === 'PUBLISHED').length}</p>
             </div>
           </div>
@@ -357,12 +383,24 @@ export default function DepartmentHeadPerformancePage() {
 
             <div className="pt-4 border-t border-border">
               {assignment.status === 'PENDING' || assignment.status === 'IN_PROGRESS' ? (
-                <Button
-                  className="w-full"
-                  onClick={() => handleStartEvaluation(assignment)}
-                >
-                  {assignment.status === 'IN_PROGRESS' ? 'Resume Appraisal' : 'Begin Evaluation'}
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    className="w-full"
+                    onClick={() => handleStartEvaluation(assignment)}
+                  >
+                    {assignment.status === 'IN_PROGRESS' ? 'Resume Appraisal' : 'Begin Evaluation'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full text-[10px] font-bold uppercase tracking-widest h-8"
+                    onClick={() => {
+                      setPreviewTemplate(assignment.templateId);
+                      setShowViewFramework(true);
+                    }}
+                  >
+                    View Framework
+                  </Button>
+                </div>
               ) : (
                 <Button variant="outline" className="w-full">View Finalized Report</Button>
               )}
@@ -397,6 +435,41 @@ export default function DepartmentHeadPerformancePage() {
           </DialogHeader>
 
           <div className="space-y-8 py-6">
+            {/* Attendance & Punctuality Context (REQ-AE-03) */}
+            <div className="bg-muted border border-border rounded-xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <h3 className="font-bold text-foreground">Attendance & Punctuality Context</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Repeated Lateness</p>
+                  {fetchingAttendance ? (
+                    <div className="h-8 w-24 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className={`text-2xl font-black ${attendanceData?.latenessCount && attendanceData.latenessCount > 3 ? 'text-destructive' : 'text-foreground'}`}>
+                        {attendanceData?.latenessCount ?? 0}
+                      </span>
+                      <span className="text-xs text-muted-foreground font-medium">Incidents found</span>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Work Hours (Current Month)</p>
+                  {fetchingAttendance ? (
+                    <div className="h-8 w-24 bg-muted animate-pulse rounded" />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-black text-foreground">
+                        {Math.floor((attendanceData?.totalMinutes ?? 0) / 60)}h {Math.round((attendanceData?.totalMinutes ?? 0) % 60)}m
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-4 italic font-medium">Use this data to inform ratings on punctuality and reliability criteria.</p>
+            </div>
+
             {/* Criteria List */}
             <div className="space-y-6">
               {selectedAssignment?.templateId?.criteria?.map((criterion) => {
@@ -410,7 +483,7 @@ export default function DepartmentHeadPerformancePage() {
                         <p className="text-sm text-muted-foreground mt-1">{criterion.details}</p>
                       </div>
                       {criterion.weight && (
-                        <Badge variant="secondary" className="bg-primary/5 text-primary">Weight: {criterion.weight}%</Badge>
+                        <Badge variant="secondary" className="bg-muted text-foreground border-border">Weight: {criterion.weight}%</Badge>
                       )}
                     </div>
 
@@ -420,8 +493,8 @@ export default function DepartmentHeadPerformancePage() {
                           key={score}
                           onClick={() => handleRatingChange(criterion.key, score)}
                           className={`w-12 h-12 rounded-lg font-black transition-all border-2 ${rating?.score === score
-                              ? 'bg-primary border-primary text-primary-foreground'
-                              : 'bg-background border-border text-muted-foreground hover:border-primary/50'
+                            ? 'bg-foreground border-foreground text-background'
+                            : 'bg-background border-border text-muted-foreground hover:border-foreground/50'
                             }`}
                         >
                           {score}
@@ -477,12 +550,12 @@ export default function DepartmentHeadPerformancePage() {
             </div>
 
             {/* Final Calculation */}
-            <div className="bg-card border border-primary/20 rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="bg-card border border-border rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
                 <h4 className="font-bold text-foreground">Final Aggregate Rating</h4>
                 <p className="text-xs text-muted-foreground uppercase font-semibold">Weighted average based on criteria</p>
               </div>
-              <div className="text-3xl font-black text-primary">
+              <div className="text-3xl font-black text-foreground">
                 {calculateOverallRating().toFixed(2)} / {selectedAssignment?.templateId?.ratingScale?.max || 5}
               </div>
             </div>
@@ -498,6 +571,49 @@ export default function DepartmentHeadPerformancePage() {
                 {isSubmitting ? 'Processing...' : 'Submit Evaluation'}
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Framework Dialog */}
+      <Dialog open={showViewFramework} onOpenChange={setShowViewFramework}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-border border-2">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              Evaluation Framework: {previewTemplate?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Review the criteria and weights established for this appraisal cycle.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="bg-muted/50 p-4 rounded-lg border border-border">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Standard Instruction</h4>
+              <p className="text-sm text-foreground italic">{previewTemplate?.instructions || 'No specific instructions provided for this framework.'}</p>
+            </div>
+
+            <div className="space-y-4">
+              {previewTemplate?.criteria?.map((c: any) => (
+                <div key={c.key} className="p-4 bg-background border border-border rounded-lg shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="font-bold text-foreground">{c.title}</h5>
+                    <Badge variant="secondary" className="text-[10px] font-black uppercase tracking-widest">
+                      Weight: {c.weight}%
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{c.details}</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-[9px] font-bold uppercase tracking-tighter text-muted-foreground">Rating Scale:</span>
+                    <span className="text-[9px] font-black text-foreground uppercase tracking-widest">1 - {c.maxScore}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setShowViewFramework(false)} className="w-full">Understood</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

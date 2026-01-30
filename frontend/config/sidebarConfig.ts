@@ -70,6 +70,11 @@ const SELF_SERVICE_SECTION: NavSection = {
       ],
     },
     {
+      label: 'My Career',
+      href: '/portal/my-career',
+      icon: 'compass',
+    },
+    {
       label: 'My Payslips',
       href: '/portal/my-payslips',
       icon: 'dollar-sign',
@@ -238,16 +243,16 @@ const DEPARTMENT_HEAD_SECTIONS: NavSection[] = [
         href: '/dashboard/department-head/performance',
         icon: 'trending-up',
       },
-      {
-        label: 'Department Structure',
-        href: '/dashboard/department-head/team-structure',
-        icon: 'building',
-      },
-      {
-        label: 'Organization Chart',
-        href: '/dashboard/department-head/organization-structure/org-chart',
-        icon: 'git-branch',
-      },
+      // {
+      //   label: 'Department Structure',
+      //   href: '/dashboard/department-head/team-structure',
+      //   icon: 'building',
+      // },
+      // {
+      //   label: 'Organization Chart',
+      //   href: '/dashboard/department-head/organization-structure/org-chart',
+      //   icon: 'git-branch',
+      // },
     ],
   },
   SELF_SERVICE_SECTION,
@@ -627,6 +632,12 @@ const PAYROLL_MANAGER_NAV: NavItem[] = [
     label: 'Dashboard',
     href: '/dashboard/payroll-manager',
     icon: 'home',
+  },
+
+  {
+    label: 'Dashboard Analytics',
+    href: '/dashboard/payroll-manager/analytics',
+    icon: 'bar-chart',
   },
   {
     label: 'Dispute Confirmation',

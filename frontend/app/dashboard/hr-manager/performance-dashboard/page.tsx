@@ -11,6 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface CycleStats {
   _id: string;
@@ -52,6 +54,7 @@ export default function PerformanceDashboardPage() {
   const [cycles, setCycles] = useState<CycleStats[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string>('');
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [isReminding, setIsReminding] = useState(false);
 
   useEffect(() => {
     fetchCycles();
@@ -100,17 +103,34 @@ export default function PerformanceDashboardPage() {
     }
   };
 
+  const handleSendReminders = async () => {
+    if (!selectedCycleId) return;
+    try {
+      setIsReminding(true);
+      const response = await performanceService.sendReminders(selectedCycleId);
+      if (response.error) {
+        toast.error(response.error);
+        return;
+      }
+      toast.success('Reminders sent to all pending managers');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send reminders');
+    } finally {
+      setIsReminding(false);
+    }
+  };
+
   const statusColors: Record<string, string> = {
-    PLANNED: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    ACTIVE: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
-    CLOSED: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    PLANNED: 'bg-muted text-muted-foreground border-border',
+    ACTIVE: 'bg-foreground text-background border-foreground',
+    CLOSED: 'bg-muted-foreground text-background border-muted-foreground',
     ARCHIVED: 'bg-muted text-muted-foreground border-border',
   };
 
   const getProgressColor = (rate: number) => {
-    if (rate >= 80) return 'bg-green-500';
-    if (rate >= 50) return 'bg-amber-500';
-    return 'bg-red-500';
+    if (rate >= 80) return 'bg-foreground';
+    if (rate >= 50) return 'bg-muted-foreground';
+    return 'bg-muted';
   };
 
   const selectedCycle = cycles.find(c => c._id === selectedCycleId);
@@ -134,14 +154,14 @@ export default function PerformanceDashboardPage() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
             <Link href="/dashboard/hr-manager" className="hover:text-foreground">HR Manager</Link>
             <span>/</span>
-            <span className="text-foreground">Performance Dashboard</span>
+            <span className="text-foreground font-medium">Performance Dashboard</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Performance Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Track appraisal completion across departments and teams</p>
+          <h1 className="text-2xl font-bold text-foreground">Operational Excellence</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Real-time tracking of appraisal completion and organizational growth</p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={selectedCycleId} onValueChange={setSelectedCycleId}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[200px] h-10 bg-card border-border font-semibold text-xs">
               <SelectValue placeholder="Select cycle" />
             </SelectTrigger>
             <SelectContent>
@@ -152,14 +172,25 @@ export default function PerformanceDashboardPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 font-bold uppercase tracking-widest text-[10px] h-10"
+            onClick={handleSendReminders}
+            disabled={isReminding || !selectedCycle || selectedCycle.status !== 'ACTIVE'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {isReminding ? 'Broadcasting...' : 'Remind Managers'}
+          </Button>
           <Link
             href="/dashboard/hr-manager/performance-cycles"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-6 py-2 text-[10px] font-bold uppercase tracking-widest bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all shadow-sm h-10"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Manage Cycles
+            Cycle Hub
           </Link>
         </div>
       </div>
@@ -195,7 +226,7 @@ export default function PerformanceDashboardPage() {
                 <p className="text-xs uppercase font-bold tracking-widest text-muted-foreground">Completed</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-black text-primary">
+                <p className="text-2xl font-black text-foreground">
                   {dashboardData?.overallStats?.totalAssignments
                     ? Math.round((dashboardData.overallStats.completed / dashboardData.overallStats.totalAssignments) * 100)
                     : 0}%
@@ -210,20 +241,20 @@ export default function PerformanceDashboardPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Completed', value: dashboardData?.overallStats?.completed || 0, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-green-600', bg: 'bg-green-500/10' },
-          { label: 'In Progress', value: dashboardData?.overallStats?.inProgress || 0, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-blue-600', bg: 'bg-blue-500/10' },
-          { label: 'Pending', value: dashboardData?.overallStats?.pending || 0, icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-amber-600', bg: 'bg-amber-500/10' },
-          { label: 'Overdue', value: dashboardData?.overallStats?.overdue || 0, icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', color: 'text-red-600', bg: 'bg-red-500/10' },
+          { label: 'Completed', value: dashboardData?.overallStats?.completed || 0, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-foreground text-background' },
+          { label: 'In Progress', value: dashboardData?.overallStats?.inProgress || 0, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-muted-foreground text-background' },
+          { label: 'Pending', value: dashboardData?.overallStats?.pending || 0, icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-muted text-foreground' },
+          { label: 'Overdue', value: dashboardData?.overallStats?.overdue || 0, icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', bg: 'bg-muted text-muted-foreground opacity-50' },
         ].map((stat, i) => (
           <div key={i} className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
-                <svg className={`w-5 h-5 ${stat.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
                 </svg>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
                 <p className="text-2xl font-black text-foreground">{stat.value}</p>
               </div>
             </div>
@@ -237,7 +268,7 @@ export default function PerformanceDashboardPage() {
           <h3 className="font-bold text-foreground">Departmental Progress Tracking</h3>
           <Link
             href="/dashboard/hr-manager/disputes"
-            className="text-xs font-bold uppercase tracking-widest text-primary hover:underline"
+            className="text-xs font-bold uppercase tracking-widest text-foreground hover:underline"
           >
             Review Disputes
           </Link>
@@ -254,9 +285,9 @@ export default function PerformanceDashboardPage() {
                       {dept.completed} of {dept.total} units finalized
                     </p>
                   </div>
-                  <Badge variant="outline" className={`px-4 py-1 text-sm font-black ${dept.completionRate >= 80 ? 'bg-green-500/10 text-green-600 border-green-500/20' :
-                      dept.completionRate >= 50 ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
-                        'bg-red-500/10 text-red-600 border-red-500/20'
+                  <Badge variant="outline" className={`px-4 py-1 text-sm font-black ${dept.completionRate >= 80 ? 'bg-foreground text-background border-foreground' :
+                    dept.completionRate >= 50 ? 'bg-muted-foreground text-background border-muted-foreground' :
+                      'bg-muted text-muted-foreground border-border'
                     }`}>
                     {dept.completionRate}%
                   </Badge>
@@ -288,13 +319,13 @@ export default function PerformanceDashboardPage() {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { href: '/dashboard/hr-manager/performance-templates', label: 'Appraisal Blueprints', subtext: 'Configure evaluation forms', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', bg: 'bg-purple-500/10', color: 'text-purple-600' },
-          { href: '/dashboard/hr-manager/performance-cycles', label: 'Lifecycle Management', subtext: 'Schedule appraisal periods', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', bg: 'bg-blue-500/10', color: 'text-blue-600' },
-          { href: '/dashboard/hr-manager/disputes', label: 'Resolution Center', subtext: 'Handle rating objections', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', bg: 'bg-red-500/10', color: 'text-red-600' },
+          { href: '/dashboard/hr-manager/performance-templates', label: 'Appraisal Blueprints', subtext: 'Configure evaluation forms', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', bg: 'bg-muted', color: 'text-foreground' },
+          { href: '/dashboard/hr-manager/performance-cycles', label: 'Lifecycle Management', subtext: 'Schedule appraisal periods', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', bg: 'bg-muted', color: 'text-foreground' },
+          { href: '/dashboard/hr-manager/disputes', label: 'Resolution Center', subtext: 'Handle rating objections', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', bg: 'bg-muted', color: 'text-foreground' },
         ].map((action, i) => (
           <Link key={i} href={action.href} className="bg-card border border-border rounded-xl p-6 hover:shadow-lg hover:border-primary/50 transition-all group">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 ${action.bg} rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform`}>
+              <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform border border-border">
                 <svg className={`w-6 h-6 ${action.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={action.icon} />
                 </svg>

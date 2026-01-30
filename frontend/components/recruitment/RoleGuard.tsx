@@ -2,7 +2,8 @@
 
 import { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, SystemRole } from '@/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 // =====================================================
 // Types
@@ -11,9 +12,9 @@ import { useAuth, SystemRole } from '@/context/AuthContext';
 /**
  * Recruitment-specific roles for access control
  */
-export type RecruitmentRole = 
-  | 'HR_MANAGER' 
-  | 'HR_EMPLOYEE' 
+export type RecruitmentRole =
+  | 'HR_MANAGER'
+  | 'HR_EMPLOYEE'
   | 'RECRUITER'
   | 'CANDIDATE'
   | 'SYSTEM_ADMIN';
@@ -109,7 +110,7 @@ function AccessDeniedComponent({
       <p className="text-sm text-slate-500 text-center max-w-sm mb-6">
         {message}
       </p>
-      
+
       {/* Action Buttons */}
       {(showBackButton || showDashboardButton) && (
         <div className="flex items-center gap-3">
@@ -134,7 +135,7 @@ function AccessDeniedComponent({
           )}
         </div>
       )}
-      
+
       <p className="text-xs text-slate-400 mt-6">
         If you need access, please contact your system administrator.
       </p>
@@ -231,7 +232,7 @@ export default function RecruitmentRoleGuard({
     }
     if (showDenied) {
       return (
-        <AccessDeniedComponent 
+        <AccessDeniedComponent
           title={deniedTitle}
           message={deniedMessage || 'Please log in to access this content.'}
           showBackButton={true}
@@ -253,7 +254,7 @@ export default function RecruitmentRoleGuard({
     }
     if (showDenied) {
       return (
-        <AccessDeniedComponent 
+        <AccessDeniedComponent
           title={deniedTitle}
           message={deniedMessage}
           showBackButton={true}
@@ -323,8 +324,8 @@ export function CandidateOnly({ children, fallback }: { children: ReactNode; fal
  */
 export function InternalOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
   return (
-    <RecruitmentRoleGuard 
-      allowedRoles={['HR_MANAGER', 'HR_EMPLOYEE', 'RECRUITER', 'SYSTEM_ADMIN']} 
+    <RecruitmentRoleGuard
+      allowedRoles={['HR_MANAGER', 'HR_EMPLOYEE', 'RECRUITER', 'SYSTEM_ADMIN']}
       fallback={fallback}
     >
       {children}
@@ -350,24 +351,24 @@ export function useRecruitmentRole() {
     editJob: ['HR_EMPLOYEE', 'RECRUITER', 'HR_MANAGER'].includes(recruitmentRole || ''),
     publishJob: ['HR_EMPLOYEE', 'HR_MANAGER'].includes(recruitmentRole || ''),
     deleteJob: recruitmentRole === 'HR_MANAGER',
-    
+
     // Applications
     viewAllApplications: ['HR_EMPLOYEE', 'RECRUITER', 'HR_MANAGER'].includes(recruitmentRole || ''),
     viewOwnApplications: recruitmentRole === 'CANDIDATE',
     updateApplicationStage: ['HR_EMPLOYEE', 'RECRUITER', 'HR_MANAGER'].includes(recruitmentRole || ''),
-    
+
     // Interviews
     scheduleInterview: ['HR_EMPLOYEE', 'RECRUITER', 'HR_MANAGER'].includes(recruitmentRole || ''),
     submitFeedback: ['HR_EMPLOYEE', 'RECRUITER', 'HR_MANAGER'].includes(recruitmentRole || ''),
-    
+
     // Offers
     createOffer: ['HR_EMPLOYEE', 'HR_MANAGER'].includes(recruitmentRole || ''),
     approveOffer: recruitmentRole === 'HR_MANAGER',
     respondToOffer: recruitmentRole === 'CANDIDATE',
-    
+
     // Analytics
     viewAnalytics: recruitmentRole === 'HR_MANAGER',
-    
+
     // Admin
     configureSettings: recruitmentRole === 'SYSTEM_ADMIN',
   };

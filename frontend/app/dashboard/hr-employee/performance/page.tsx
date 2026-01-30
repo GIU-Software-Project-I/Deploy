@@ -195,10 +195,10 @@ export default function HREmployeePerformancePage() {
   };
 
   const statusColors: Record<string, string> = {
-    PENDING: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    IN_PROGRESS: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-    SUBMITTED: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
-    PUBLISHED: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
+    PENDING: 'bg-muted text-muted-foreground border-border',
+    IN_PROGRESS: 'bg-muted-foreground text-background border-muted-foreground',
+    SUBMITTED: 'bg-foreground text-background border-foreground',
+    PUBLISHED: 'bg-foreground text-background border-foreground opacity-80',
   };
 
   const filteredAssignments = assignments.filter(a => {
@@ -230,36 +230,36 @@ export default function HREmployeePerformancePage() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
             <Link href="/dashboard/hr-employee" className="hover:text-foreground">HR Employee</Link>
             <span>/</span>
-            <span className="text-foreground">Performance Management</span>
+            <span className="text-foreground font-medium">Performance Operations</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Operational Performance Hub</h1>
-          <p className="text-muted-foreground mt-1">Registry of all active appraisal assignments and monitoring</p>
+          <h1 className="text-2xl font-bold text-foreground">Performance Command</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Centralized control for appraisal assignments and progress monitoring</p>
         </div>
-        <Button onClick={() => setShowBulkAssign(true)}>
+        <Button onClick={() => setShowBulkAssign(true)} className="font-bold uppercase tracking-widest text-[10px] px-6 h-10">
           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Bulk Assignment
+          Mass Assignment
         </Button>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total active', value: assignments.length, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', color: 'text-foreground', bg: 'bg-muted' },
-          { label: 'Pending', value: assignments.filter(a => a.status === 'PENDING').length, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-amber-600', bg: 'bg-amber-500/10' },
-          { label: 'In Progress', value: assignments.filter(a => a.status === 'IN_PROGRESS').length, icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-blue-600', bg: 'bg-blue-500/10' },
-          { label: 'Finalized', value: assignments.filter(a => a.status === 'PUBLISHED').length, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-green-600', bg: 'bg-green-500/10' },
+          { label: 'Active Tasks', value: assignments.length, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', bg: 'bg-muted' },
+          { label: 'Pending', value: assignments.filter(a => a.status === 'PENDING').length, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-muted' },
+          { label: 'In Progress', value: assignments.filter(a => a.status === 'IN_PROGRESS').length, icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-muted-foreground text-background' },
+          { label: 'Published', value: assignments.filter(a => a.status === 'PUBLISHED').length, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-foreground text-background' },
         ].map((stat, i) => (
           <div key={i} className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
-                <svg className={`w-5 h-5 ${stat.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className={`w-10 h-10 ${stat.bg || ''} rounded-lg flex items-center justify-center`}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
                 </svg>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
                 <p className="text-2xl font-black text-foreground">{stat.value}</p>
               </div>
             </div>

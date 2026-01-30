@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Employee } from './EmployeeTableRow';
-import { DS_ENGINES } from '@/app/utils/ds-engines';
+import { DS_ENGINES } from '@/app/services/analytics/ds-engines';
 
 interface DeactivateEmployeeModalProps {
   employee: Employee | null;

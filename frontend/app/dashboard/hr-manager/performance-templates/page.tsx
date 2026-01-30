@@ -345,17 +345,41 @@ export default function PerformanceTemplatesPage() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                         <Link href="/dashboard/hr-manager" className="hover:text-foreground">HR Manager</Link>
                         <span>/</span>
-                        <span className="text-foreground">Performance Templates</span>
+                        <span className="text-foreground font-medium">Performance Core</span>
                     </div>
-                    <h1 className="text-2xl font-bold text-foreground">Appraisal Templates</h1>
-                    <p className="text-muted-foreground mt-1">Create and manage standardized performance review templates</p>
+                    <h1 className="text-2xl font-bold text-foreground">Appraisal Frameworks</h1>
+                    <p className="text-muted-foreground mt-1 text-sm">Define and manage standardized evaluation criteria and methodology</p>
                 </div>
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Button onClick={() => setIsCreateDialogOpen(true)} className="font-bold uppercase tracking-widest text-[10px] h-10 px-6">
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Create Template
+                    New Framework
                 </Button>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                    { label: 'Total Frameworks', value: templates.length, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', bg: 'bg-muted', color: 'text-foreground' },
+                    { label: 'Active', value: templates.filter(t => t.isActive).length, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-foreground', color: 'text-background' },
+                    { label: 'Annual', value: templates.filter(t => t.templateType === 'ANNUAL').length, icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', bg: 'bg-muted-foreground', color: 'text-background' },
+                    { label: 'Specialized', value: templates.filter(t => t.templateType !== 'ANNUAL').length, icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z', bg: 'bg-muted', color: 'text-foreground' },
+                ].map((stat, i) => (
+                    <div key={i} className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
+                                <svg className={`w-5 h-5 ${stat.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
+                                </svg>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
+                                <p className="text-2xl font-black text-foreground">{stat.value}</p>
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {/* Error Message */}
@@ -417,19 +441,22 @@ export default function PerformanceTemplatesPage() {
                             </span>
                         </div>
 
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openViewDialog(template)} className="flex-1">
-                                View
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => openEditDialog(template)} className="flex-1">
-                                Edit
-                            </Button>
+                        <div className="flex flex-col gap-2 pt-4 border-t border-border mt-auto">
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button variant="outline" size="sm" onClick={() => openViewDialog(template)} className="font-bold uppercase tracking-widest text-[10px]">
+                                    Details
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => openEditDialog(template)} className="font-bold uppercase tracking-widest text-[10px]">
+                                    Configure
+                                </Button>
+                            </div>
                             <Button
-                                variant={template.isActive ? 'destructive' : 'default'}
+                                variant={template.isActive ? 'secondary' : 'default'}
                                 size="sm"
                                 onClick={() => handleToggleStatus(template)}
+                                className="font-bold uppercase tracking-widest text-[10px] w-full"
                             >
-                                {template.isActive ? 'Deactivate' : 'Activate'}
+                                {template.isActive ? 'Retire Framework' : 'Publish Framework'}
                             </Button>
                         </div>
                     </div>

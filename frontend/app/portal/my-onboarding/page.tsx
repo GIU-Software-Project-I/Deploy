@@ -7,7 +7,8 @@ import {
   OnboardingTaskStatus,
   Document,
 } from '@/app/services/onboarding';
-import { useAuth, SystemRole } from '@/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 export default function MyOnboardingPage() {
   const { user } = useAuth();

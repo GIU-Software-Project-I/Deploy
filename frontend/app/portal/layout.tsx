@@ -156,7 +156,7 @@ function NavItem({ item, isActive, pathname }: NavItemProps) {
           href={item.href}
           className={`flex-1 flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-all ${active
             ? 'bg-primary/10 text-primary font-medium'
-            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
             }`}
         >
           <NavIcon name={item.icon} className={`w-5 h-5 ${active ? 'text-primary' : ''}`} />
@@ -184,7 +184,7 @@ function NavItem({ item, isActive, pathname }: NavItemProps) {
                 href={child.href}
                 className={`flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all ${childActive
                   ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }`}
               >
                 <NavIcon name={child.icon} className={`w-4 h-4 ${childActive ? 'text-primary' : ''}`} />
@@ -295,7 +295,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 text-muted-foreground hover:text-foreground rounded-lg"
+            className="lg:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg"
           >
             <NavIcon name="x" className="w-5 h-5" />
           </button>
@@ -324,7 +324,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
             {/* Go to Home */}
             <Link
               href="/"
-              className="flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg transition-colors mb-2"
+              className="flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors mb-2"
             >
               <NavIcon name="home" className="w-5 h-5" />
               <span>Go to Home</span>
@@ -332,7 +332,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
             {/* Back to Dashboard */}
             <Link
               href={getRoleDashboardUrl() || '/dashboard/department-employee'}
-              className="flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg transition-colors mb-4"
+              className="flex items-center gap-3 px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors mb-4"
             >
               <NavIcon name="layout-dashboard" className="w-5 h-5" />
               <span>Back to Dashboard</span>

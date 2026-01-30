@@ -23,7 +23,7 @@ import { OrganizationStructureModule } from '../organization-structure/organizat
 import { EmployeeProfileService } from "./services/employee-profile.service";
 import { IntegrationModule } from '../integration/Integration.module';
 import { AuthModule } from "../auth/auth.module";
-import {EmployeeProfileController} from "./controllers/employee-profile.controller";
+import { EmployeeProfileController } from "./controllers/employee-profile.controller";
 
 
 

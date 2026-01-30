@@ -18,20 +18,20 @@ export default function HRManagerLayout({
     SystemRole.HR_ADMIN,
     SystemRole.SYSTEM_ADMIN,
   ];
-  const hasAccess = user && allowedRoles.includes(user.role);
+  const hasAccess = user && user.roles.some(r => allowedRoles.includes(r as SystemRole));
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
       return;
     }
-    
+
     // Explicitly block candidates - redirect them to their dashboard
     if (user?.role === SystemRole.JOB_CANDIDATE) {
       router.replace('/dashboard/job-candidate');
       return;
     }
-    
+
     if (!hasAccess) {
       router.replace(getDashboardRoute());
       return;

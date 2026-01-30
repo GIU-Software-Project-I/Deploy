@@ -7,11 +7,11 @@ import { AuthorizationGuard } from '../../common/guards/authorization-guard';
 import { Roles } from '../../common/decorators/roles-decorator';
 import { CurrentUser } from '../../common/decorators/current-user';
 import type { JwtPayload } from '../../common/payload/jwt-payload';
-import {CreateAppraisalTemplateDto, UpdateAppraisalTemplateDto} from "../dto's/appraisal-template.dto";
-import {CreateAppraisalCycleDto, UpdateAppraisalCycleDto} from "../dto's/appraisal-cycle.dto";
-import {BulkCreateAppraisalAssignmentDto, CreateAppraisalAssignmentDto} from "../dto's/appraisal-assignment.dto";
-import {SubmitAppraisalRecordDto} from "../dto's/appraisal-record.dto";
-import {FileAppraisalDisputeDto, ResolveAppraisalDisputeDto} from "../dto's/appraisal-dispute.dto";
+import { CreateAppraisalTemplateDto, UpdateAppraisalTemplateDto } from "../dto's/appraisal-template.dto";
+import { CreateAppraisalCycleDto, UpdateAppraisalCycleDto } from "../dto's/appraisal-cycle.dto";
+import { BulkCreateAppraisalAssignmentDto, CreateAppraisalAssignmentDto } from "../dto's/appraisal-assignment.dto";
+import { SubmitAppraisalRecordDto } from "../dto's/appraisal-record.dto";
+import { FileAppraisalDisputeDto, ResolveAppraisalDisputeDto } from "../dto's/appraisal-dispute.dto";
 
 @Controller('performance')
 export class PerformanceController {
@@ -367,6 +367,13 @@ export class PerformanceController {
     @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.DEPARTMENT_HEAD)
     async getCompletionDashboard(@Param('cycleId') cycleId: string) {
         return this.performanceService.getCompletionDashboard(cycleId);
+    }
+
+    @Post('cycles/:id/remind')
+    @HttpCode(HttpStatus.OK)
+    @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+    async sendReminders(@Param('id') id: string) {
+        return this.performanceService.sendReminders(id);
     }
 }
 

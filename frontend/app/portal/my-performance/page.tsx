@@ -87,7 +87,25 @@ export default function MyPerformancePage() {
 
       const goalsRes = await performanceService.getMyGoals?.() || { data: [] };
       const rawGoals = Array.isArray(goalsRes.data) ? goalsRes.data : (Array.isArray(goalsRes) ? goalsRes : []);
-      setGoals(rawGoals);
+
+      // Flatten regional goals into a single list
+      const flattenedGoals: Goal[] = [];
+      rawGoals.forEach((cycleEntry: any) => {
+        if (cycleEntry.goals && Array.isArray(cycleEntry.goals)) {
+          cycleEntry.goals.forEach((g: any, idx: number) => {
+            flattenedGoals.push({
+              _id: `${cycleEntry.assignmentId}-${idx}`,
+              title: g.title,
+              description: g.description || '',
+              targetDate: cycleEntry.dueDate || new Date().toISOString(),
+              status: g.status === 'COMPLETED' ? 'COMPLETED' : 'IN_PROGRESS',
+              progress: g.status === 'COMPLETED' ? 100 : 50, // Approximation for now
+              category: cycleEntry.templateName || 'Appraisal',
+            });
+          });
+        }
+      });
+      setGoals(flattenedGoals);
 
     } catch (err: any) {
       console.error('Error fetching performance data:', err);
@@ -99,17 +117,16 @@ export default function MyPerformancePage() {
 
   const getRatingColor = (rating?: number) => {
     if (!rating) return 'bg-muted text-muted-foreground';
-    if (rating >= 4.5) return 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20';
-    if (rating >= 3.5) return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
-    if (rating >= 2.5) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
-    return 'bg-destructive/10 text-destructive border-destructive/20';
+    if (rating >= 4) return 'bg-foreground text-background border-foreground';
+    if (rating >= 3) return 'bg-muted-foreground text-background border-muted-foreground';
+    return 'bg-muted text-foreground border-border';
   };
 
   const statusConfigs: Record<string, string> = {
-    PENDING: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-    IN_PROGRESS: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-    COMPLETED: 'bg-green-500/10 text-green-600 border-green-500/20',
-    DISPUTED: 'bg-destructive/10 text-destructive border-destructive/20',
+    PENDING: 'bg-muted text-muted-foreground border-border',
+    IN_PROGRESS: 'bg-muted-foreground text-background border-muted-foreground',
+    COMPLETED: 'bg-foreground text-background border-foreground',
+    DISPUTED: 'bg-muted text-muted-foreground border-border opacity-50',
   };
 
   if (loading) {
@@ -129,16 +146,16 @@ export default function MyPerformancePage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-            <Link href="/portal" className="hover:text-foreground">Employee Portal</Link>
+            <Link href="/portal" className="hover:text-foreground">Portal</Link>
             <span>/</span>
-            <span className="text-foreground">My Performance</span>
+            <span className="text-foreground font-medium">Performance Metrics</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Performance Overview</h1>
-          <p className="text-muted-foreground mt-1">Track your growth, appraisals, and development milestones</p>
+          <h1 className="text-2xl font-bold text-foreground">Performance Identity</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Review your growth trajectory, appraisals, and development benchmarks</p>
         </div>
-        <Button variant="outline" asChild>
+        <Button variant="outline" asChild className="font-bold uppercase tracking-widest text-[10px] h-10 px-6 border-primary/20 text-primary hover:bg-primary/5">
           <Link href="/portal/my-performance/history">
-            Investment History
+            Appraisal Archive
           </Link>
         </Button>
       </div>
@@ -155,7 +172,7 @@ export default function MyPerformancePage() {
           <div className="p-8">
             <div className="flex flex-col lg:flex-row gap-8 items-center lg:items-start text-center lg:text-left">
               <div className="relative shrink-0">
-                <div className={`w-40 h-40 rounded-full border-[6px] border-background flex flex-col items-center justify-center shadow-xl ${getRatingColor(latestAppraisal.overallRating)}`}>
+                <div className={`w-40 h-40 rounded-full border-[6px] border-background flex flex-col items-center justify-center shadow-xl bg-primary text-primary-foreground`}>
                   <span className="text-5xl font-black">{latestAppraisal.overallRating?.toFixed(1) || '--'}</span>
                   <span className="text-[10px] uppercase font-black opacity-60 tracking-widest mt-1">Global Score</span>
                 </div>
@@ -164,7 +181,7 @@ export default function MyPerformancePage() {
               <div className="flex-1 space-y-4">
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3">
                   <h2 className="text-3xl font-black text-foreground tracking-tight">{latestAppraisal.cycleName}</h2>
-                  <Badge variant="outline" className={`px-4 py-1 font-black ${statusConfigs[latestAppraisal.status]}`}>
+                  <Badge className="px-4 py-1 font-black bg-primary text-primary-foreground border-none">
                     {latestAppraisal.status}
                   </Badge>
                 </div>
@@ -199,26 +216,26 @@ export default function MyPerformancePage() {
           {(latestAppraisal.strengths?.length || latestAppraisal.areasForImprovement?.length) && (
             <div className="bg-muted/30 border-t border-border p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-green-600 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-foreground flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-foreground"></span>
                   Demonstrated Strengths
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {latestAppraisal.strengths?.map((s, i) => (
-                    <Badge key={i} variant="secondary" className="bg-green-500/5 text-green-700 border-green-500/10 px-3 py-1 text-xs">
+                    <Badge key={i} variant="secondary" className="bg-muted text-foreground border-border px-3 py-1 text-xs">
                       {s}
                     </Badge>
                   ))}
                 </div>
               </div>
               <div className="space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-amber-600 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
                   Evolution Opportunities
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {latestAppraisal.areasForImprovement?.map((a, i) => (
-                    <Badge key={i} variant="secondary" className="bg-amber-500/5 text-amber-700 border-amber-500/10 px-3 py-1 text-xs">
+                    <Badge key={i} variant="secondary" className="bg-muted text-muted-foreground border-border px-3 py-1 text-xs">
                       {a}
                     </Badge>
                   ))}
@@ -241,7 +258,7 @@ export default function MyPerformancePage() {
           <svg className="w-16 h-16 text-muted-foreground opacity-20 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h3 className="text-lg font-bold text-foreground">No Appraisal Data</h3>
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Performance Identity Empty</h3>
           <p className="text-muted-foreground max-w-xs mx-auto">Your performance reviews will be systematically populated here following the appraisal cycle.</p>
         </div>
       )}
@@ -303,8 +320,8 @@ export default function MyPerformancePage() {
               ))}
             </div>
 
-            <div className="mt-8 p-6 bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl text-white shadow-xl relative overflow-hidden">
-              <div className="absolute right-[-20px] top-[-20px] w-32 h-32 bg-white/5 rounded-full blur-3xl"></div>
+            <div className="mt-8 p-6 bg-primary text-primary-foreground rounded-xl shadow-xl relative overflow-hidden">
+              <div className="absolute right-[-20px] top-[-20px] w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
               <h4 className="text-xs font-black uppercase tracking-[0.3em] opacity-60 mb-2">Policy reminder</h4>
               <p className="text-sm font-medium leading-relaxed mb-4">
                 Your professional evolution is a collective journey. Use these data points as catalysts for your next 1-on-1 performance dialogue.

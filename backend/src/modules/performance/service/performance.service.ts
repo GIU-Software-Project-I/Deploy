@@ -9,11 +9,11 @@ import { AppraisalRecord, AppraisalRecordDocument } from '../models/appraisal-re
 import { AppraisalDispute, AppraisalDisputeDocument } from '../models/appraisal-dispute.schema';
 import { AppraisalCycleStatus, AppraisalAssignmentStatus, AppraisalRecordStatus, AppraisalDisputeStatus, AppraisalTemplateType } from '../enums/performance.enums';
 import { SharedPerformanceService } from '../../integration/services/shared-performance.service';
-import {BulkCreateAppraisalAssignmentDto, CreateAppraisalAssignmentDto} from "../dto's/appraisal-assignment.dto";
-import {CreateAppraisalTemplateDto, UpdateAppraisalTemplateDto} from "../dto's/appraisal-template.dto";
-import {FileAppraisalDisputeDto, ResolveAppraisalDisputeDto} from "../dto's/appraisal-dispute.dto";
-import {SubmitAppraisalRecordDto} from "../dto's/appraisal-record.dto";
-import {CreateAppraisalCycleDto, UpdateAppraisalCycleDto} from "../dto's/appraisal-cycle.dto";
+import { BulkCreateAppraisalAssignmentDto, CreateAppraisalAssignmentDto } from "../dto's/appraisal-assignment.dto";
+import { CreateAppraisalTemplateDto, UpdateAppraisalTemplateDto } from "../dto's/appraisal-template.dto";
+import { FileAppraisalDisputeDto, ResolveAppraisalDisputeDto } from "../dto's/appraisal-dispute.dto";
+import { SubmitAppraisalRecordDto } from "../dto's/appraisal-record.dto";
+import { CreateAppraisalCycleDto, UpdateAppraisalCycleDto } from "../dto's/appraisal-cycle.dto";
 
 export interface PaginatedResult<T> {
     data: T[];
@@ -1068,30 +1068,32 @@ export class PerformanceService {
         // Get goals from current active appraisal assignments
         const assignments = await this.assignmentModel.find({
             employeeProfileId: new Types.ObjectId(employeeProfileId),
-            status: { $in: [AppraisalAssignmentStatus.IN_PROGRESS, AppraisalAssignmentStatus.NOT_STARTED] },
+            status: { $in: [AppraisalAssignmentStatus.IN_PROGRESS, AppraisalAssignmentStatus.NOT_STARTED, AppraisalAssignmentStatus.SUBMITTED] },
         })
             .populate('cycleId', 'name cycleType startDate endDate')
-            .populate('templateId', 'name sections')
+            .populate('templateId', 'name criteria')
             .lean()
             .exec();
 
-        // Extract goals from templates if they have goal sections
+        // Extract goals from templates' criteria
         const goals: any[] = [];
         for (const assignment of assignments) {
             const template = assignment.templateId as any;
-            if (template?.sections) {
-                for (const section of template.sections) {
-                    if (section.name?.toLowerCase().includes('goal') ||
-                        section.name?.toLowerCase().includes('objective')) {
-                        goals.push({
-                            cycleId: assignment.cycleId,
-                            assignmentId: assignment._id,
-                            sectionName: section.name,
-                            criteria: section.criteria || [],
-                            dueDate: assignment.dueDate,
-                        });
-                    }
-                }
+            if (template?.criteria) {
+                // If criteria are specifically tagged or we treat all criteria as goals for now
+                // Usually "Goals" sections are specific, but without sections, we'll return the criteria
+                goals.push({
+                    cycleId: assignment.cycleId,
+                    assignmentId: assignment._id,
+                    templateName: template.name,
+                    goals: template.criteria.map(c => ({
+                        title: c.title,
+                        description: c.details,
+                        weight: c.weight,
+                        status: assignment.status === AppraisalAssignmentStatus.SUBMITTED ? 'FINALIZED' : 'IN_PROGRESS'
+                    })),
+                    dueDate: assignment.dueDate,
+                });
             }
         }
 
@@ -1240,12 +1242,12 @@ export class PerformanceService {
         if (dto.status === AppraisalDisputeStatus.ADJUSTED) {
             const record = await this.recordModel.findById(dispute.appraisalId);
             if (record) {
-                record.status = AppraisalRecordStatus.MANAGER_SUBMITTED;
+                record.status = AppraisalRecordStatus.DRAFT;
                 await record.save();
 
                 const assignment = await this.assignmentModel.findById(record.assignmentId);
                 if (assignment) {
-                    assignment.status = AppraisalAssignmentStatus.SUBMITTED;
+                    assignment.status = AppraisalAssignmentStatus.IN_PROGRESS;
                     await assignment.save();
                 }
             }
@@ -1420,5 +1422,79 @@ export class PerformanceService {
                 );
             }
         }
+    }
+
+    @Cron('0 1 * * *')
+    async autoActivatePlannedCycles(): Promise<void> {
+        const today = new Date();
+        const cyclesToActivate = await this.cycleModel.find({
+            status: AppraisalCycleStatus.PLANNED,
+            startDate: { $lte: today },
+        });
+
+        for (const cycle of cyclesToActivate) {
+            cycle.status = AppraisalCycleStatus.ACTIVE;
+            await cycle.save();
+            // Optional: Trigger notifications here
+        }
+    }
+
+    @Cron('0 2 * * *')
+    async autoCloseActiveCycles(): Promise<void> {
+        const today = new Date();
+        const cyclesToClose = await this.cycleModel.find({
+            status: AppraisalCycleStatus.ACTIVE,
+            endDate: { $lt: today },
+        });
+
+        for (const cycle of cyclesToClose) {
+            cycle.status = AppraisalCycleStatus.CLOSED;
+            cycle.closedAt = new Date();
+            await cycle.save();
+            // Optional: Trigger notifications here
+        }
+    }
+
+    async sendReminders(cycleId: string): Promise<{ sent: number; managers: number }> {
+        this.validateObjectId(cycleId, 'cycleId');
+
+        const cycle = await this.cycleModel.findById(cycleId);
+        if (!cycle) {
+            throw new NotFoundException('Cycle not found');
+        }
+
+        const pendingAssignments = await this.assignmentModel.find({
+            cycleId: new Types.ObjectId(cycleId),
+            status: { $in: [AppraisalAssignmentStatus.NOT_STARTED, AppraisalAssignmentStatus.IN_PROGRESS] },
+        }).lean();
+
+        if (pendingAssignments.length === 0) {
+            return { sent: 0, managers: 0 };
+        }
+
+        // Group by manager
+        const managerAssignments: Record<string, string[]> = {};
+        for (const assignment of pendingAssignments) {
+            if (assignment.managerProfileId) {
+                const managerId = assignment.managerProfileId.toString();
+                if (!managerAssignments[managerId]) {
+                    managerAssignments[managerId] = [];
+                }
+                managerAssignments[managerId].push(assignment._id.toString());
+            }
+        }
+
+        let sent = 0;
+        const managerIds = Object.keys(managerAssignments);
+        for (const managerId of managerIds) {
+            await this.sharedPerformanceService.sendAppraisalReminderNotification(
+                managerId,
+                managerAssignments[managerId].length,
+                cycle.name
+            );
+            sent += managerAssignments[managerId].length;
+        }
+
+        return { sent, managers: managerIds.length };
     }
 }

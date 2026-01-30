@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { organizationStructureService } from '@/app/services/organization-structure';
 import { employeeProfileService } from '@/app/services/employee-profile';
 import RoleGuard from '@/components/RoleGuard';
-import { SystemRole } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 interface Position {
     _id: string;

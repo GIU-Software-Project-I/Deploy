@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, SystemRole } from '@/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 interface RoleGuardProps {
   children: React.ReactNode;
@@ -54,8 +55,8 @@ export default function RoleGuard({
     let hasAccess = false;
 
     if (allowedRoles) {
-      // Use explicitly provided roles
-      hasAccess = allowedRoles.includes(user.role);
+      // Use explicitly provided roles - Check if user has ANY of the allowed roles
+      hasAccess = user.roles.some(r => allowedRoles.includes(r as SystemRole));
     } else {
       // Allow access to own dashboard
       hasAccess = true;

@@ -62,7 +62,7 @@ interface Dispute {
         };
     };
     reason: string;
-    status: 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED';
+    status: 'OPEN' | 'UNDER_REVIEW' | 'ADJUSTED' | 'REJECTED';
     resolution?: string;
     resolutionType?: 'UPHELD' | 'MODIFIED' | 'REJECTED';
     reviewerId?: {
@@ -85,20 +85,20 @@ interface DisputeStats {
 }
 
 const statusColors: Record<string, string> = {
-    PENDING: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-    UNDER_REVIEW: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-    RESOLVED: 'bg-green-500/10 text-green-600 border-green-500/20',
-    REJECTED: 'bg-destructive/10 text-destructive border-destructive/20',
+    OPEN: 'bg-muted text-muted-foreground border-border',
+    UNDER_REVIEW: 'bg-muted-foreground text-background border-muted-foreground',
+    ADJUSTED: 'bg-foreground text-background border-foreground',
+    REJECTED: 'bg-muted text-muted-foreground border-border opacity-50',
 };
 
 const StatusIcon = ({ status, className }: { status: string; className?: string }) => {
     switch (status) {
-        case 'PENDING':
+        case 'OPEN':
             return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
         case 'UNDER_REVIEW':
             return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
-        case 'RESOLVED':
-            return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" /></svg>;
+        case 'ADJUSTED':
+            return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
         case 'REJECTED':
             return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>;
         default:
@@ -107,9 +107,9 @@ const StatusIcon = ({ status, className }: { status: string; className?: string 
 };
 
 const resolutionTypes = [
-    { value: 'UPHELD', label: 'Upheld - Original rating stands', color: 'text-slate-600' },
-    { value: 'MODIFIED', label: 'Modified - Rating adjusted', color: 'text-blue-600' },
-    { value: 'REJECTED', label: 'Rejected - Dispute invalid', color: 'text-red-600' },
+    { value: 'UPHELD', label: 'Upheld - Original rating stands', color: 'text-muted-foreground' },
+    { value: 'MODIFIED', label: 'Modified - Rating adjusted', color: 'text-foreground' },
+    { value: 'REJECTED', label: 'Rejected - Dispute invalid', color: 'text-muted-foreground' },
 ];
 
 export default function DisputesPage() {
@@ -187,9 +187,9 @@ export default function DisputesPage() {
                 // Calculate stats from disputes
                 setStats({
                     total: disputesList.length,
-                    pending: disputesList.filter((d: Dispute) => d.status === 'PENDING').length,
+                    pending: disputesList.filter((d: Dispute) => d.status === 'OPEN').length,
                     underReview: disputesList.filter((d: Dispute) => d.status === 'UNDER_REVIEW').length,
-                    resolved: disputesList.filter((d: Dispute) => d.status === 'RESOLVED').length,
+                    resolved: disputesList.filter((d: Dispute) => d.status === 'ADJUSTED').length,
                     rejected: disputesList.filter((d: Dispute) => d.status === 'REJECTED').length,
                 });
             }
@@ -279,9 +279,9 @@ export default function DisputesPage() {
             d.reason?.toLowerCase().includes(searchQuery.toLowerCase());
 
         let matchesTab = true;
-        if (activeTab === 'pending') matchesTab = d.status === 'PENDING';
+        if (activeTab === 'pending') matchesTab = d.status === 'OPEN';
         else if (activeTab === 'under_review') matchesTab = d.status === 'UNDER_REVIEW';
-        else if (activeTab === 'resolved') matchesTab = d.status === 'RESOLVED' || d.status === 'REJECTED';
+        else if (activeTab === 'resolved') matchesTab = d.status === 'ADJUSTED' || d.status === 'REJECTED';
 
         return matchesSearch && matchesTab;
     });
@@ -302,13 +302,13 @@ export default function DisputesPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
-                        <Link href="/dashboard/hr-manager" className="hover:text-slate-700">HR Manager</Link>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                        <Link href="/dashboard/hr-manager" className="hover:text-foreground">HR Manager</Link>
                         <span>/</span>
-                        <span className="text-slate-900">Dispute Resolution</span>
+                        <span className="text-foreground font-medium">Dispute Nexus</span>
                     </div>
-                    <h1 className="text-2xl font-bold text-slate-900">Performance Disputes</h1>
-                    <p className="text-slate-600 mt-1">Review and resolve employee performance rating objections</p>
+                    <h1 className="text-2xl font-bold text-foreground">Integrity Management</h1>
+                    <p className="text-muted-foreground mt-1 text-sm">Review, investigate, and adjudicate performance rating disputes</p>
                 </div>
             </div>
 
@@ -335,44 +335,44 @@ export default function DisputesPage() {
                 </div>
                 <div className="bg-card border border-border rounded-xl p-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-                            <StatusIcon status="PENDING" className="w-5 h-5 text-amber-600" />
+                        <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                            <StatusIcon status="PENDING" className="w-5 h-5 text-foreground" />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-amber-600">{stats.pending}</p>
+                            <p className="text-2xl font-black text-foreground">{stats.pending}</p>
                             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Pending</p>
                         </div>
                     </div>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                            <StatusIcon status="UNDER_REVIEW" className="w-5 h-5 text-blue-600" />
+                        <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                            <StatusIcon status="UNDER_REVIEW" className="w-5 h-5 text-foreground" />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-blue-600">{stats.underReview}</p>
+                            <p className="text-2xl font-black text-foreground">{stats.underReview}</p>
                             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">In Review</p>
                         </div>
                     </div>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                            <StatusIcon status="RESOLVED" className="w-5 h-5 text-green-600" />
+                        <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                            <StatusIcon status="ADJUSTED" className="w-5 h-5 text-foreground" />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-green-600">{stats.resolved}</p>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Resolved</p>
+                            <p className="text-2xl font-black text-foreground">{stats.resolved}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Adjusted</p>
                         </div>
                     </div>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-destructive/10 rounded-lg flex items-center justify-center">
-                            <StatusIcon status="REJECTED" className="w-5 h-5 text-destructive" />
+                        <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                            <StatusIcon status="REJECTED" className="w-5 h-5 text-muted-foreground" />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-destructive">{stats.rejected}</p>
+                            <p className="text-2xl font-black text-muted-foreground">{stats.rejected}</p>
                             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Rejected</p>
                         </div>
                     </div>
@@ -394,21 +394,21 @@ export default function DisputesPage() {
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="pending" className="flex items-center gap-2">
-                        <StatusIcon status="PENDING" className="w-4 h-4 hidden sm:inline" /> Pending
+                <TabsList className="grid w-full grid-cols-3 h-12 bg-muted/50 p-1">
+                    <TabsTrigger value="pending" className="flex items-center gap-2 font-bold uppercase tracking-widest text-[10px]">
+                        <StatusIcon status="OPEN" className="w-3.5 h-3.5" /> Open Registry
                         {stats.pending > 0 && (
-                            <Badge className="bg-amber-500 text-white ml-2">{stats.pending}</Badge>
+                            <Badge className="bg-foreground text-background ml-2 h-5 min-w-5 flex items-center justify-center p-0 rounded-full">{stats.pending}</Badge>
                         )}
                     </TabsTrigger>
-                    <TabsTrigger value="under_review" className="flex items-center gap-2">
-                        <StatusIcon status="UNDER_REVIEW" className="w-4 h-4 hidden sm:inline" /> In Review
+                    <TabsTrigger value="under_review" className="flex items-center gap-2 font-bold uppercase tracking-widest text-[10px]">
+                        <StatusIcon status="UNDER_REVIEW" className="w-3.5 h-3.5" /> Active Review
                         {stats.underReview > 0 && (
-                            <Badge className="bg-blue-500 text-white ml-2">{stats.underReview}</Badge>
+                            <Badge className="bg-muted-foreground text-background ml-2 h-5 min-w-5 flex items-center justify-center p-0 rounded-full">{stats.underReview}</Badge>
                         )}
                     </TabsTrigger>
-                    <TabsTrigger value="resolved" className="flex items-center gap-2">
-                        <StatusIcon status="RESOLVED" className="w-4 h-4 hidden sm:inline" /> Resolved
+                    <TabsTrigger value="resolved" className="flex items-center gap-2 font-bold uppercase tracking-widest text-[10px]">
+                        <StatusIcon status="ADJUSTED" className="w-3.5 h-3.5" /> Finalized
                     </TabsTrigger>
                 </TabsList>
 
@@ -418,13 +418,13 @@ export default function DisputesPage() {
                         {filteredDisputes.map((dispute) => (
                             <div
                                 key={dispute._id}
-                                className="bg-white border border-slate-200 rounded-xl p-6 hover:shadow-lg hover:border-slate-300 transition-all"
+                                className="bg-card border border-border rounded-xl p-6 hover:shadow-lg hover:border-primary/50 transition-all"
                             >
                                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                                     <div className="flex-1">
                                         <div className="flex items-start gap-4">
                                             {/* Employee Avatar */}
-                                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                                            <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center text-foreground font-bold text-lg flex-shrink-0 border border-border">
                                                 {dispute.employeeId?.firstName?.[0]}{dispute.employeeId?.lastName?.[0]}
                                             </div>
 
@@ -476,7 +476,7 @@ export default function DisputesPage() {
                                                 )}
 
                                                 {/* Resolution (if resolved) */}
-                                                {dispute.status === 'RESOLVED' && dispute.resolution && (
+                                                {dispute.status === 'ADJUSTED' && dispute.resolution && (
                                                     <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
                                                         <div className="flex items-center gap-2 mb-1">
                                                             <span className="text-xs font-semibold text-green-700 uppercase">Resolution</span>
@@ -509,7 +509,7 @@ export default function DisputesPage() {
                                         <Button variant="outline" size="sm" onClick={() => openViewDialog(dispute)}>
                                             View Details
                                         </Button>
-                                        {(dispute.status === 'PENDING' || dispute.status === 'UNDER_REVIEW') && (
+                                        {(dispute.status === 'OPEN' || dispute.status === 'UNDER_REVIEW') && (
                                             <Button size="sm" onClick={() => openResolveDialog(dispute)}>
                                                 Resolve
                                             </Button>
@@ -545,7 +545,7 @@ export default function DisputesPage() {
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <StatusIcon status={selectedDispute?.status || 'PENDING'} className="w-6 h-6" />
+                            <StatusIcon status={selectedDispute?.status || 'OPEN'} className="w-6 h-6" />
                             Dispute Details
                         </DialogTitle>
                         <DialogDescription>
@@ -639,7 +639,7 @@ export default function DisputesPage() {
                             {selectedDispute.resolution && (
                                 <div>
                                     <Label className="text-sm text-slate-500">Resolution</Label>
-                                    <div className={`mt-2 p-4 rounded-lg border ${selectedDispute.status === 'RESOLVED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+                                    <div className={`mt-2 p-4 rounded-lg border ${selectedDispute.status === 'ADJUSTED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
                                         }`}>
                                         {selectedDispute.resolutionType && (
                                             <Badge className="mb-2">{selectedDispute.resolutionType}</Badge>
@@ -659,7 +659,7 @@ export default function DisputesPage() {
 
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
-                        {selectedDispute && (selectedDispute.status === 'PENDING' || selectedDispute.status === 'UNDER_REVIEW') && (
+                        {selectedDispute && (selectedDispute.status === 'OPEN' || selectedDispute.status === 'UNDER_REVIEW') && (
                             <Button onClick={() => {
                                 setIsViewDialogOpen(false);
                                 openResolveDialog(selectedDispute);

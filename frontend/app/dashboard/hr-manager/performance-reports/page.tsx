@@ -191,15 +191,15 @@ export default function PerformanceReportsPage() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
             <Link href="/dashboard/hr-manager" className="hover:text-foreground">HR Manager</Link>
             <span>/</span>
-            <span className="text-foreground">Performance Reports</span>
+            <span className="text-foreground font-medium">Outcome Intelligence</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Performance Reports</h1>
-          <p className="text-muted-foreground mt-1">Generate and export outcome reports for historical analysis</p>
+          <h1 className="text-2xl font-bold text-foreground">Operational Reports</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Synthesize and export historical performance outcomes and departmental metrics</p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={selectedCycleId} onValueChange={setSelectedCycleId}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select cycle" />
+            <SelectTrigger className="w-[200px] h-10 bg-card border-border font-semibold text-xs text-foreground">
+              <SelectValue placeholder="Select period" />
             </SelectTrigger>
             <SelectContent>
               {cycles.map(cycle => (
@@ -213,11 +213,12 @@ export default function PerformanceReportsPage() {
             onClick={handleExportCSV}
             disabled={exporting || !dashboardData}
             variant="default"
+            className="font-bold uppercase tracking-widest text-[10px] h-10 px-6"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            {exporting ? 'Exporting...' : 'Export CSV'}
+            {exporting ? 'Manifesting...' : 'Export Collective'}
           </Button>
         </div>
       </div>
@@ -255,10 +256,10 @@ export default function PerformanceReportsPage() {
       {/* Summary Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Employees', value: total, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', color: 'text-blue-600', bg: 'bg-blue-500/10' },
-          { label: 'Completed', value: completed, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-green-600', bg: 'bg-green-500/10' },
-          { label: 'Completion Rate', value: `${completionRate}%`, icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', color: 'text-purple-600', bg: 'bg-purple-500/10' },
-          { label: 'Average Rating', value: dashboardData?.averageRating?.toFixed(1) || 'N/A', icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z', color: 'text-amber-600', bg: 'bg-amber-500/10' },
+          { label: 'Total Employees', value: total, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', bg: 'bg-muted', color: 'text-foreground' },
+          { label: 'Completed', value: completed, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-foreground', color: 'text-background' },
+          { label: 'Completion Rate', value: `${completionRate}%`, icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', bg: 'bg-muted-foreground', color: 'text-background' },
+          { label: 'Average Rating', value: dashboardData?.averageRating?.toFixed(1) || 'N/A', icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z', bg: 'bg-muted-foreground', color: 'text-background' },
         ].map((stat, i) => (
           <div key={i} className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
@@ -268,7 +269,7 @@ export default function PerformanceReportsPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
                 <p className="text-2xl font-black text-foreground">{stat.value}</p>
               </div>
             </div>
@@ -280,15 +281,15 @@ export default function PerformanceReportsPage() {
         {/* Rating Distribution */}
         <div className="lg:col-span-1 bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           <div className="px-6 py-4 border-b border-border bg-muted/30">
-            <h3 className="font-bold text-foreground">Rating Distribution</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Rating Distribution</h3>
           </div>
           <div className="p-6 space-y-6">
             {[
-              { label: 'Exceptional', key: 'exceptional', color: 'bg-green-500', range: '(4.5-5.0)' },
-              { label: 'Exceeds Expectations', key: 'exceedsExpectations', color: 'bg-blue-500', range: '(3.5-4.4)' },
-              { label: 'Meets Expectations', key: 'meetsExpectations', color: 'bg-amber-500', range: '(2.5-3.4)' },
-              { label: 'Needs Improvement', key: 'needsImprovement', color: 'bg-orange-500', range: '(1.5-2.4)' },
-              { label: 'Unsatisfactory', key: 'unsatisfactory', color: 'bg-red-500', range: '(1.0-1.4)' },
+              { label: 'Exceptional', key: 'exceptional', color: 'bg-foreground', range: '(4.5-5.0)' },
+              { label: 'Exceeds Expectations', key: 'exceedsExpectations', color: 'bg-muted-foreground', range: '(3.5-4.4)' },
+              { label: 'Meets Expectations', key: 'meetsExpectations', color: 'bg-muted-foreground opacity-60', range: '(2.5-3.4)' },
+              { label: 'Needs Improvement', key: 'needsImprovement', color: 'bg-muted', range: '(1.5-2.4)' },
+              { label: 'Unsatisfactory', key: 'unsatisfactory', color: 'bg-muted opacity-50', range: '(1.0-1.4)' },
             ].map((item) => {
               const value = dashboardData?.ratingDistribution?.[item.key as keyof typeof dashboardData.ratingDistribution] || 0;
               const totalCompleted = completed || 1;
@@ -317,15 +318,15 @@ export default function PerformanceReportsPage() {
         {/* Department Breakdown */}
         <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           <div className="px-6 py-4 border-b border-border bg-muted/30">
-            <h3 className="font-bold text-foreground">Departmental Performance Breakdown</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Departmental Performance Matrix</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
-                  <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">Department</th>
-                  <th className="px-6 py-4 text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">Completion</th>
-                  <th className="px-6 py-4 text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">Avg Rating</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">Department</th>
+                  <th className="px-6 py-4 text-center text-[10px] font-black text-muted-foreground uppercase tracking-widest">Completion</th>
+                  <th className="px-6 py-4 text-center text-[10px] font-black text-muted-foreground uppercase tracking-widest">Avg Rating</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -347,9 +348,9 @@ export default function PerformanceReportsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <Badge variant="outline" className={`font-black ${(dept.averageRating || 0) >= 4 ? 'bg-green-500/10 text-green-600 border-green-500/20' :
-                        (dept.averageRating || 0) >= 3 ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
-                          'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                      <Badge variant="outline" className={`font-black ${(dept.averageRating || 0) >= 4 ? 'bg-foreground text-background border-foreground' :
+                        (dept.averageRating || 0) >= 3 ? 'bg-muted-foreground text-background border-muted-foreground' :
+                          'bg-muted text-muted-foreground border-border'
                         }`}>
                         {dept.averageRating?.toFixed(1) || 'N/A'}
                       </Badge>
@@ -365,9 +366,9 @@ export default function PerformanceReportsPage() {
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { href: '/dashboard/hr-manager/performance-dashboard', label: 'Progress Monitor', subtext: 'Real-time monitoring', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', bg: 'bg-blue-500/10', color: 'text-blue-600' },
-          { href: '/dashboard/hr-manager/performance-cycles', label: 'Cycle Registry', subtext: 'View all appraisal periods', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', bg: 'bg-purple-500/10', color: 'text-purple-600' },
-          { href: '/dashboard/hr-manager/disputes', label: 'Objection Log', subtext: 'Review finalized disputes', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', bg: 'bg-red-500/10', color: 'text-red-600' },
+          { href: '/dashboard/hr-manager/performance-dashboard', label: 'Progress Monitor', subtext: 'Real-time monitoring', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', bg: 'bg-muted', color: 'text-foreground' },
+          { href: '/dashboard/hr-manager/performance-cycles', label: 'Cycle Registry', subtext: 'View all appraisal periods', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', bg: 'bg-muted', color: 'text-foreground' },
+          { href: '/dashboard/hr-manager/disputes', label: 'Objection Log', subtext: 'Review finalized disputes', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', bg: 'bg-muted', color: 'text-foreground' },
         ].map((action, i) => (
           <Link key={i} href={action.href} className="bg-card border border-border rounded-xl p-6 hover:shadow-lg hover:border-primary/50 transition-all group">
             <div className="flex items-center gap-4">

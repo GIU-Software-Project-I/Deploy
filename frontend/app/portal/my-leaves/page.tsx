@@ -196,17 +196,17 @@ export default function MyLeavesPage() {
         // Calculate calendar days from dates (inclusive of both start and end dates)
         const calculateCalendarDays = (from: string | Date | undefined, to: string | Date | undefined): number => {
           if (!from || !to) return req.durationDays || 0;
-          
+
           const start = typeof from === 'string' ? new Date(from) : from;
           const end = typeof to === 'string' ? new Date(to) : to;
-          
+
           if (isNaN(start.getTime()) || isNaN(end.getTime())) return req.durationDays || 0;
-          
+
           // Calculate difference in milliseconds
           const diffTime = Math.abs(end.getTime() - start.getTime());
           // Convert to days and add 1 to include both start and end dates
           const calendarDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-          
+
           return calendarDays;
         };
 
@@ -216,7 +216,7 @@ export default function MyLeavesPage() {
 
         // Get leave type name with multiple fallbacks
         let leaveTypeName = '';
-        
+
         // Priority 1: Use leaveTypeName from request if available
         if (req.leaveTypeName) {
           leaveTypeName = req.leaveTypeName;
@@ -240,7 +240,7 @@ export default function MyLeavesPage() {
             leaveTypeName = foundType.name;
           }
         }
-        
+
         // Debug logging
         if (!leaveTypeName && req.leaveTypeId) {
           console.warn('Could not find leave type name:', {
@@ -250,7 +250,7 @@ export default function MyLeavesPage() {
             leaveTypesIds: leaveTypes.map(lt => lt._id),
           });
         }
-        
+
         // If still no name found, use a default
         if (!leaveTypeName) {
           leaveTypeName = 'Leave';
@@ -303,7 +303,7 @@ export default function MyLeavesPage() {
         name?: string;
         code?: string;
       }
-      
+
       const fetchedLeaveTypes: BackendLeaveType[] = Array.isArray(leaveTypesRes.data) ? leaveTypesRes.data : [];
 
       // Store leave types for filter dropdown
@@ -360,7 +360,7 @@ export default function MyLeavesPage() {
         leaveTypeName?: string;
         leaveTypeCode?: string;
       }
-      
+
       // Enrich balance data with leave type names and codes
       let enrichedBalances: LeaveBalanceSummary[] = [];
       if (Array.isArray(balanceRes.data)) {
@@ -424,7 +424,7 @@ export default function MyLeavesPage() {
       }
 
       setBalance(enrichedBalances);
-      
+
       // Fetch requests with current filters
       await fetchRequests(employeeId);
 
@@ -509,10 +509,10 @@ export default function MyLeavesPage() {
       if (kind === 'personal') {
         // Check for personal, paternity, maternity, compassionate, or other third types
         return name.includes('personal') || code.includes('personal') ||
-               name.includes('paternity') || code.includes('paternity') ||
-               name.includes('maternity') || code.includes('maternity') ||
-               name.includes('compassionate') || code.includes('compassionate') ||
-               name.includes('unpaid') || code.includes('unpaid');
+          name.includes('paternity') || code.includes('paternity') ||
+          name.includes('maternity') || code.includes('maternity') ||
+          name.includes('compassionate') || code.includes('compassionate') ||
+          name.includes('unpaid') || code.includes('unpaid');
       }
       return false;
     });
@@ -786,9 +786,8 @@ export default function MyLeavesPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-xl transition-colors ${
-                    showFilters ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-xl transition-colors ${showFilters ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -807,11 +806,10 @@ export default function MyLeavesPage() {
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
-                  className={`px-3 py-1.5 text-sm rounded-xl transition-colors ${
-                    filterStatus === status
+                  className={`px-3 py-1.5 text-sm rounded-xl transition-colors ${filterStatus === status
                       ? 'bg-foreground text-background'
                       : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
+                    }`}
                 >
                   {status === 'all' ? 'All' : status === 'RETURNED_FOR_CORRECTION' ? 'Needs Correction' : status.charAt(0) + status.slice(1).toLowerCase()}
                 </button>
@@ -1064,7 +1062,7 @@ function BalanceCard({
   const colorClasses = {
     blue: { bg: 'bg-primary', light: 'bg-primary/10 dark:bg-primary/20', text: 'text-primary' },
     red: { bg: 'bg-destructive', light: 'bg-destructive/10 dark:bg-destructive/20', text: 'text-destructive' },
-    purple: { bg: 'bg-accent', light: 'bg-accent/10 dark:bg-accent/20', text: 'text-accent-foreground' },
+    purple: { bg: 'bg-primary', light: 'bg-primary/10 dark:bg-primary/20', text: 'text-primary' },
   };
 
   const colors = colorClasses[color];

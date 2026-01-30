@@ -5,21 +5,7 @@ import { useRouter } from 'next/navigation';
 import { authService, BackendUser } from '@/app/services/auth';
 
 
-// System roles enum
-export enum SystemRole {
-  DEPARTMENT_EMPLOYEE = 'department employee',
-  DEPARTMENT_HEAD = 'department head',
-  HR_MANAGER = 'HR Manager',
-  HR_EMPLOYEE = 'HR Employee',
-  PAYROLL_SPECIALIST = 'Payroll Specialist',
-  PAYROLL_MANAGER = 'Payroll Manager',
-  SYSTEM_ADMIN = 'System Admin',
-  LEGAL_POLICY_ADMIN = 'Legal & Policy Admin',
-  RECRUITER = 'Recruiter',
-  FINANCE_STAFF = 'Finance Staff',
-  JOB_CANDIDATE = 'Job Candidate',
-  HR_ADMIN = 'HR Admin',
-}
+import { SystemRole } from '@/types';
 
 // User type stored in context
 export interface User {
@@ -57,21 +43,22 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Map backend role string to SystemRole enum
 function mapRole(role: string): SystemRole {
+  const normalizedRole = role.toLowerCase().trim();
   const roleMap: Record<string, SystemRole> = {
     'department employee': SystemRole.DEPARTMENT_EMPLOYEE,
     'department head': SystemRole.DEPARTMENT_HEAD,
-    'HR Manager': SystemRole.HR_MANAGER,
-    'HR Employee': SystemRole.HR_EMPLOYEE,
-    'Payroll Specialist': SystemRole.PAYROLL_SPECIALIST,
-    'Payroll Manager': SystemRole.PAYROLL_MANAGER,
-    'System Admin': SystemRole.SYSTEM_ADMIN,
-    'Legal & Policy Admin': SystemRole.LEGAL_POLICY_ADMIN,
-    'Recruiter': SystemRole.RECRUITER,
-    'Finance Staff': SystemRole.FINANCE_STAFF,
-    'Job Candidate': SystemRole.JOB_CANDIDATE,
-    'HR Admin': SystemRole.HR_ADMIN,
+    'hr manager': SystemRole.HR_MANAGER,
+    'hr employee': SystemRole.HR_EMPLOYEE,
+    'payroll specialist': SystemRole.PAYROLL_SPECIALIST,
+    'payroll manager': SystemRole.PAYROLL_MANAGER,
+    'system admin': SystemRole.SYSTEM_ADMIN,
+    'legal & policy admin': SystemRole.LEGAL_POLICY_ADMIN,
+    'recruiter': SystemRole.RECRUITER,
+    'finance staff': SystemRole.FINANCE_STAFF,
+    'job candidate': SystemRole.JOB_CANDIDATE,
+    'hr admin': SystemRole.HR_ADMIN,
   };
-  return roleMap[role] || SystemRole.DEPARTMENT_EMPLOYEE;
+  return roleMap[normalizedRole] || SystemRole.DEPARTMENT_EMPLOYEE;
 }
 
 // Get dashboard route for a given role
@@ -95,14 +82,32 @@ function getDashboardRouteForRole(role: SystemRole): string {
 
 // Transform backend user to frontend user
 function transformUser(backendUser: BackendUser): User {
-  const primaryRole = backendUser.roles?.[0] || 'department employee';
+  const roles = backendUser.roles || [];
+  const normalizedRoles = roles.map(r => r.toLowerCase().trim());
+
+  console.log('[AuthContext] 🔄 Transforming user. Raw roles:', roles);
+
+  // Prioritize roles: System Admin > HR Admin > HR Manager > others
+  let primaryRole: SystemRole = SystemRole.DEPARTMENT_EMPLOYEE;
+
+  if (normalizedRoles.includes('system admin')) primaryRole = SystemRole.SYSTEM_ADMIN;
+  else if (normalizedRoles.includes('hr admin')) primaryRole = SystemRole.HR_ADMIN;
+  else if (normalizedRoles.includes('hr manager')) primaryRole = SystemRole.HR_MANAGER;
+  else if (normalizedRoles.includes('department head')) primaryRole = SystemRole.DEPARTMENT_HEAD;
+  else if (roles.length > 0) {
+    // Fallback to mapping the first role if no priority found
+    primaryRole = mapRole(roles[0]);
+  }
+
+  console.log('[AuthContext] ✅ Primary Role assigned:', primaryRole);
+
   return {
     id: backendUser._id,
     firstName: backendUser.firstName,
     lastName: backendUser.lastName,
     email: backendUser.email,
-    role: mapRole(primaryRole),
-    roles: backendUser.roles || [],
+    role: primaryRole,
+    roles: roles,
     employeeNumber: backendUser.employeeNumber,
   };
 }

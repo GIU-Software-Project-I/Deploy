@@ -278,11 +278,11 @@ export default function MyAttendancePage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'APPROVED':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
+        return 'bg-success/10 text-success border-success/20';
       case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300';
+        return 'bg-warning/10 text-warning border-warning/20';
       case 'REJECTED':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300';
+        return 'bg-destructive/10 text-destructive border-destructive/20';
       default:
         return 'bg-muted text-muted-foreground';
     }
@@ -613,16 +613,16 @@ export default function MyAttendancePage() {
   const getExceptionStatusColor = (status: string) => {
     switch (status) {
       case 'APPROVED':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
+        return 'bg-success/10 text-success border-success/20';
       case 'PENDING':
       case 'OPEN':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300';
+        return 'bg-warning/10 text-warning border-warning/20';
       case 'REJECTED':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300';
+        return 'bg-destructive/10 text-destructive border-destructive/20';
       case 'ESCALATED':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300';
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300'; // Keep orange for escalation specifically or use primary
       case 'RESOLVED':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
+        return 'bg-primary/10 text-primary border-primary/20';
       default:
         return 'bg-muted text-muted-foreground';
     }
@@ -709,7 +709,7 @@ export default function MyAttendancePage() {
         )}
 
         {success && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 rounded-lg">
+          <div className="bg-success/10 border border-success/20 text-success px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs">
             {success}
           </div>
         )}
@@ -754,22 +754,20 @@ export default function MyAttendancePage() {
                 <button
                   onClick={handleClockIn}
                   disabled={loading || isClockedIn}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                    isClockedIn
+                  className={`px-6 py-3 rounded-lg font-medium transition-all ${isClockedIn
                       ? 'bg-white/20 text-primary-foreground/60 cursor-not-allowed'
                       : 'bg-white text-primary hover:bg-white/90'
-                  }`}
+                    }`}
                 >
                   {loading && !isClockedIn ? 'Processing...' : isClockedIn ? 'Clocked In' : 'Clock In'}
                 </button>
                 <button
                   onClick={handleClockOut}
                   disabled={loading || !todayRecord || todayRecord.punches?.length === 0}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                    !todayRecord || todayRecord.punches?.length === 0
+                  className={`px-6 py-3 rounded-lg font-medium transition-all ${!todayRecord || todayRecord.punches?.length === 0
                       ? 'bg-white/20 text-primary-foreground/60 cursor-not-allowed'
                       : 'bg-white text-primary hover:bg-white/90'
-                  }`}
+                    }`}
                 >
                   {loading ? 'Processing...' : 'Clock Out'}
                 </button>
@@ -798,11 +796,10 @@ export default function MyAttendancePage() {
               {todayRecord.punches.map((punch: any, idx: number) => (
                 <div
                   key={idx}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                    punch.type === PunchType.IN
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${punch.type === PunchType.IN
                       ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
                       : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                  }`}
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     {punch.type === PunchType.IN ? (
@@ -834,31 +831,28 @@ export default function MyAttendancePage() {
           <div className="flex gap-8">
             <button
               onClick={() => setActiveTab('corrections')}
-              className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-                activeTab === 'corrections'
+              className={`px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'corrections'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               Corrections
             </button>
             <button
               onClick={() => setActiveTab('time-exceptions')}
-              className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-                activeTab === 'time-exceptions'
+              className={`px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'time-exceptions'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               Time Exceptions
             </button>
             <button
               onClick={() => setActiveTab('time-exceptions')}
-              className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-                activeTab === 'time-exceptions'
+              className={`px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'time-exceptions'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               Break Permissions
             </button>

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { organizationStructureService } from '@/app/services/organization-structure';
 import { employeeProfileService } from '@/app/services/employee-profile';
 import RoleGuard from '@/components/RoleGuard';
-import { SystemRole } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 /**
  * Create/Edit Department - System Admin

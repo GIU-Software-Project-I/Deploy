@@ -210,8 +210,8 @@ export default function MyOrganizationPage() {
           )}
 
           <div className={`w-2 h-2 rounded-full ${node.type === 'department'
-            ? 'bg-blue-500'
-            : node.employeeId ? 'bg-green-500' : 'bg-amber-500'
+            ? 'bg-primary'
+            : node.employeeId ? 'bg-success' : 'bg-warning'
             }`}></div>
 
           <div className="flex-1">
@@ -306,15 +306,15 @@ export default function MyOrganizationPage() {
           {/* Legend */}
           <div className="flex items-center gap-6 mt-4 pt-4 border-t border-border">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              <div className="w-2 h-2 rounded-full bg-primary"></div>
               <span>Department</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+              <div className="w-2 h-2 rounded-full bg-success"></div>
               <span>Filled Position</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+              <div className="w-2 h-2 rounded-full bg-warning"></div>
               <span>Vacant Position</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
