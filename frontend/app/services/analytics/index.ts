@@ -107,6 +107,8 @@ export interface OrgPulseResponse {
     genderDiversity: { _id: string; count: number }[];
     avgPerformanceScore: number;
     activeAppraisals: number;
+    avgTenure?: number;
+    dominantDepartment?: string;
     timestamp: string;
 }
 
@@ -120,6 +122,17 @@ export interface SkillMatrixResponse {
 export const analyticsService = {
     getOrgPulse: async (): Promise<OrgPulseResponse> => {
         const response = await api.get('/analytics/org-pulse');
+        console.log('[Analytics] Org Pulse response:', response);
+        if (response.error || !response.data) {
+            console.warn('[Analytics] Org Pulse error:', response.error);
+            return {
+                headcount: 0,
+                genderDiversity: [],
+                avgPerformanceScore: 0,
+                activeAppraisals: 0,
+                timestamp: new Date().toISOString(),
+            };
+        }
         return response.data as OrgPulseResponse;
     },
 
