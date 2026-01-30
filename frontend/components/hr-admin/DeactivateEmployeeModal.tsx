@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Employee } from './EmployeeTableRow';
+import { DS_ENGINES } from '@/app/utils/ds-engines';
 
 interface DeactivateEmployeeModalProps {
   employee: Employee | null;
@@ -75,6 +76,12 @@ export default function DeactivateEmployeeModal({ employee, isOpen, onClose, onC
     }
   };
 
+  // DS FEATURE: Impact Analysis
+  const impact = useMemo(() => {
+    if (!employee) return null;
+    return DS_ENGINES.analyzeDeactivationImpact(employee);
+  }, [employee]);
+
   if (!isOpen || !employee) return null;
 
   const displayName = employee.fullName || `${employee.firstName} ${employee.lastName}`;
@@ -123,9 +130,31 @@ export default function DeactivateEmployeeModal({ employee, isOpen, onClose, onC
               </div>
             </div>
 
+            {/* DS FEATURE: Impact Forecast */}
+            {impact && (
+              <div className="mb-6 grid grid-cols-2 gap-3">
+                <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-xl">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Replacement Effort</p>
+                  <p className="text-lg font-black text-black">~{impact.replacementDays} Days</p>
+                  <div className="mt-1 flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                    <span className="text-[8px] font-bold text-muted-foreground uppercase">Estimated Hiring Cycle</span>
+                  </div>
+                </div>
+                <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-xl">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Team Capacity Loss</p>
+                  <p className="text-lg font-black text-black">-{impact.capacityLoss}%</p>
+                  <div className="mt-1 flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                    <span className="text-[8px] font-bold text-muted-foreground uppercase">Structural Impact</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Warning Box */}
             <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mb-6">
-              <h4 className="text-sm font-semibold text-red-800 dark:text-red-300 mb-2">Important: This action will:</h4>
+              <h4 className="text-sm font-semibold text-red-800 dark:text-red-300 mb-2">Important Information:</h4>
               <ul className="text-sm text-red-700 dark:text-red-400 space-y-1">
                 <li className="flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,18 +167,6 @@ export default function DeactivateEmployeeModal({ employee, isOpen, onClose, onC
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                   Block payroll processing
-                </li>
-                <li className="flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Sync to Time Management module
-                </li>
-                <li className="flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Log in audit trail (BR 22)
                 </li>
               </ul>
             </div>

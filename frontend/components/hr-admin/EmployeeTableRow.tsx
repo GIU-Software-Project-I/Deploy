@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { DS_ENGINES } from '@/app/utils/ds-engines';
 
 export interface Employee {
   _id: string;
@@ -112,13 +113,30 @@ export default function EmployeeTableRow({ employee, onEdit, onDeactivate, onAss
         </div>
       </td>
 
-      {/* Status */}
+      {/* Status & Insights */}
       <td className="px-4 py-3">
-        <StatusBadge
-          status={employee.status}
-          label={formatStatus(employee.status)}
-          showDot
-        />
+        <div className="flex flex-col gap-1.5">
+          <StatusBadge
+            status={employee.status}
+            label={formatStatus(employee.status)}
+            showDot
+          />
+          {/* Data Science Insight: Retention Risk */}
+          {(() => {
+            const riskScore = DS_ENGINES.calculateRetentionSignal(employee);
+            if (riskScore >= 60) {
+              return (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-black text-white rounded text-[10px] font-black uppercase tracking-tight shadow-sm animate-pulse">
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Critical Signal
+                </div>
+              );
+            }
+            return null;
+          })()}
+        </div>
       </td>
 
       {/* Date of Hire */}
@@ -137,17 +155,17 @@ export default function EmployeeTableRow({ employee, onEdit, onDeactivate, onAss
       <td className="px-4 py-3">
         <div className="flex flex-wrap gap-1">
           {employee.roles?.slice(0, 2).map((role, idx) => (
-            <span key={idx} className="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded">
+            <span key={idx} className="px-2 py-0.5 text-xs font-medium bg-zinc-100 text-zinc-900 border border-zinc-200 rounded">
               {role}
             </span>
           ))}
           {employee.roles && employee.roles.length > 2 && (
-            <span className="px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded">
+            <span className="px-2 py-0.5 text-xs font-medium bg-zinc-800 text-white rounded">
               +{employee.roles.length - 2}
             </span>
           )}
           {(!employee.roles || employee.roles.length === 0) && (
-            <span className="text-xs text-muted-foreground">No roles</span>
+            <span className="text-xs text-muted-foreground italic">No roles</span>
           )}
         </div>
       </td>
@@ -200,8 +218,8 @@ export default function EmployeeTableRow({ employee, onEdit, onDeactivate, onAss
                   onClick={() => { onDeactivate(employee); setShowActions(false); }}
                   disabled={!isDeactivatable}
                   className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 transition-colors ${isDeactivatable
-                      ? 'text-destructive hover:bg-destructive/10'
-                      : 'text-muted-foreground cursor-not-allowed'
+                    ? 'text-destructive hover:bg-destructive/10'
+                    : 'text-muted-foreground cursor-not-allowed'
                     }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

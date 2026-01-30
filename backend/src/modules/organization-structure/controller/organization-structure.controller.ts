@@ -151,7 +151,8 @@ export class OrganizationStructureController {
 
     @Get('assignments')
     @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.DEPARTMENT_HEAD)
-    searchAssignments(
+    async searchAssignments(
+        @CurrentUser() user: JwtPayload,
         @Query('employeeProfileId') employeeProfileId?: string,
         @Query('positionId') positionId?: string,
         @Query('departmentId') departmentId?: string,
@@ -167,7 +168,7 @@ export class OrganizationStructureController {
             page: page ? parseInt(page, 10) : 1,
             limit: limit ? parseInt(limit, 10) : 20,
         };
-        return this.orgService.searchAssignments(queryDto);
+        return this.orgService.searchAssignments(queryDto, user);
     }
 
     @Get('assignments/employee/:employeeProfileId/history')

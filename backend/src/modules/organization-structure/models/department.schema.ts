@@ -18,6 +18,9 @@ export class Department {
     @Prop({ type: Types.ObjectId, ref: 'Position' })
     headPositionId?: Types.ObjectId;
 
+    @Prop({ type: String, required: true })
+    costCenter: string;
+
     @Prop({ type: Boolean, default: true })
     isActive: boolean;
 }

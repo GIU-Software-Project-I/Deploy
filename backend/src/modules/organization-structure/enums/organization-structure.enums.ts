@@ -34,3 +34,9 @@ export enum ChangeLogAction {
     DEACTIVATED = 'DEACTIVATED',
     REASSIGNED = 'REASSIGNED',
 }
+
+export enum PositionStatus {
+    ACTIVE = 'ACTIVE',
+    FROZEN = 'FROZEN',
+    INACTIVE = 'INACTIVE',
+}

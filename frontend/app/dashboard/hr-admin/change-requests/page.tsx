@@ -145,8 +145,8 @@ export default function ChangeRequestsPage() {
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
-                            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                                <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="p-2 bg-black rounded-lg">
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                                 </svg>
                             </div>
@@ -172,17 +172,17 @@ export default function ChangeRequestsPage() {
                     <button
                         onClick={() => setStatusFilter('PENDING')}
                         className={`p-4 rounded-xl border transition-all ${statusFilter === 'PENDING'
-                            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-                            : 'bg-card border-border hover:border-amber-200'
+                            ? 'bg-black border-black text-white'
+                            : 'bg-card border-border hover:border-black/50'
                             }`}
                     >
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                                <p className="text-2xl font-bold text-foreground mt-1">{stats.pending}</p>
+                                <p className={`text-sm font-medium ${statusFilter === 'PENDING' ? 'text-zinc-400' : 'text-muted-foreground'}`}>Pending</p>
+                                <p className="text-2xl font-bold mt-1">{stats.pending}</p>
                             </div>
-                            <div className={`p-2 rounded-lg ${statusFilter === 'PENDING' ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-muted'}`}>
-                                <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className={`p-2 rounded-lg ${statusFilter === 'PENDING' ? 'bg-white/10' : 'bg-muted'}`}>
+                                <svg className="w-5 h-5 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
@@ -191,8 +191,8 @@ export default function ChangeRequestsPage() {
                     <button
                         onClick={() => setStatusFilter('APPROVED')}
                         className={`p-4 rounded-xl border transition-all ${statusFilter === 'APPROVED'
-                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                            : 'bg-card border-border hover:border-green-200'
+                            ? 'bg-zinc-100 border-zinc-200 text-black'
+                            : 'bg-card border-border hover:border-black/50'
                             }`}
                     >
                         <div className="flex items-center justify-between">
@@ -200,8 +200,8 @@ export default function ChangeRequestsPage() {
                                 <p className="text-sm font-medium text-muted-foreground">Approved</p>
                                 <p className="text-2xl font-bold text-foreground mt-1">{stats.approved}</p>
                             </div>
-                            <div className={`p-2 rounded-lg ${statusFilter === 'APPROVED' ? 'bg-green-100 dark:bg-green-900/40' : 'bg-muted'}`}>
-                                <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className={`p-2 rounded-lg ${statusFilter === 'APPROVED' ? 'bg-white border border-zinc-200' : 'bg-muted'}`}>
+                                <svg className="w-5 h-5 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
@@ -210,8 +210,8 @@ export default function ChangeRequestsPage() {
                     <button
                         onClick={() => setStatusFilter('REJECTED')}
                         className={`p-4 rounded-xl border transition-all ${statusFilter === 'REJECTED'
-                            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                            : 'bg-card border-border hover:border-red-200'
+                            ? 'bg-zinc-100 border-zinc-200 text-black'
+                            : 'bg-card border-border hover:border-black/50'
                             }`}
                     >
                         <div className="flex items-center justify-between">
@@ -219,8 +219,8 @@ export default function ChangeRequestsPage() {
                                 <p className="text-sm font-medium text-muted-foreground">Rejected</p>
                                 <p className="text-2xl font-bold text-foreground mt-1">{stats.rejected}</p>
                             </div>
-                            <div className={`p-2 rounded-lg ${statusFilter === 'REJECTED' ? 'bg-red-100 dark:bg-red-900/40' : 'bg-muted'}`}>
-                                <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className={`p-2 rounded-lg ${statusFilter === 'REJECTED' ? 'bg-white border border-zinc-200' : 'bg-muted'}`}>
+                                <svg className="w-5 h-5 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
@@ -255,7 +255,7 @@ export default function ChangeRequestsPage() {
                         <button
                             onClick={() => setStatusFilter('all')}
                             className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${statusFilter === 'all'
-                                ? 'bg-primary text-primary-foreground'
+                                ? 'bg-black text-white'
                                 : 'bg-muted text-muted-foreground hover:text-foreground'
                                 }`}
                         >
@@ -342,13 +342,13 @@ export default function ChangeRequestsPage() {
                 )}
 
                 {/* Workflow Notice */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-3">
-                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-zinc-100 border border-zinc-200 rounded-xl p-4 flex items-start gap-3">
+                    <svg className="w-5 h-5 text-zinc-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div>
-                        <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">Workflow Approval Process (BR 36)</h4>
-                        <p className="text-sm text-blue-700 dark:text-blue-400 mt-0.5">
+                        <h4 className="text-sm font-medium text-black">Workflow Approval Process (BR 36)</h4>
+                        <p className="text-sm text-zinc-600 mt-0.5">
                             All profile changes must be made via workflow approval. Approved changes are automatically applied to the employee's profile. Notifications are sent to employees upon approval or rejection.
                         </p>
                     </div>

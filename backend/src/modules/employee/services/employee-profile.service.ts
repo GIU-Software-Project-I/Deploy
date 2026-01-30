@@ -163,7 +163,11 @@ export class EmployeeProfileService {
 
         const qualifications = await this.qualificationModel.find({ employeeProfileId: new Types.ObjectId(userId) }).lean();
 
-        return { ...profile, education: qualifications };
+        return {
+            ...profile,
+            education: qualifications,
+            roles: (profile as any).accessProfileId?.roles || []
+        };
     }
 
     async updateContactInfo(userId: string, dto: UpdateContactInfoDto): Promise<EmployeeProfile> {
@@ -475,7 +479,8 @@ export class EmployeeProfileService {
             this.employeeProfileModel.find(searchFilter)
                 .populate('primaryPositionId', 'title')
                 .populate('primaryDepartmentId', 'name')
-                .select('firstName lastName fullName employeeNumber workEmail primaryPositionId primaryDepartmentId status dateOfHire')
+                .populate('accessProfileId', 'roles')
+                .select('firstName lastName fullName employeeNumber workEmail primaryPositionId primaryDepartmentId status dateOfHire accessProfileId')
                 .sort({ lastName: 1, firstName: 1 })
                 .skip(skip)
                 .limit(limit)
@@ -484,7 +489,12 @@ export class EmployeeProfileService {
             this.employeeProfileModel.countDocuments(searchFilter).exec(),
         ]);
 
-        return this.createPaginatedResponse(data, total, page, limit);
+        const transformedData = data.map(emp => ({
+            ...emp,
+            roles: (emp as any).accessProfileId?.roles || []
+        }));
+
+        return this.createPaginatedResponse(transformedData as any, total, page, limit);
     }
 
     async getAllEmployees(
@@ -511,7 +521,8 @@ export class EmployeeProfileService {
             this.employeeProfileModel.find(filter)
                 .populate('primaryPositionId', 'title')
                 .populate('primaryDepartmentId', 'name')
-                .select('firstName lastName fullName employeeNumber workEmail primaryPositionId primaryDepartmentId status dateOfHire contractType workType')
+                .populate('accessProfileId', 'roles')
+                .select('firstName lastName fullName employeeNumber workEmail primaryPositionId primaryDepartmentId status dateOfHire contractType workType accessProfileId')
                 .sort({ lastName: 1, firstName: 1 })
                 .skip(skip)
                 .limit(limit)
@@ -520,7 +531,12 @@ export class EmployeeProfileService {
             this.employeeProfileModel.countDocuments(filter).exec(),
         ]);
 
-        return this.createPaginatedResponse(data, total, page, limit);
+        const transformedData = data.map(emp => ({
+            ...emp,
+            roles: (emp as any).accessProfileId?.roles || []
+        }));
+
+        return this.createPaginatedResponse(transformedData as any, total, page, limit);
     }
 
     async adminGetProfile(id: string): Promise<EmployeeProfile> {
@@ -533,12 +549,18 @@ export class EmployeeProfileService {
             .populate('lastAppraisalRecordId')
             .populate('lastAppraisalCycleId')
             .populate('lastAppraisalTemplateId')
-            .populate('accessProfileId');
+            .populate('accessProfileId')
+            .lean()
+            .exec();
 
         if (!profile) {
             throw new NotFoundException('Employee profile not found');
         }
-        return profile;
+
+        return {
+            ...profile,
+            roles: (profile as any).accessProfileId?.roles || []
+        } as any;
     }
 
     async adminUpdateProfile(id: string, dto: AdminUpdateProfileDto, adminUserId?: string): Promise<EmployeeProfile> {
@@ -1015,10 +1037,14 @@ export class EmployeeProfileService {
             },
         ]);
 
-        const result: Record<string, number> = {};
+        const result: Record<string, number> = { TOTAL_RECORDS: 0 };
+        let total = 0;
         for (const item of counts) {
-            result[item._id] = item.count;
+            const statusKey = item._id || 'UNKNOWN';
+            result[statusKey] = (result[statusKey] || 0) + item.count;
+            total += item.count;
         }
+        result.TOTAL_RECORDS = total;
         return result;
     }
 

@@ -2,6 +2,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Model, Types, UpdateQuery } from 'mongoose';
 import { Department, DepartmentDocument } from './department.schema';
+import { PositionStatus } from '../enums/organization-structure.enums';
 
 export type PositionDocument = HydratedDocument<Position>;
 
@@ -16,11 +17,23 @@ export class Position {
     @Prop({ type: String })
     description?: string;
 
+    @Prop({ type: String, required: true })
+    jobKey: string;
+
+    @Prop({ type: String, required: true })
+    payGrade: string;
+
+    @Prop({ type: String, required: true })
+    costCenter: string;
+
     @Prop({ type: Types.ObjectId, ref: 'Department', required: true })
     departmentId: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: 'Position' })
     reportsToPositionId?: Types.ObjectId;
+
+    @Prop({ type: String, enum: PositionStatus, default: PositionStatus.ACTIVE })
+    status: PositionStatus;
 
     @Prop({ type: Boolean, default: true })
     isActive: boolean;

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Employee } from './EmployeeTableRow';
+import { DS_ENGINES } from '@/app/utils/ds-engines';
 
 interface RoleAssignmentModalProps {
   employee: Employee | null;
@@ -86,6 +87,16 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
     }
   };
 
+  // DS FEATURE: Role Recommendations
+  const recommendedRoles = useMemo(() => {
+    if (!employee) return [];
+    return DS_ENGINES.recommendRoles(employee);
+  }, [employee]);
+
+  const handleApplyRecommendation = () => {
+    setSelectedRoles(prev => Array.from(new Set([...prev, ...recommendedRoles])));
+  };
+
   if (!isOpen || !employee) return null;
 
   const displayName = employee.fullName || `${employee.firstName} ${employee.lastName}`;
@@ -99,7 +110,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
 
       <div className="relative w-full max-w-xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="bg-gradient-to-r from-violet-600 to-purple-600 px-6 py-5 text-white">
+        <div className="bg-black px-6 py-5 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
@@ -132,19 +143,34 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
               </div>
             )}
 
-            {/* Currently Assigned */}
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-foreground mb-2">Currently Assigned</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-foreground">Currently Assigned</h3>
+
+                {/* DS FEATURE: Smart Toggle */}
+                {recommendedRoles.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleApplyRecommendation}
+                    className="flex items-center gap-1.5 px-2 py-1 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded hover:opacity-80 transition-all animate-pulse"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Apply Smart Suggestions
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {selectedRoles.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">No roles assigned</span>
+                  <span className="text-sm text-muted-foreground italic">No roles assigned</span>
                 ) : (
                   selectedRoles.map((role) => {
                     const info = getRoleInfo(role);
                     return (
                       <span
                         key={role}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary text-sm font-medium rounded-full"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 text-zinc-900 border border-zinc-200 text-sm font-medium rounded-full"
                       >
                         {info?.label || role}
                         <button
@@ -168,7 +194,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
               {Object.entries(ROLE_CATEGORIES).map(([category, roles]) => (
                 <div key={category}>
                   <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-black" />
                     {category}
                   </h3>
                   <div className="grid grid-cols-1 gap-2">
@@ -178,11 +204,10 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
                       return (
                         <label
                           key={roleValue}
-                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                            isSelected
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                          }`}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${isSelected
+                            ? 'border-black bg-zinc-50'
+                            : 'border-border hover:border-black/50 hover:bg-muted/50'
+                            }`}
                         >
                           <input
                             type="checkbox"
@@ -190,11 +215,10 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
                             onChange={() => handleToggleRole(roleValue)}
                             className="sr-only"
                           />
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                            isSelected
-                              ? 'bg-primary border-primary'
-                              : 'border-muted-foreground'
-                          }`}>
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isSelected
+                            ? 'bg-black border-black'
+                            : 'border-muted-foreground'
+                            }`}>
                             {isSelected && (
                               <svg className="w-3 h-3 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -202,7 +226,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
                             )}
                           </div>
                           <div className="flex-1">
-                            <p className={`text-sm font-medium ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                            <p className={`text-sm font-medium ${isSelected ? 'text-black' : 'text-foreground'}`}>
                               {roleInfo?.label || roleValue}
                             </p>
                             <p className="text-xs text-muted-foreground">{roleInfo?.description}</p>
@@ -241,7 +265,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
             <button
               type="submit"
               disabled={saving || selectedRoles.length === 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2"
+              className="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:bg-zinc-800 disabled:opacity-50 transition-all flex items-center gap-2"
             >
               {saving ? (
                 <>

@@ -24,10 +24,14 @@ export class CreateDepartmentDto {
   @IsOptional()
   headPositionId?: string;
 
+  @IsString()
+  @IsNotEmpty()
+  costCenter: string;
+
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
 }
 
-export class UpdateDepartmentDto extends PartialType(CreateDepartmentDto) {}
+export class UpdateDepartmentDto extends PartialType(CreateDepartmentDto) { }
 

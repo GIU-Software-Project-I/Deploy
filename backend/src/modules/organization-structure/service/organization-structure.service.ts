@@ -10,6 +10,9 @@ import { StructureChangeLog, StructureChangeLogDocument } from '../models/struct
 import { ApprovalDecision, ChangeLogAction, StructureRequestStatus, StructureRequestType } from '../enums/organization-structure.enums';
 import { CreateDepartmentDto, UpdateDepartmentDto, CreatePositionDto, UpdatePositionDto, AssignPositionDto, EndAssignmentDto, SubmitStructureRequestDto, UpdateStructureRequestDto, SubmitApprovalDecisionDto } from '../dto';
 import { SharedOrganizationService } from '../../integration/services/shared-organization.service';
+import { SystemRole } from '../../employee/enums/employee-profile.enums';
+import { JwtPayload } from '../../common/payload/jwt-payload';
+
 
 
 export interface PaginatedResult<T> {
@@ -129,6 +132,7 @@ export class OrganizationStructureService {
       code: dto.code,
       name: dto.name,
       description: dto.description,
+      costCenter: dto.costCenter,
       isActive: dto.isActive ?? true,
     });
 
@@ -420,6 +424,10 @@ export class OrganizationStructureService {
     if (dto.code !== undefined) position.code = dto.code;
     if (dto.title !== undefined) position.title = dto.title;
     if (dto.description !== undefined) position.description = dto.description;
+    if (dto.jobKey !== undefined) (position as any).jobKey = dto.jobKey;
+    if (dto.payGrade !== undefined) (position as any).payGrade = dto.payGrade;
+    if (dto.costCenter !== undefined) (position as any).costCenter = dto.costCenter;
+    if (dto.status !== undefined) (position as any).status = dto.status;
     if (dto.isActive !== undefined) position.isActive = dto.isActive;
 
     const updatedPosition = await position.save();
@@ -732,8 +740,35 @@ export class OrganizationStructureService {
     return assignment;
   }
 
-  async searchAssignments(queryDto: AssignmentSearchQuery): Promise<PaginatedResult<PositionAssignment>> {
-    const { page = 1, limit = 20, employeeProfileId, positionId, departmentId, activeOnly } = queryDto;
+  async searchAssignments(queryDto: AssignmentSearchQuery, user?: JwtPayload): Promise<PaginatedResult<PositionAssignment>> {
+    const { page = 1, limit = 20, employeeProfileId, positionId, activeOnly } = queryDto;
+    let { departmentId } = queryDto;
+
+    // Apply role-based scoping for Department Heads if departmentId is not specified
+    if (user && !departmentId) {
+      const isDeptHead = user.roles.some(role =>
+        role.toLowerCase() === SystemRole.DEPARTMENT_HEAD.toLowerCase() ||
+        role.toLowerCase() === SystemRole.SYSTEM_ADMIN.toLowerCase()
+      );
+
+      const isHR = user.roles.some(role =>
+        role.toLowerCase() === SystemRole.HR_MANAGER.toLowerCase() ||
+        role.toLowerCase() === SystemRole.HR_ADMIN.toLowerCase()
+      );
+
+      if (isDeptHead && !isHR) {
+        // Find the caller's department
+        const callerAssignment = await this.assignmentModel.findOne({
+          employeeProfileId: new Types.ObjectId(user.sub),
+          $or: [{ endDate: { $exists: false } }, { endDate: { $gt: new Date() } }]
+        }).populate('positionId');
+
+        if (callerAssignment && (callerAssignment.positionId as any)?.departmentId) {
+          departmentId = (callerAssignment.positionId as any).departmentId.toString();
+        }
+      }
+    }
+
     const skip = (page - 1) * limit;
     const filter: any = {};
 
@@ -1257,7 +1292,11 @@ export class OrganizationStructureService {
     let resultPositions: any[] = [];
 
     // Check role-based scope
-    const isDeptHead = roles.includes('department head') || roles.includes('Department Head');
+    const isDeptHead = roles.some(role =>
+      role.toLowerCase() === SystemRole.DEPARTMENT_HEAD.toLowerCase() ||
+      role.toLowerCase() === SystemRole.SYSTEM_ADMIN.toLowerCase()
+    );
+
 
     if (isDeptHead) {
       // BR 41: "Direct Managers see their team only"

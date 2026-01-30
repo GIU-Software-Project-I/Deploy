@@ -2,11 +2,13 @@ import { PartialType } from '@nestjs/mapped-types';
 import {
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsMongoId,
   IsNotEmpty,
   IsOptional,
   IsString,
 } from 'class-validator';
+import { PositionStatus } from '../enums/organization-structure.enums';
 
 export class CreatePositionDto {
   @IsString()
@@ -21,6 +23,18 @@ export class CreatePositionDto {
   @IsOptional()
   description?: string;
 
+  @IsString()
+  @IsNotEmpty()
+  jobKey: string;
+
+  @IsString()
+  @IsNotEmpty()
+  payGrade: string;
+
+  @IsString()
+  @IsNotEmpty()
+  costCenter: string;
+
   //@IsMongoId()
   @IsNotEmpty()
   departmentId: string;
@@ -28,6 +42,10 @@ export class CreatePositionDto {
   @IsMongoId()
   @IsOptional()
   reportsToPositionId?: string;
+
+  @IsEnum(PositionStatus)
+  @IsOptional()
+  status?: PositionStatus;
 
   @IsBoolean()
   @IsOptional()
@@ -38,4 +56,4 @@ export class CreatePositionDto {
   effectiveDate?: string;
 }
 
-export class UpdatePositionDto extends PartialType(CreatePositionDto) {}
+export class UpdatePositionDto extends PartialType(CreatePositionDto) { }
