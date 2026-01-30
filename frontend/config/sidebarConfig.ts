@@ -519,7 +519,7 @@ const SYSTEM_ADMIN_SECTIONS: NavSection[] = [
       },
       {
         label: 'Data Backup',
-        href: '/dashboard/system-admin/data-data-backup',
+        href: '/dashboard/system-admin/data-backup',
         icon: 'database',
       },
       {

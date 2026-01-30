@@ -1,39 +1,85 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { backupService } from "@/app/services/backup";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { GlassCard } from "@/components/ui/glass-card";
 
-interface BackupHistory {
-  id: string;
+interface BackupMetadata {
+  filename: string;
+  size: number;
   timestamp: string;
-  size: string;
-  status: "success" | "failed" | "pending";
-  type: "full" | "incremental";
+  extension?: string;
 }
 
 export default function DataBackupPage() {
-  const [backupHistory, setBackupHistory] = useState<BackupHistory[]>([
-    {
-      id: "bak-001",
-      timestamp: new Date(Date.now() - 86400000).toISOString(),
-      size: "2.4 GB",
-      status: "success",
-      type: "full",
-    },
-    {
-      id: "bak-002",
-      timestamp: new Date(Date.now() - 43200000).toISOString(),
-      size: "156 MB",
-      status: "success",
-      type: "incremental",
-    },
-    {
-      id: "bak-003",
-      timestamp: new Date().toISOString(),
-      size: "172 MB",
-      status: "pending",
-      type: "incremental",
-    },
-  ]);
+  const [backups, setBackups] = useState<BackupMetadata[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+
+  useEffect(() => {
+    fetchBackups();
+  }, []);
+
+  const fetchBackups = async () => {
+    try {
+      setLoading(true);
+      const response = await backupService.listBackups();
+      if (response.error) {
+        toast.error(response.error);
+      } else if (response.data) {
+        setBackups(response.data as BackupMetadata[]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch backups:", error);
+      toast.error("Failed to load backup history");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const triggerBackup = async () => {
+    try {
+      setIsBackingUp(true);
+      const response = await backupService.createBackup({ name: "manual_" + Date.now() });
+      if (response.error) {
+        toast.error(response.error);
+      } else {
+        toast.success("Backup triggered successfully");
+        await fetchBackups();
+      }
+    } catch (e: any) {
+      toast.error("Failed to trigger backup: " + e?.message);
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  const deleteBackup = async (filename: string) => {
+    if (!confirm("Are you sure you want to delete this backup?")) return;
+    try {
+      const response = await backupService.deleteBackup(filename);
+      if (response.error) {
+        toast.error(response.error);
+      } else {
+        toast.success("Backup deleted successfully");
+        await fetchBackups();
+      }
+    } catch (e: any) {
+      toast.error("Failed to delete backup: " + e?.message);
+    }
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
 
   const [backupConfig, setBackupConfig] = useState({
     autoBackupEnabled: true,
@@ -42,31 +88,6 @@ export default function DataBackupPage() {
     backupTime: "02:00",
     notifyEmail: "admin@company.com",
   });
-
-  const triggerBackup = async () => {
-    try {
-      const newBackup: BackupHistory = {
-        id: `bak-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        size: "0 MB",
-        status: "pending",
-        type: "incremental",
-      };
-      setBackupHistory([newBackup, ...backupHistory]);
-
-      setTimeout(() => {
-        setBackupHistory((prev) =>
-          prev.map((b) =>
-            b.id === newBackup.id
-              ? { ...b, status: "success", size: Math.random() * 500 + "MB" }
-              : b
-          )
-        );
-      }, 3000);
-    } catch (e: any) {
-      alert("Failed to trigger data-backup: " + e?.message);
-    }
-  };
 
   const saveBackupConfig = async () => {
     try {
@@ -91,21 +112,25 @@ export default function DataBackupPage() {
 
       {/* Backup Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+        <GlassCard className="p-6">
           <p className="text-slate-600 text-sm font-medium">Last Backup</p>
-          <p className="text-2xl font-bold text-green-600 mt-2">2 hours ago</p>
-          <p className="text-xs text-slate-500 mt-1">Status: Success</p>
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+          <p className="text-2xl font-bold text-green-600 mt-2">
+            {backups.length > 0 && backups[0].timestamp ? format(new Date(backups[0].timestamp), "MMM d, h:mm a") : "Never"}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">Status: {backups.length > 0 ? "Success" : "N/A"}</p>
+        </GlassCard>
+        <GlassCard className="p-6">
           <p className="text-slate-600 text-sm font-medium">Total Backups</p>
-          <p className="text-2xl font-bold text-slate-900 mt-2">{backupHistory.length}</p>
-          <p className="text-xs text-slate-500 mt-1">In retention window</p>
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-          <p className="text-slate-600 text-sm font-medium">Storage Used</p>
-          <p className="text-2xl font-bold text-slate-900 mt-2">4.7 GB</p>
-          <p className="text-xs text-slate-500 mt-1">of 100 GB allocated</p>
-        </div>
+          <p className="text-2xl font-bold text-slate-900 mt-2">{backups.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Files found on disk</p>
+        </GlassCard>
+        <GlassCard className="p-6">
+          <p className="text-slate-600 text-sm font-medium">Total Size</p>
+          <p className="text-2xl font-bold text-slate-900 mt-2">
+            {formatSize(backups.reduce((acc, b) => acc + (b.size || 0), 0))}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">Storage used for backups</p>
+        </GlassCard>
       </div>
 
       {/* Backup Configuration & History */}
@@ -190,19 +215,28 @@ export default function DataBackupPage() {
               />
             </div>
 
-            <div className="flex gap-2 pt-4 border-t border-slate-100">
-              <button
+            <div className="flex flex-col gap-2 pt-4 border-t border-slate-100">
+              <Button
+                variant="outline"
                 onClick={saveBackupConfig}
-                className="flex-1 px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 text-sm font-medium"
+                className="w-full text-sm font-medium"
               >
-                Save Config
-              </button>
-              <button
+                Save Configuration
+              </Button>
+              <Button
                 onClick={triggerBackup}
-                className="flex-1 px-3 py-2 border border-violet-300 bg-violet-50 text-violet-700 rounded-lg hover:bg-violet-100 text-sm font-medium"
+                disabled={isBackingUp}
+                className="w-full text-sm font-medium"
               >
-                Backup Now
-              </button>
+                {isBackingUp ? (
+                  <>
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    Backing up...
+                  </>
+                ) : (
+                  "Backup Now"
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -215,59 +249,60 @@ export default function DataBackupPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b bg-slate-50">
-                  <th className="py-3 px-6 font-medium text-slate-700">Timestamp</th>
-                  <th className="py-3 px-6 font-medium text-slate-700">Type</th>
-                  <th className="py-3 px-6 font-medium text-slate-700">Size</th>
-                  <th className="py-3 px-6 font-medium text-slate-700">Status</th>
-                  <th className="py-3 px-6 font-medium text-slate-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {backupHistory.map((backup) => (
-                  <tr key={backup.id} className="border-b hover:bg-slate-50">
-                    <td className="py-3 px-6 text-slate-900">
-                      {new Date(backup.timestamp).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-6">
-                      <span className="px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                        {backup.type === "full" ? "Full Backup" : "Incremental"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-6 text-slate-600">{backup.size}</td>
-                    <td className="py-3 px-6">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium border ${
-                          backup.status === "success"
-                            ? "bg-green-50 text-green-700 border-green-200"
-                            : backup.status === "failed"
-                            ? "bg-red-50 text-red-700 border-red-200"
-                            : "bg-yellow-50 text-yellow-700 border-yellow-200"
-                        }`}
-                      >
-                        {backup.status === "success"
-                          ? "✓ Success"
-                          : backup.status === "failed"
-                          ? "✗ Failed"
-                          : "⏳ In Progress"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-6">
-                      {backup.status === "success" && (
-                        <button
-                          onClick={() => restoreBackup(backup.id)}
-                          className="px-2 py-1 border border-slate-300 rounded text-xs hover:bg-slate-50"
+            {loading ? (
+              <div className="flex justify-center p-12">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : (
+              <table className="w-full text-sm text-slate-600">
+                <thead>
+                  <tr className="text-left border-b bg-slate-50/50">
+                    <th className="py-4 px-6 font-bold text-slate-900">Filename</th>
+                    <th className="py-4 px-6 font-bold text-slate-900">Date Created</th>
+                    <th className="py-4 px-6 font-bold text-slate-900">Size</th>
+                    <th className="py-4 px-6 font-bold text-slate-900 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {backups.map((backup) => (
+                    <tr key={backup.filename} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-6 font-medium text-slate-900 break-all">
+                        {backup.filename}
+                      </td>
+                      <td className="py-4 px-6">
+                        {backup.timestamp ? format(new Date(backup.timestamp), "MMM d, yyyy h:mm a") : "Unknown Date"}
+                      </td>
+                      <td className="py-4 px-6">{formatSize(backup.size)}</td>
+                      <td className="py-4 px-6 text-right space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => restoreBackup(backup.filename)}
+                          className="text-primary hover:text-primary/80"
                         >
                           Restore
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteBackup(backup.filename)}
+                          className="text-destructive hover:text-destructive/80"
+                        >
+                          Delete
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {backups.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-12 text-center text-slate-400">
+                        No backup files found. Click "Backup Now" or check scheduler.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
@@ -277,7 +312,7 @@ export default function DataBackupPage() {
         <h3 className="text-lg font-semibold text-slate-900 mb-4">Backup Guidelines & Best Practices</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p className="font-medium text-slate-900 mb-2">💾 Backup Strategy</p>
+            <p className="font-medium text-slate-900 mb-2"> Backup Strategy</p>
             <ul className="list-disc ml-5 space-y-1 text-sm text-slate-700">
               <li>Full backups run weekly; daily incremental backups</li>
               <li>Backups stored in geographically distributed locations</li>
@@ -286,7 +321,7 @@ export default function DataBackupPage() {
             </ul>
           </div>
           <div>
-            <p className="font-medium text-slate-900 mb-2">🔄 Restore Procedures</p>
+            <p className="font-medium text-slate-900 mb-2"> Restore Procedures</p>
             <ul className="list-disc ml-5 space-y-1 text-sm text-slate-700">
               <li>Test restore procedures regularly to ensure integrity</li>
               <li>Verify backup before deleting old data</li>
