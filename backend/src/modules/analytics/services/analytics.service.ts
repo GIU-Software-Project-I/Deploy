@@ -189,4 +189,167 @@ export class AnalyticsService {
             topTalent: data.employees.sort((a, b) => b.level - a.level).slice(0, 3)
         }));
     }
+
+    /**
+     * Get organization-wide skills analytics with optional department filter
+     */
+    async getOrgSkillsAnalytics(departmentId?: string) {
+        // Build query
+        const query: any = { 
+            status: 'ACTIVE',
+            'skills.0': { $exists: true } // Only employees with at least one skill
+        };
+        
+        if (departmentId && Types.ObjectId.isValid(departmentId)) {
+            query.primaryDepartmentId = new Types.ObjectId(departmentId);
+        }
+
+        const employees = await this.employeeModel.find(query)
+            .populate('primaryDepartmentId')
+            .select('firstName lastName skills primaryDepartmentId')
+            .lean();
+
+        // Aggregate skills across employees
+        const skillMap = new Map<string, { 
+            total: number; 
+            count: number; 
+            categories: Set<string>;
+            verifiedCount: number;
+            byDepartment: Map<string, { count: number; total: number }>;
+        }>();
+        
+        const categoryMap = new Map<string, { total: number; count: number }>();
+        const departmentSkillCounts = new Map<string, number>();
+
+        employees.forEach(emp => {
+            const empSkills = (emp as any).skills || [];
+            const deptName = (emp.primaryDepartmentId as any)?.name || 'Unassigned';
+            
+            empSkills.forEach((skill: any) => {
+                // Aggregate by skill name
+                const existing = skillMap.get(skill.name) || { 
+                    total: 0, count: 0, categories: new Set(), verifiedCount: 0, byDepartment: new Map() 
+                };
+                existing.total += skill.level;
+                existing.count += 1;
+                existing.categories.add(skill.category);
+                if (skill.isVerified) existing.verifiedCount += 1;
+                
+                // Track by department
+                const deptStats = existing.byDepartment.get(deptName) || { count: 0, total: 0 };
+                deptStats.count += 1;
+                deptStats.total += skill.level;
+                existing.byDepartment.set(deptName, deptStats);
+                
+                skillMap.set(skill.name, existing);
+                
+                // Aggregate by category
+                const catStats = categoryMap.get(skill.category) || { total: 0, count: 0 };
+                catStats.total += skill.level;
+                catStats.count += 1;
+                categoryMap.set(skill.category, catStats);
+                
+                // Count skills per department
+                departmentSkillCounts.set(deptName, (departmentSkillCounts.get(deptName) || 0) + 1);
+            });
+        });
+
+        // Build skills distribution
+        const skillsDistribution = Array.from(skillMap.entries())
+            .map(([name, data]) => ({
+                skill: name,
+                avgLevel: Math.round((data.total / data.count) * 10) / 10,
+                employeeCount: data.count,
+                category: Array.from(data.categories)[0] || 'General',
+                verifiedPercentage: Math.round((data.verifiedCount / data.count) * 100),
+                departmentBreakdown: Array.from(data.byDepartment.entries()).map(([dept, stats]) => ({
+                    department: dept,
+                    count: stats.count,
+                    avgLevel: Math.round((stats.total / stats.count) * 10) / 10
+                }))
+            }))
+            .sort((a, b) => b.employeeCount - a.employeeCount);
+
+        // Build category summary
+        const categoryDistribution = Array.from(categoryMap.entries())
+            .map(([category, stats]) => ({
+                category,
+                avgLevel: Math.round((stats.total / stats.count) * 10) / 10,
+                skillCount: stats.count
+            }))
+            .sort((a, b) => b.skillCount - a.skillCount);
+
+        // Skills coverage metrics
+        const totalEmployeesWithSkills = employees.length;
+        const allActiveEmployees = await this.employeeModel.countDocuments({ status: 'ACTIVE' });
+        const skillsCoverage = allActiveEmployees > 0 
+            ? Math.round((totalEmployeesWithSkills / allActiveEmployees) * 100) 
+            : 0;
+
+        // Identify skill gaps (skills with avg level < 3)
+        const skillGaps = skillsDistribution
+            .filter(s => s.avgLevel < 3 && s.employeeCount >= 3)
+            .slice(0, 10);
+
+        // Top skills by proficiency
+        const topSkills = skillsDistribution
+            .filter(s => s.employeeCount >= 2)
+            .sort((a, b) => b.avgLevel - a.avgLevel)
+            .slice(0, 10);
+
+        return {
+            summary: {
+                totalEmployeesWithSkills,
+                totalEmployees: allActiveEmployees,
+                skillsCoverage,
+                uniqueSkillsCount: skillMap.size,
+                categoriesCount: categoryMap.size,
+                avgSkillsPerEmployee: employees.length > 0 
+                    ? Math.round((Array.from(skillMap.values()).reduce((sum, s) => sum + s.count, 0) / employees.length) * 10) / 10 
+                    : 0
+            },
+            skillsDistribution: skillsDistribution.slice(0, 20),
+            categoryDistribution,
+            skillGaps,
+            topSkills,
+            byDepartment: Array.from(departmentSkillCounts.entries())
+                .map(([dept, count]) => ({ department: dept, skillCount: count }))
+                .sort((a, b) => b.skillCount - a.skillCount)
+        };
+    }
+
+    /**
+     * Compare skills between two departments
+     */
+    async compareSkillsBetweenDepartments(deptId1: string, deptId2: string) {
+        const [skills1, skills2] = await Promise.all([
+            this.getDepartmentSkillMatrix(deptId1),
+            this.getDepartmentSkillMatrix(deptId2)
+        ]);
+
+        const skill1Map = new Map(skills1.map(s => [s.skill, s]));
+        const skill2Map = new Map(skills2.map(s => [s.skill, s]));
+
+        const allSkills = new Set([...skill1Map.keys(), ...skill2Map.keys()]);
+        
+        const comparison = Array.from(allSkills).map(skillName => {
+            const s1 = skill1Map.get(skillName);
+            const s2 = skill2Map.get(skillName);
+            return {
+                skill: skillName,
+                dept1AvgLevel: s1?.avgLevel || 0,
+                dept1Count: s1?.headcount || 0,
+                dept2AvgLevel: s2?.avgLevel || 0,
+                dept2Count: s2?.headcount || 0,
+                difference: Math.round(((s1?.avgLevel || 0) - (s2?.avgLevel || 0)) * 10) / 10
+            };
+        }).sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+
+        return {
+            comparison,
+            dept1UniqueSkills: skills1.filter(s => !skill2Map.has(s.skill)).length,
+            dept2UniqueSkills: skills2.filter(s => !skill1Map.has(s.skill)).length,
+            commonSkills: Array.from(allSkills).filter(s => skill1Map.has(s) && skill2Map.has(s)).length
+        };
+    }
 }

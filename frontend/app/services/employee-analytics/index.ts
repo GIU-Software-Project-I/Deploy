@@ -98,6 +98,53 @@ export interface AtRiskEmployee {
     tenureMonths: number;
 }
 
+export interface SkillData {
+    skill: string;
+    avgLevel: number;
+    employeeCount: number;
+    category: string;
+    verifiedPercentage: number;
+    departmentBreakdown: { department: string; count: number; avgLevel: number }[];
+}
+
+export interface SkillCategorySummary {
+    category: string;
+    avgLevel: number;
+    skillCount: number;
+}
+
+export interface SkillsAnalyticsSummary {
+    totalEmployeesWithSkills: number;
+    totalEmployees: number;
+    skillsCoverage: number;
+    uniqueSkillsCount: number;
+    categoriesCount: number;
+    avgSkillsPerEmployee: number;
+}
+
+export interface SkillsAnalyticsResponse {
+    summary: SkillsAnalyticsSummary;
+    skillsDistribution: SkillData[];
+    categoryDistribution: SkillCategorySummary[];
+    skillGaps: SkillData[];
+    topSkills: SkillData[];
+    byDepartment: { department: string; skillCount: number }[];
+}
+
+export interface SkillsComparisonResponse {
+    comparison: {
+        skill: string;
+        dept1AvgLevel: number;
+        dept1Count: number;
+        dept2AvgLevel: number;
+        dept2Count: number;
+        difference: number;
+    }[];
+    dept1UniqueSkills: number;
+    dept2UniqueSkills: number;
+    commonSkills: number;
+}
+
 export const employeeAnalyticsService = {
     /**
      * Get employee count breakdown by status
@@ -118,11 +165,14 @@ export const employeeAnalyticsService = {
         const data = response.data;
         const total = Object.values(data).reduce((sum, count) => sum + count, 0);
 
-        return Object.entries(data).map(([status, count]) => ({
-            status,
-            count,
-            percentage: total > 0 ? Math.round((count / total) * 100) : 0,
-        }));
+        // Exclude TOTAL_RECORDS from the status distribution to prevent double-counting
+        return Object.entries(data)
+            .filter(([status]) => status !== 'TOTAL_RECORDS')
+            .map(([status, count]) => ({
+                status,
+                count,
+                percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+            }));
     },
 
     /**
@@ -277,12 +327,13 @@ export const employeeAnalyticsService = {
      * Get attrition forecast and risk analysis
      * Uses predictive modeling based on historical patterns
      */
-    getAttritionForecast: async (): Promise<AttritionForecast> => {
+    getAttritionForecast: async (): Promise<AttritionForecast | null> => {
         const response = await apiService.get<AttritionForecast>('/analytics/attrition-forecast');
         
         if (response.error || !response.data) {
-            // Return calculated forecast based on available data
-            return calculateAttritionForecast();
+            // Return null when API fails - no fake/random data
+            console.warn('Attrition forecast API unavailable - no forecast data');
+            return null;
         }
         
         return response.data;
@@ -339,6 +390,38 @@ export const employeeAnalyticsService = {
         
         return response.data;
     },
+
+    /**
+     * Get organization-wide skills analytics with optional department filter
+     */
+    getSkillsAnalytics: async (departmentId?: string): Promise<SkillsAnalyticsResponse | null> => {
+        const url = departmentId 
+            ? `/analytics/skills?departmentId=${departmentId}` 
+            : '/analytics/skills';
+        const response = await apiService.get<SkillsAnalyticsResponse>(url);
+        
+        if (response.error || !response.data) {
+            console.warn('[EmployeeAnalytics] Skills analytics error:', response.error);
+            return null;
+        }
+        
+        return response.data;
+    },
+
+    /**
+     * Compare skills between two departments
+     */
+    compareSkills: async (dept1: string, dept2: string): Promise<SkillsComparisonResponse | null> => {
+        const response = await apiService.get<SkillsComparisonResponse>(
+            `/analytics/skills/compare?dept1=${dept1}&dept2=${dept2}`
+        );
+        
+        if (response.error || !response.data) {
+            return null;
+        }
+        
+        return response.data;
+    },
 };
 
 /**
@@ -359,49 +442,3 @@ function calculateDiversityIndex(genderData: { gender: string; count: number }[]
     return Math.round((1 - sumSquares) * 100) / 100;
 }
 
-/**
- * Calculate attrition forecast when backend data is unavailable
- * Uses heuristic modeling based on industry benchmarks
- */
-function calculateAttritionForecast(): AttritionForecast {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonth = new Date().getMonth();
-    
-    // Base attrition rate (industry average ~15%)
-    const baseRate = 12 + Math.random() * 6;
-    const predictedRate = baseRate + (Math.random() * 4 - 2);
-    
-    const riskFactors: string[] = [];
-    if (predictedRate > 15) riskFactors.push('Above industry average turnover');
-    if (currentMonth >= 0 && currentMonth <= 2) riskFactors.push('Q1 typically sees higher turnover');
-    if (Math.random() > 0.5) riskFactors.push('Compensation market pressure');
-    if (Math.random() > 0.6) riskFactors.push('Skills gap in critical roles');
-    
-    const monthlyProjections = [];
-    for (let i = 0; i < 6; i++) {
-        const monthIdx = (currentMonth + i) % 12;
-        monthlyProjections.push({
-            month: months[monthIdx],
-            predicted: Math.round(2 + Math.random() * 4),
-            confidence: 70 + Math.floor(Math.random() * 20),
-        });
-    }
-    
-    let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
-    if (predictedRate > 20) riskLevel = 'CRITICAL';
-    else if (predictedRate > 16) riskLevel = 'HIGH';
-    else if (predictedRate > 12) riskLevel = 'MEDIUM';
-    
-    const trend = predictedRate > baseRate + 1 ? 'increasing' : 
-                  predictedRate < baseRate - 1 ? 'decreasing' : 'stable';
-    
-    return {
-        currentRate: Math.round(baseRate * 10) / 10,
-        predictedRate: Math.round(predictedRate * 10) / 10,
-        trend,
-        riskLevel,
-        predictedVacancies: Math.round(monthlyProjections.reduce((sum, m) => sum + m.predicted, 0)),
-        riskFactors,
-        monthlyProjections,
-    };
-}

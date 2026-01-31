@@ -113,7 +113,7 @@ export default function HRAdminOrgAnalyticsPage() {
             setDeptAnalytics(deptRes);
             setPositionRisks(posRiskRes);
             setCostCenters(costCenterRes);
-            
+
             // For simulator dropdowns - deptsForSimulator.data is PaginatedResult, need .data.data for array
             const deptRaw = deptsForSimulator.data as any;
             const posRaw = positionsForSimulator.data as any;
@@ -144,23 +144,20 @@ export default function HRAdminOrgAnalyticsPage() {
         }
     };
 
-    const gradeColor = (grade: string) => {
-        switch (grade) {
-            case 'A': return 'text-green-600';
-            case 'B': return 'text-blue-600';
-            case 'C': return 'text-yellow-600';
-            case 'D': return 'text-orange-600';
-            case 'F': return 'text-red-600';
-            default: return 'text-muted-foreground';
-        }
-    };
-
     const riskBadgeClass = (risk: string) => {
         switch (risk) {
             case 'LOW': return 'bg-green-100 text-green-700 border-green-200';
             case 'MEDIUM': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-            case 'HIGH': return 'bg-orange-100 text-orange-700 border-orange-200';
-            case 'CRITICAL': return 'bg-red-100 text-red-700 border-red-200';
+            case 'HIGH': return 'bg-red-100 text-red-700 border-red-200';
+            default: return 'bg-slate-100 text-slate-600';
+        }
+    };
+
+    const impactBadgeClass = (level: string) => {
+        switch (level) {
+            case 'HIGH': return 'bg-red-100 text-red-700 border-red-200';
+            case 'MEDIUM': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+            case 'LOW': return 'bg-green-100 text-green-700 border-green-200';
             default: return 'bg-slate-100 text-slate-600';
         }
     };
@@ -209,7 +206,7 @@ export default function HRAdminOrgAnalyticsPage() {
                     </div>
                 )}
 
-                {/* Health Score Card */}
+                {/* Structure Insights Card */}
                 {healthScore && (
                     <Card>
                         <CardHeader>
@@ -217,31 +214,38 @@ export default function HRAdminOrgAnalyticsPage() {
                                 <div>
                                     <CardTitle className="flex items-center gap-2">
                                         <Activity className="h-5 w-5 text-primary" />
-                                        Organizational Health Score
+                                        Organizational Structure Insights
                                     </CardTitle>
-                                    <CardDescription>Multi-dimensional structure analysis</CardDescription>
+                                    <CardDescription>Factual KPI analysis and structural distributions</CardDescription>
                                 </div>
                                 <div className="text-right">
-                                    <div className={`text-5xl font-black ${gradeColor(healthScore.grade)}`}>
-                                        {healthScore.grade}
-                                    </div>
-                                    <div className="text-2xl font-bold mt-1">{healthScore.overall}/100</div>
+                                    <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Overall Capacity</div>
+                                    <div className="text-4xl font-bold text-primary mt-1">{healthScore.overallFillRate}%</div>
                                 </div>
                             </div>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                {Object.entries(healthScore.dimensions).map(([key, value]) => (
-                                    <div key={key} className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground capitalize">
-                                                {key.replace(/([A-Z])/g, ' $1').trim()}
-                                            </span>
-                                            <span className="font-medium">{value}%</span>
-                                        </div>
-                                        <Progress value={value} className="h-2" />
-                                    </div>
-                                ))}
+                                <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase">Management Ratio</div>
+                                    <div className="text-2xl font-bold">{healthScore.managementRatio}%</div>
+                                    <div className="text-xs text-muted-foreground">Leadership roles</div>
+                                </div>
+                                <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase">Avg. Span of Control</div>
+                                    <div className="text-2xl font-bold">{healthScore.spanOfControl.average}</div>
+                                    <div className="text-xs text-muted-foreground">Reports per manager</div>
+                                </div>
+                                <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase">Hierarchy Depth</div>
+                                    <div className="text-2xl font-bold">{healthScore.hierarchyStats.averageDepth}</div>
+                                    <div className="text-xs text-muted-foreground">Management layers</div>
+                                </div>
+                                <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase">High Tenure Risk</div>
+                                    <div className="text-2xl font-bold">{healthScore.tenureDistribution[3]?.count || 0}</div>
+                                    <div className="text-xs text-muted-foreground">Employees 10+ years</div>
+                                </div>
                             </div>
 
                             {healthScore.insights.length > 0 && (
@@ -249,19 +253,16 @@ export default function HRAdminOrgAnalyticsPage() {
                                     {healthScore.insights.slice(0, 4).map((insight, idx) => (
                                         <div
                                             key={idx}
-                                            className={`p-4 rounded-lg border ${
-                                                insight.type === 'critical' ? 'bg-red-50 border-red-200' :
+                                            className={`p-4 rounded-lg border ${insight.type === 'critical' ? 'bg-red-50 border-red-200' :
                                                 insight.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
-                                                insight.type === 'opportunity' ? 'bg-green-50 border-green-200' :
-                                                'bg-blue-50 border-blue-200'
-                                            }`}
+                                                    'bg-blue-50 border-blue-200'
+                                                }`}
                                         >
                                             <div className="flex items-start gap-2">
-                                                <AlertTriangle className={`h-4 w-4 mt-0.5 ${
-                                                    insight.type === 'critical' ? 'text-red-500' :
+                                                <AlertTriangle className={`h-4 w-4 mt-0.5 ${insight.type === 'critical' ? 'text-red-500' :
                                                     insight.type === 'warning' ? 'text-yellow-500' :
-                                                    'text-green-500'
-                                                }`} />
+                                                        'text-blue-500'
+                                                    }`} />
                                                 <div>
                                                     <h4 className="text-sm font-medium">{insight.title}</h4>
                                                     <p className="text-xs text-muted-foreground mt-1">{insight.description}</p>
@@ -363,8 +364,8 @@ export default function HRAdminOrgAnalyticsPage() {
                                                 <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Filled</th>
                                                 <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Vacant</th>
                                                 <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Fill Rate</th>
-                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Health</th>
-                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Risk</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Leadership</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Avg Tenure</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border">
@@ -380,12 +381,8 @@ export default function HRAdminOrgAnalyticsPage() {
                                                             <span className="text-sm">{dept.fillRate}%</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-center font-medium">{dept.healthScore}</td>
-                                                    <td className="px-4 py-3 text-center">
-                                                        <Badge variant="outline" className={riskBadgeClass(dept.riskLevel)}>
-                                                            {dept.riskLevel}
-                                                        </Badge>
-                                                    </td>
+                                                    <td className="px-4 py-3 text-center text-muted-foreground">{dept.managementCount}</td>
+                                                    <td className="px-4 py-3 text-center text-muted-foreground">{dept.avgTenure}y</td>
                                                 </tr>
                                             ))}
                                             {deptAnalytics.length === 0 && (
@@ -416,10 +413,10 @@ export default function HRAdminOrgAnalyticsPage() {
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Position</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Department</th>
-                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Criticality</th>
-                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Vacancy Risk</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Impact</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Exit Risk</th>
                                                 <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Succession</th>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Factors</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Factual Markers</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border">
@@ -428,10 +425,9 @@ export default function HRAdminOrgAnalyticsPage() {
                                                     <td className="px-4 py-3 font-medium">{pos.positionTitle}</td>
                                                     <td className="px-4 py-3 text-muted-foreground">{pos.department}</td>
                                                     <td className="px-4 py-3 text-center">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <Progress value={pos.criticalityScore} className="w-12 h-2" />
-                                                            <span className="text-sm font-medium">{pos.criticalityScore}</span>
-                                                        </div>
+                                                        <Badge variant="outline" className={impactBadgeClass(pos.impactLevel)}>
+                                                            {pos.impactLevel}
+                                                        </Badge>
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
                                                         <Badge variant="outline" className={riskBadgeClass(pos.vacancyRisk)}>
@@ -441,15 +437,15 @@ export default function HRAdminOrgAnalyticsPage() {
                                                     <td className="px-4 py-3 text-center">
                                                         <Badge variant="outline" className={
                                                             pos.successionStatus === 'COVERED' ? 'bg-green-100 text-green-700' :
-                                                            pos.successionStatus === 'AT_RISK' ? 'bg-yellow-100 text-yellow-700' :
-                                                            'bg-red-100 text-red-700'
+                                                                pos.successionStatus === 'AT_RISK' ? 'bg-yellow-100 text-yellow-700' :
+                                                                    'bg-red-100 text-red-700'
                                                         }>
                                                             {pos.successionStatus.replace('_', ' ')}
                                                         </Badge>
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex flex-wrap gap-1">
-                                                            {pos.factors.slice(0, 2).map((f, i) => (
+                                                            {pos.facts.slice(0, 2).map((f: string, i: number) => (
                                                                 <span key={i} className="px-2 py-0.5 bg-muted text-xs rounded">
                                                                     {f}
                                                                 </span>

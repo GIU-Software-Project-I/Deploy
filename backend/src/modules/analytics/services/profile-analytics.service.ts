@@ -165,22 +165,47 @@ export class ProfileAnalyticsService {
         const employee = await this.employeeModel.findById(employeeId).exec();
         if (!employee) throw new Error('Employee not found');
 
-        const criticalFields = ['workEmail', 'mobilePhone', 'address.streetAddress', 'emergencyContact'];
-        const optionalFields = ['biography', 'profilePicture', 'skills'];
+        const criticalFields = ['workEmail', 'mobilePhone', 'address', 'emergencyContact', 'dateOfBirth', 'nationalId'];
+        const importantFields = ['firstName', 'lastName', 'gender', 'maritalStatus', 'primaryDepartmentId', 'primaryPositionId'];
+        const optionalFields = ['biography', 'profilePictureUrl', 'skills'];
 
-        let filledCount = 0;
+        let filledCritical = 0;
+        let filledImportant = 0;
+        let filledOptional = 0;
         const missing: string[] = [];
-
-        // Check Critical (Mocking some checks as address might be nested)
-        if (employee.workEmail) filledCount++; else missing.push('workEmail');
-        // ... simplistic check for demo
-
-        // Specific checks for visual completeness
         const issues: string[] = [];
-        if (!employee.biography || employee.biography.length < 50) issues.push('Bio is too short or missing');
-        if (!employee.skills || employee.skills.length === 0) issues.push('No skills listed');
 
-        const completenessScore = 85; // Mocked for now based on logic
+        // Check Critical fields
+        if (employee.workEmail) filledCritical++; else missing.push('workEmail');
+        if (employee.mobilePhone) filledCritical++; else missing.push('mobilePhone');
+        if (employee.address?.streetAddress) filledCritical++; else missing.push('address');
+        if (employee.emergencyContacts && employee.emergencyContacts.length > 0 && employee.emergencyContacts[0]?.phone) filledCritical++; else missing.push('emergencyContact');
+        if (employee.dateOfBirth) filledCritical++; else missing.push('dateOfBirth');
+        if (employee.nationalId) filledCritical++; else missing.push('nationalId');
+
+        // Check Important fields
+        if (employee.firstName) filledImportant++;
+        if (employee.lastName) filledImportant++;
+        if (employee.gender) filledImportant++;
+        if (employee.maritalStatus) filledImportant++;
+        if (employee.primaryDepartmentId) filledImportant++;
+        if (employee.primaryPositionId) filledImportant++;
+
+        // Check Optional fields
+        if (employee.biography && employee.biography.length >= 50) filledOptional++;
+        else if (employee.biography && employee.biography.length < 50) issues.push('Bio is too short');
+        else issues.push('Bio is missing');
+        
+        if (employee.profilePictureUrl) filledOptional++;
+        if (employee.skills && employee.skills.length > 0) filledOptional++; 
+        else issues.push('No skills listed');
+
+        // Calculate weighted completeness score
+        // Critical: 60%, Important: 30%, Optional: 10%
+        const criticalScore = (filledCritical / criticalFields.length) * 60;
+        const importantScore = (filledImportant / importantFields.length) * 30;
+        const optionalScore = (filledOptional / optionalFields.length) * 10;
+        const completenessScore = Math.round(criticalScore + importantScore + optionalScore);
 
         return {
             completenessScore,

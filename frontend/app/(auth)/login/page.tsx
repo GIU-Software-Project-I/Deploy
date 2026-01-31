@@ -201,10 +201,10 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2 text-xs text-muted-foreground">
               <div className="flex justify-between items-center p-2 rounded bg-background/40 hover:bg-background/80 transition-colors cursor-pointer group" onClick={() => { setEmail('hr.admin@company.hr-admin.com'); setPassword('RoleUser@1234'); }}>
-                <span><span className="font-medium text-foreground">HR Admin:</span> hr.admin@company.hr-admin.com</span>
+                <span><span className="font-medium text-foreground">HR Admin:</span> hr.admin@company.com</span>
               </div>
               <div className="flex justify-between items-center p-2 rounded bg-background/40 hover:bg-background/80 transition-colors cursor-pointer group" onClick={() => { setEmail('system.admin@company.system-admin.com'); setPassword('RoleUser@1234'); }}>
-                <span><span className="font-medium text-foreground">Sys Admin:</span> system.admin@company.system-admin.com</span>
+                <span><span className="font-medium text-foreground">System Admin:</span> system.admin@company.com</span>
               </div>
               <div className="px-2 pt-1 flex justify-between text-xs opacity-75">
                 <span>Password for all:</span>

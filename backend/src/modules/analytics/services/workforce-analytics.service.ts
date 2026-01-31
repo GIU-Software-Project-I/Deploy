@@ -6,6 +6,11 @@ import { EmployeeProfileAuditLog, EmployeeProfileAuditLogDocument, EmployeeProfi
 import { Department, DepartmentDocument } from '../../organization-structure/models/department.schema';
 import { Position, PositionDocument } from '../../organization-structure/models/position.schema';
 import { PositionAssignment, PositionAssignmentDocument } from '../../organization-structure/models/position-assignment.schema';
+import { TerminationRequest, TerminationRequestDocument } from '../../recruitment/models/termination-request.schema';
+import { TerminationInitiation } from '../../recruitment/enums/termination-initiation.enum';
+import { TerminationStatus } from '../../recruitment/enums/termination-status.enum';
+import { AppraisalRecord, AppraisalRecordDocument } from '../../performance/models/appraisal-record.schema';
+import { AppraisalRecordStatus } from '../../performance/enums/performance.enums';
 import { EmployeeStatus } from '../../employee/enums/employee-profile.enums';
 
 export interface HeadcountTrend {
@@ -74,6 +79,8 @@ export class WorkforceAnalyticsService {
         @InjectModel(Department.name) private departmentModel: Model<DepartmentDocument>,
         @InjectModel(Position.name) private positionModel: Model<PositionDocument>,
         @InjectModel(PositionAssignment.name) private assignmentModel: Model<PositionAssignmentDocument>,
+        @InjectModel(TerminationRequest.name) private terminationModel: Model<TerminationRequestDocument>,
+        @InjectModel(AppraisalRecord.name) private appraisalModel: Model<AppraisalRecordDocument>,
     ) { }
 
     /**
@@ -208,10 +215,32 @@ export class WorkforceAnalyticsService {
         // Turnover by tenure band
         const byTenureBand = await this.calculateTurnoverByTenure(terminatedEmployees, periodStart);
 
+        // Calculate actual voluntary/involuntary rates from termination records
+        const terminatedEmployeeIds = terminatedEmployees.map(e => e._id);
+        const terminationRecords = await this.terminationModel.find({
+            employeeId: { $in: terminatedEmployeeIds },
+            status: TerminationStatus.APPROVED,
+        }).lean();
+
+        // Count by initiation type: EMPLOYEE = voluntary, HR/MANAGER = involuntary
+        let voluntaryCount = 0;
+        let involuntaryCount = 0;
+        terminationRecords.forEach(record => {
+            if (record.initiator === TerminationInitiation.EMPLOYEE) {
+                voluntaryCount++;
+            } else {
+                involuntaryCount++;
+            }
+        });
+
+        const totalWithRecords = voluntaryCount + involuntaryCount;
+        const voluntaryRatio = totalWithRecords > 0 ? voluntaryCount / totalWithRecords : 0.7;
+        const involuntaryRatio = totalWithRecords > 0 ? involuntaryCount / totalWithRecords : 0.3;
+
         return {
             overallTurnoverRate,
-            voluntaryTurnoverRate: overallTurnoverRate * 0.7, // Simplified estimation
-            involuntaryTurnoverRate: overallTurnoverRate * 0.3,
+            voluntaryTurnoverRate: Math.round(overallTurnoverRate * voluntaryRatio * 10) / 10,
+            involuntaryTurnoverRate: Math.round(overallTurnoverRate * involuntaryRatio * 10) / 10,
             byDepartment,
             byTenureBand,
             period: { start: periodStart, end: periodEnd },
@@ -491,6 +520,22 @@ export class WorkforceAnalyticsService {
         }).populate('primaryDepartmentId primaryPositionId').lean();
 
         const now = new Date();
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        
+        // Get employee IDs for the query
+        const employeeIds = employees.map(e => e._id);
+        
+        // Get recent appraisal records for all employees (last 6 months)
+        const recentAppraisals = await this.appraisalModel.find({
+            employeeProfileId: { $in: employeeIds },
+            status: AppraisalRecordStatus.HR_PUBLISHED,
+            hrPublishedAt: { $gte: sixMonthsAgo },
+        }).select('employeeProfileId').lean();
+        
+        const employeesWithRecentReview = new Set(
+            recentAppraisals.map(a => a.employeeProfileId.toString())
+        );
+
         const riskEmployees = employees.map(emp => {
             const factors: string[] = [];
             let riskScore = 0;
@@ -512,8 +557,8 @@ export class WorkforceAnalyticsService {
                 factors.push('Currently on probation');
             }
 
-            // Risk factor: No recent performance review (simulated)
-            if (Math.random() < 0.3) {
+            // Risk factor: No recent performance review (using real data)
+            if (!employeesWithRecentReview.has(emp._id.toString())) {
                 riskScore += 15;
                 factors.push('No recent performance review');
             }

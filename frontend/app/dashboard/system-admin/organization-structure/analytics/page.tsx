@@ -13,6 +13,13 @@ import {
 } from '@/app/services/org-structure-analytics';
 import RoleGuard from '@/components/RoleGuard';
 import { SystemRole } from '@/types';
+import {
+    OrgTenureDistributionChart,
+    SpanOfControlChart,
+    DepartmentFillRateChart,
+    CostCenterPieChart,
+    CostCenterUtilizationChart,
+} from '@/components/org-analytics/OrgStructureCharts';
 
 // Local interface definitions for raw data (for simulator)
 interface Department {
@@ -136,18 +143,25 @@ export default function StructureAnalyticsPage() {
         switch (risk) {
             case 'LOW': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
             case 'MEDIUM': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
-            case 'HIGH': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
-            case 'CRITICAL': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+            case 'HIGH': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+            default: return 'bg-muted text-muted-foreground';
+        }
+    }
+
+    const impactColor = (level: string) => {
+        switch (level) {
+            case 'HIGH': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+            case 'MEDIUM': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+            case 'LOW': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
             default: return 'bg-muted text-muted-foreground';
         }
     };
 
     const insightIcon = (type: string) => {
         switch (type) {
-            case 'critical': return '';
-            case 'warning': return ;
-            case 'opportunity': return ;
-            default: return ;
+            case 'critical': return '🚨';
+            case 'warning': return '⚠️';
+            default: return 'ℹ️';
         }
     };
 
@@ -205,46 +219,47 @@ export default function StructureAnalyticsPage() {
                         </div>
                     )}
 
-                    {/* Overall Health Score Card */}
+                    {/* Overall Structure Insights Card */}
                     {healthScore && (
                         <div className="bg-card border border-border rounded-xl p-6">
                             <div className="flex items-start justify-between">
                                 <div>
-                                    <h2 className="text-lg font-semibold text-foreground">Organizational Health Score</h2>
-                                    <p className="text-sm text-muted-foreground mt-1">Multi-dimensional structure analysis</p>
+                                    <h2 className="text-lg font-semibold text-foreground">Organizational Structure Insights</h2>
+                                    <p className="text-sm text-muted-foreground mt-1">Factual KPI analysis and structural distributions</p>
                                 </div>
                                 <div className="text-right">
-                                    <div className={`text-5xl font-bold ${gradeColor(healthScore.grade)}`}>
-                                        {healthScore.grade}
-                                    </div>
-                                    <div className="text-2xl font-semibold text-foreground mt-1">{healthScore.overall}/100</div>
-                                    <div className={`text-xs mt-1 ${healthScore.trend === 'improving' ? 'text-green-500' :
-                                        healthScore.trend === 'declining' ? 'text-red-500' : 'text-muted-foreground'
-                                        }`}>
-                                        {healthScore.trend === 'improving' ? '↑' : healthScore.trend === 'declining' ? '↓' : '→'} {healthScore.trend}
+                                    <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1 font-semibold">Overall Capacity</div>
+                                    <div className="text-4xl font-bold text-primary">{healthScore.overallFillRate}%</div>
+                                    <div className="text-sm text-muted-foreground mt-1">
+                                        {assignmentCount} / {positions.length} Positions Filled
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Dimension Bars */}
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-                                {Object.entries(healthScore.dimensions).map(([key, value]) => (
-                                    <div key={key} className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                                            <span className="font-medium text-foreground">{value}%</span>
-                                        </div>
-                                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all ${value >= 80 ? 'bg-green-500' :
-                                                    value >= 60 ? 'bg-yellow-500' :
-                                                        value >= 40 ? 'bg-orange-500' : 'bg-red-500'
-                                                    }`}
-                                                style={{ width: `${value}%` }}
-                                            />
-                                        </div>
+                            {/* Core KPIs */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+                                <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase">Management Ratio</div>
+                                    <div className="text-2xl font-bold text-foreground">{healthScore.managementRatio}%</div>
+                                    <div className="text-xs text-muted-foreground">Percentage of leadership roles</div>
+                                </div>
+                                <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase">Avg. Span of Control</div>
+                                    <div className="text-2xl font-bold text-foreground">{healthScore.spanOfControl.average}</div>
+                                    <div className="text-xs text-muted-foreground">Direct reports per manager</div>
+                                </div>
+                                <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase">Avg. Hierarchy Depth</div>
+                                    <div className="text-2xl font-bold text-foreground">{healthScore.hierarchyStats.averageDepth}</div>
+                                    <div className="text-xs text-muted-foreground">Management layers (Target: 3-5)</div>
+                                </div>
+                                <div className="space-y-2 p-4 bg-muted/30 rounded-lg">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase">High Tenure Risk</div>
+                                    <div className="text-2xl font-bold text-foreground">
+                                        {healthScore.tenureDistribution[3].count}
                                     </div>
-                                ))}
+                                    <div className="text-xs text-muted-foreground">Employees with 10+ years</div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -287,8 +302,7 @@ export default function StructureAnalyticsPage() {
                                                 key={idx}
                                                 className={`p-4 rounded-lg border ${insight.type === 'critical' ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' :
                                                     insight.type === 'warning' ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800' :
-                                                        insight.type === 'opportunity' ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' :
-                                                            'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                                                        'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
                                                     }`}
                                             >
                                                 <div className="flex items-start gap-3">
@@ -296,9 +310,6 @@ export default function StructureAnalyticsPage() {
                                                     <div className="flex-1">
                                                         <h4 className="font-medium text-foreground">{insight.title}</h4>
                                                         <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
-                                                        {insight.recommendation && (
-                                                            <p className="text-xs text-primary mt-2">💡 {insight.recommendation}</p>
-                                                        )}
                                                     </div>
                                                     {insight.metric !== undefined && (
                                                         <span className="text-lg font-bold text-foreground">{insight.metric}</span>
@@ -334,23 +345,17 @@ export default function StructureAnalyticsPage() {
                                     </div>
                                 </div>
 
-                                <div className="bg-card border border-border rounded-xl p-6">
-                                    <h3 className="font-semibold text-foreground mb-4">Risk Distribution</h3>
-                                    <div className="space-y-2">
-                                        {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(risk => {
-                                            const count = positionRisks.filter(p => p.vacancyRisk === risk).length;
-                                            const pct = positionRisks.length > 0 ? (count / positionRisks.length) * 100 : 0;
-                                            return (
-                                                <div key={risk} className="flex items-center gap-3">
-                                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${riskColor(risk)}`}>{risk}</span>
-                                                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                                                        <div className={`h-full ${riskColor(risk).split(' ')[0]}`} style={{ width: `${pct}%` }} />
-                                                    </div>
-                                                    <span className="text-sm text-muted-foreground w-12 text-right">{count}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                {/* Charts */}
+                                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {healthScore.tenureDistribution && (
+                                        <OrgTenureDistributionChart data={healthScore.tenureDistribution.map(d => ({ range: d.bracket, count: d.count }))} />
+                                    )}
+                                    {healthScore.spanOfControl?.distribution && (
+                                        <SpanOfControlChart
+                                            data={healthScore.spanOfControl.distribution.map(d => ({ range: d.bracket, count: d.count }))}
+                                            average={healthScore.spanOfControl.average}
+                                        />
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -358,69 +363,63 @@ export default function StructureAnalyticsPage() {
 
                     {/* Departments Section */}
                     {activeSection === 'departments' && (
-                        <div className="bg-card border border-border rounded-xl overflow-hidden">
-                            <div className="p-4 border-b border-border">
-                                <h3 className="font-semibold text-foreground">Department Analytics</h3>
-                                <p className="text-sm text-muted-foreground">Fill rates, health scores, and risk levels by department</p>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-muted/50">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Department</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Positions</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Filled</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Vacant</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Frozen</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Fill Rate</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Health</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Risk</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Trend</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border">
-                                        {deptAnalytics.map(dept => (
-                                            <tr key={dept.departmentId} className="hover:bg-muted/30">
-                                                <td className="px-4 py-3 font-medium text-foreground">{dept.departmentName}</td>
-                                                <td className="px-4 py-3 text-center text-muted-foreground">{dept.totalPositions}</td>
-                                                <td className="px-4 py-3 text-center text-green-600 dark:text-green-400">{dept.filledPositions}</td>
-                                                <td className="px-4 py-3 text-center text-red-600 dark:text-red-400">{dept.vacantPositions}</td>
-                                                <td className="px-4 py-3 text-center text-blue-600 dark:text-blue-400">{dept.frozenPositions}</td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full ${dept.fillRate >= 80 ? 'bg-green-500' : dept.fillRate >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                style={{ width: `${dept.fillRate}%` }}
-                                                            />
-                                                        </div>
-                                                        <span className="text-sm">{dept.fillRate}%</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3 text-center font-medium">{dept.healthScore}</td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <span className={`px-2 py-1 rounded text-xs font-medium ${riskColor(dept.riskLevel)}`}>
-                                                        {dept.riskLevel}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <span className={`${dept.headcountTrend === 'growing' ? 'text-green-500' :
-                                                        dept.headcountTrend === 'shrinking' ? 'text-red-500' : 'text-muted-foreground'
-                                                        }`}>
-                                                        {dept.headcountTrend === 'growing' ? '↑' : dept.headcountTrend === 'shrinking' ? '↓' : '→'}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {deptAnalytics.length === 0 && (
+                        <div className="space-y-6">
+                            {/* Department Fill Rate Chart */}
+                            <DepartmentFillRateChart data={deptAnalytics} />
+
+                            {/* Data Table */}
+                            <div className="bg-card border border-border rounded-xl overflow-hidden">
+                                <div className="p-4 border-b border-border">
+                                    <h3 className="font-semibold text-foreground">Department Details</h3>
+                                    <p className="text-sm text-muted-foreground">Detailed metrics by department</p>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-muted/50">
                                             <tr>
-                                                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
-                                                    No department data available
-                                                </td>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Department</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Positions</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Filled</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Vacant</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Leadership</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">IC Roles</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Fill Rate</th>
+                                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Avg Tenure</th>
                                             </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-border">
+                                            {deptAnalytics.map(dept => (
+                                                <tr key={dept.departmentId} className="hover:bg-muted/30">
+                                                    <td className="px-4 py-3 font-medium text-foreground">{dept.departmentName}</td>
+                                                    <td className="px-4 py-3 text-center text-muted-foreground">{dept.totalPositions}</td>
+                                                    <td className="px-4 py-3 text-center text-green-600 dark:text-green-400">{dept.filledPositions}</td>
+                                                    <td className="px-4 py-3 text-center text-red-600 dark:text-red-400">{dept.vacantPositions}</td>
+                                                    <td className="px-4 py-3 text-center text-muted-foreground">{dept.managementCount}</td>
+                                                    <td className="px-4 py-3 text-center text-muted-foreground">{dept.icCount}</td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full ${dept.fillRate >= 80 ? 'bg-green-500' : dept.fillRate >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                                    style={{ width: `${dept.fillRate}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="text-sm font-medium">{dept.fillRate}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center text-muted-foreground">{dept.avgTenure}y</td>
+                                                </tr>
+                                            ))}
+                                            {deptAnalytics.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                                                        No department data available
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -438,10 +437,10 @@ export default function StructureAnalyticsPage() {
                                         <tr>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Position</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Department</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Criticality</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Vacancy Risk</th>
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Impact</th>
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Exit Risk</th>
                                             <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Succession</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Factors</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Factual Markers</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border">
@@ -450,18 +449,9 @@ export default function StructureAnalyticsPage() {
                                                 <td className="px-4 py-3 font-medium text-foreground">{pos.positionTitle}</td>
                                                 <td className="px-4 py-3 text-muted-foreground">{pos.department}</td>
                                                 <td className="px-4 py-3 text-center">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full ${pos.criticalityScore >= 80 ? 'bg-red-500' :
-                                                                    pos.criticalityScore >= 60 ? 'bg-orange-500' :
-                                                                        pos.criticalityScore >= 40 ? 'bg-yellow-500' : 'bg-green-500'
-                                                                    }`}
-                                                                style={{ width: `${pos.criticalityScore}%` }}
-                                                            />
-                                                        </div>
-                                                        <span className="text-sm font-medium">{pos.criticalityScore}</span>
-                                                    </div>
+                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${impactColor(pos.impactLevel)}`}>
+                                                        {pos.impactLevel}
+                                                    </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <span className={`px-2 py-1 rounded text-xs font-medium ${riskColor(pos.vacancyRisk)}`}>
@@ -478,8 +468,8 @@ export default function StructureAnalyticsPage() {
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex flex-wrap gap-1">
-                                                        {pos.factors.map((f, i) => (
-                                                            <span key={i} className="px-2 py-0.5 bg-muted text-muted-foreground text-xs rounded">
+                                                        {pos.facts.map((f, i) => (
+                                                            <span key={i} className="px-2 py-0.5 bg-muted text-muted-foreground text-xs rounded border border-border/50">
                                                                 {f}
                                                             </span>
                                                         ))}
@@ -507,11 +497,18 @@ export default function StructureAnalyticsPage() {
 
                     {/* Cost Centers Section */}
                     {activeSection === 'costs' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="space-y-6">
+                            {/* Charts Row */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <CostCenterPieChart data={costCenters} />
+                                <CostCenterUtilizationChart data={costCenters} />
+                            </div>
+
+                            {/* Data Table */}
                             <div className="bg-card border border-border rounded-xl overflow-hidden">
                                 <div className="p-4 border-b border-border">
-                                    <h3 className="font-semibold text-foreground">Cost Center Summary</h3>
-                                    <p className="text-sm text-muted-foreground">BR 30: Cost allocation by organizational unit</p>
+                                    <h3 className="font-semibold text-foreground">Cost Center Details</h3>
+                                    <p className="text-sm text-muted-foreground">Detailed breakdown by cost center</p>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full">
@@ -532,15 +529,12 @@ export default function StructureAnalyticsPage() {
                                                     <td className="px-4 py-3 text-center text-muted-foreground">{cc.positionCount}</td>
                                                     <td className="px-4 py-3 text-center font-medium text-foreground">{cc.estimatedHeadcount}</td>
                                                     <td className="px-4 py-3 text-center">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
-                                                                <div
-                                                                    className={`h-full ${cc.utilizationRate >= 80 ? 'bg-green-500' : cc.utilizationRate >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                                                                    style={{ width: `${cc.utilizationRate}%` }}
-                                                                />
-                                                            </div>
-                                                            <span className="text-sm">{cc.utilizationRate}%</span>
-                                                        </div>
+                                                        <span className={`px-2 py-1 rounded text-xs font-medium ${cc.utilizationRate >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                            cc.utilizationRate >= 60 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                                'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                            }`}>
+                                                            {cc.utilizationRate}%
+                                                        </span>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -553,51 +547,6 @@ export default function StructureAnalyticsPage() {
                                             )}
                                         </tbody>
                                     </table>
-                                </div>
-                            </div>
-
-                            {/* Cost Center Visualization */}
-                            <div className="bg-card border border-border rounded-xl p-6">
-                                <h3 className="font-semibold text-foreground mb-4">Position Distribution</h3>
-                                <div className="space-y-4">
-                                    {costCenters.slice(0, 8).map(cc => {
-                                        const maxPositions = Math.max(...costCenters.map(c => c.positionCount), 1);
-                                        const widthPct = (cc.positionCount / maxPositions) * 100;
-                                        return (
-                                            <div key={cc.costCenter} className="space-y-1">
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="font-mono text-foreground">{cc.costCenter}</span>
-                                                    <span className="text-muted-foreground">{cc.positionCount} positions</span>
-                                                </div>
-                                                <div className="h-6 bg-muted rounded overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-gradient-to-r from-primary to-primary/60 rounded flex items-center justify-end pr-2"
-                                                        style={{ width: `${Math.max(widthPct, 5)}%` }}
-                                                    >
-                                                        <span className="text-xs text-primary-foreground font-medium">
-                                                            {cc.estimatedHeadcount}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <div className="mt-6 pt-4 border-t border-border">
-                                    <div className="grid grid-cols-2 gap-4 text-center">
-                                        <div>
-                                            <div className="text-2xl font-bold text-foreground">
-                                                {costCenters.reduce((sum, cc) => sum + cc.positionCount, 0)}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">Total Positions</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-2xl font-bold text-foreground">
-                                                {costCenters.reduce((sum, cc) => sum + cc.estimatedHeadcount, 0)}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">Total Headcount</div>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>

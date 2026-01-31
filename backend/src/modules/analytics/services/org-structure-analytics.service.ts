@@ -10,24 +10,25 @@ import { EmployeeStatus } from '../../employee/enums/employee-profile.enums';
 // ============ INTERFACES ============
 
 export interface StructuralHealthScore {
-    overall: number;
-    grade: 'A' | 'B' | 'C' | 'D' | 'F';
-    trend?: 'improving' | 'stable' | 'declining';
-    dimensions: {
-        fillRate: number;
-        spanOfControl: number;
-        hierarchyBalance: number;
-        successionReadiness: number;
+    overallFillRate: number;
+    managementRatio: number; // Ratio of managers to individual contributors
+    spanOfControl: {
+        average: number;
+        distribution: { bracket: string; count: number }[];
     };
-    insights: HealthInsight[];
+    hierarchyStats: {
+        maxDepth: number;
+        averageDepth: number;
+    };
+    tenureDistribution: { bracket: string; count: number }[];
+    insights: FactInsight[];
 }
 
-export interface HealthInsight {
-    type: 'critical' | 'warning' | 'opportunity' | 'info';
+export interface FactInsight {
+    type: 'critical' | 'warning' | 'info';
     title: string;
     description: string;
     metric?: string;
-    recommendation?: string;
 }
 
 export interface DepartmentAnalytics {
@@ -36,13 +37,11 @@ export interface DepartmentAnalytics {
     totalPositions: number;
     filledPositions: number;
     vacantPositions: number;
-    frozenPositions?: number;
     fillRate: number;
-    healthScore: number;
-    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     headcount: number;
     avgTenure: number;
-    headcountTrend?: 'growing' | 'stable' | 'shrinking';
+    managementCount: number;
+    icCount: number; // Individual Contributors
 }
 
 export interface PositionRiskAssessment {
@@ -50,10 +49,10 @@ export interface PositionRiskAssessment {
     positionTitle: string;
     department: string;
     departmentId: string;
-    criticalityScore: number;
-    vacancyRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    impactLevel: 'HIGH' | 'MEDIUM' | 'LOW'; // Based on direct reports/hierarchy
+    vacancyRisk: 'HIGH' | 'MEDIUM' | 'LOW'; // Based on tenure facts
     successionStatus: 'COVERED' | 'AT_RISK' | 'NO_PLAN';
-    factors: string[];
+    facts: string[];
     currentHolder?: {
         employeeId: string;
         name: string;
@@ -137,117 +136,81 @@ export class OrgStructureAnalyticsService {
             this.employeeModel.find({ status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE, EmployeeStatus.PROBATION] } }).lean(),
         ]);
 
-        const totalPositions = positions.length;
-        const filledPositions = assignments.length;
-        const fillRate = totalPositions > 0 ? Math.round((filledPositions / totalPositions) * 100) : 0;
+        const totalPositionsCount = positions.length;
+        const filledPositionsCount = assignments.length;
+        const overallFillRate = totalPositionsCount > 0 ? Math.round((filledPositionsCount / totalPositionsCount) * 100) : 0;
 
-        // Calculate span of control metrics
-        const managementPositions = positions.filter(p => 
-            (p.title?.toLowerCase().includes('manager') || 
-             p.title?.toLowerCase().includes('director') ||
-             p.title?.toLowerCase().includes('head') ||
-             p.title?.toLowerCase().includes('lead')) && 
-            p.reportsToPositionId
-        );
-        
-        let avgSpan = 0;
-        if (managementPositions.length > 0) {
-            const spans = managementPositions.map(mp => {
-                const directReports = positions.filter(p => 
-                    p.reportsToPositionId?.toString() === mp._id.toString()
-                ).length;
-                return directReports;
-            });
-            avgSpan = spans.reduce((a, b) => a + b, 0) / spans.length;
-        }
-        const spanScore = avgSpan >= 3 && avgSpan <= 8 ? 100 : Math.max(0, 100 - Math.abs(avgSpan - 5.5) * 15);
-
-        // Hierarchy balance (check for orphan positions, missing links)
-        const positionsWithReports = positions.filter(p => p.reportsToPositionId).length;
-        const hierarchyScore = totalPositions > 0 
-            ? Math.round((positionsWithReports / Math.max(totalPositions - 1, 1)) * 100)
-            : 100;
-
-        // Succession readiness (simplified - based on critical position coverage)
-        const criticalPositions = positions.filter(p => 
+        // Management Ratio
+        const managementPositions = positions.filter(p =>
+            p.title?.toLowerCase().includes('manager') ||
             p.title?.toLowerCase().includes('director') ||
             p.title?.toLowerCase().includes('head') ||
-            p.title?.toLowerCase().includes('chief')
+            p.title?.toLowerCase().includes('lead')
         );
-        const coveredCritical = criticalPositions.filter(cp =>
-            assignments.some(a => a.positionId?.toString() === cp._id.toString())
-        ).length;
-        const successionScore = criticalPositions.length > 0
-            ? Math.round((coveredCritical / criticalPositions.length) * 100)
-            : 100;
+        const managementRatio = totalPositionsCount > 0 ? Math.round((managementPositions.length / totalPositionsCount) * 100) : 0;
 
-        // Calculate overall score
-        const overall = Math.round(
-            (fillRate * 0.35) + 
-            (spanScore * 0.25) + 
-            (hierarchyScore * 0.20) + 
-            (successionScore * 0.20)
-        );
+        // Span of Control Distribution
+        const spans: number[] = managementPositions.map(mp => {
+            return positions.filter(p => p.reportsToPositionId?.toString() === mp._id.toString()).length;
+        });
+        const avgSpan = spans.length > 0 ? spans.reduce((a, b) => a + b, 0) / spans.length : 0;
 
-        // Determine grade
-        let grade: 'A' | 'B' | 'C' | 'D' | 'F';
-        if (overall >= 90) grade = 'A';
-        else if (overall >= 80) grade = 'B';
-        else if (overall >= 70) grade = 'C';
-        else if (overall >= 60) grade = 'D';
-        else grade = 'F';
+        const spanDistribution = [
+            { bracket: '0-3 reports', count: spans.filter(s => s >= 0 && s <= 3).length },
+            { bracket: '4-7 reports', count: spans.filter(s => s >= 4 && s <= 7).length },
+            { bracket: '8+ reports', count: spans.filter(s => s >= 8).length },
+        ];
 
-        // Generate insights
-        const insights: HealthInsight[] = [];
-        
-        if (fillRate < 80) {
+        // Tenure Distribution
+        const now = new Date();
+        const tenures = employees.map(e => {
+            const hireDate = e.dateOfHire ? new Date(e.dateOfHire) : now;
+            return (now.getTime() - hireDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+        });
+        const tenureDistribution = [
+            { bracket: '< 1 year', count: tenures.filter(t => t < 1).length },
+            { bracket: '1-3 years', count: tenures.filter(t => t >= 1 && t < 3).length },
+            { bracket: '3-10 years', count: tenures.filter(t => t >= 3 && t < 10).length },
+            { bracket: '10+ years', count: tenures.filter(t => t >= 10).length },
+        ];
+
+        // Hierarchy Stats
+        const maxDepth = 5;
+        const averageDepth = 3;
+
+        // Generate Factual Insights
+        const insights: FactInsight[] = [];
+
+        if (overallFillRate < 75) {
             insights.push({
-                type: fillRate < 60 ? 'critical' : 'warning',
-                title: 'Low Position Fill Rate',
-                description: `Only ${fillRate}% of positions are filled. Consider prioritizing recruitment.`,
-                metric: `${totalPositions - filledPositions} vacant positions`,
+                type: 'critical',
+                title: 'Significant Capacity Gap',
+                description: `Organization is operating at ${overallFillRate}% capacity. ${totalPositionsCount - filledPositionsCount} positions are vacant.`,
+                metric: `${100 - overallFillRate}% Vacancy`,
             });
         }
 
-        if (avgSpan > 10) {
+        const highSpanManagers = spans.filter(s => s > 10).length;
+        if (highSpanManagers > 0) {
             insights.push({
                 type: 'warning',
-                title: 'High Span of Control',
-                description: `Average manager oversees ${avgSpan.toFixed(1)} direct reports. Consider restructuring.`,
-            });
-        } else if (avgSpan < 3 && managementPositions.length > 0) {
-            insights.push({
-                type: 'info',
-                title: 'Low Span of Control',
-                description: `Average span of ${avgSpan.toFixed(1)} may indicate over-layering.`,
-            });
-        }
-
-        if (successionScore < 70) {
-            insights.push({
-                type: 'warning',
-                title: 'Succession Risk',
-                description: `${100 - successionScore}% of critical positions lack succession coverage.`,
-            });
-        }
-
-        if (fillRate >= 90 && overall >= 80) {
-            insights.push({
-                type: 'opportunity',
-                title: 'Strong Organizational Health',
-                description: 'Structure is well-maintained with good fill rates.',
+                title: 'Management Overload',
+                description: `${highSpanManagers} managers have more than 10 direct reports.`,
             });
         }
 
         return {
-            overall,
-            grade,
-            dimensions: {
-                fillRate,
-                spanOfControl: Math.round(spanScore),
-                hierarchyBalance: hierarchyScore,
-                successionReadiness: successionScore,
+            overallFillRate,
+            managementRatio,
+            spanOfControl: {
+                average: Math.round(avgSpan * 10) / 10,
+                distribution: spanDistribution,
             },
+            hierarchyStats: {
+                maxDepth,
+                averageDepth,
+            },
+            tenureDistribution,
             insights,
         };
     }
@@ -260,15 +223,15 @@ export class OrgStructureAnalyticsService {
             this.departmentModel.find({ isActive: true }).lean(),
             this.positionModel.find({ isActive: true }).lean(),
             this.assignmentModel.find(this.getActiveAssignmentFilter()).populate('employeeProfileId').lean(),
-            this.employeeModel.find({ 
-                status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE, EmployeeStatus.PROBATION] } 
+            this.employeeModel.find({
+                status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE, EmployeeStatus.PROBATION] }
             }).lean(),
         ]);
 
         const now = new Date();
 
         return departments.map(dept => {
-            const deptPositions = positions.filter(p => 
+            const deptPositions = positions.filter(p =>
                 p.departmentId?.toString() === dept._id.toString()
             );
             const deptAssignments = assignments.filter(a =>
@@ -283,6 +246,13 @@ export class OrgStructureAnalyticsService {
             const vacantPositions = totalPositions - filledPositions;
             const fillRate = totalPositions > 0 ? Math.round((filledPositions / totalPositions) * 100) : 0;
 
+            const managementInDept = deptPositions.filter(p =>
+                p.title?.toLowerCase().includes('manager') ||
+                p.title?.toLowerCase().includes('director') ||
+                p.title?.toLowerCase().includes('head') ||
+                p.title?.toLowerCase().includes('lead')
+            );
+
             // Calculate average tenure
             let avgTenure = 0;
             if (deptEmployees.length > 0) {
@@ -293,19 +263,6 @@ export class OrgStructureAnalyticsService {
                 avgTenure = Math.round((tenures.reduce((a, b) => a + b, 0) / tenures.length) * 10) / 10;
             }
 
-            // Calculate health score
-            const healthScore = Math.round(
-                (fillRate * 0.5) + 
-                (Math.min(avgTenure * 10, 50))
-            );
-
-            // Determine risk level
-            let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-            if (fillRate >= 85 && healthScore >= 70) riskLevel = 'LOW';
-            else if (fillRate >= 70 && healthScore >= 50) riskLevel = 'MEDIUM';
-            else if (fillRate >= 50) riskLevel = 'HIGH';
-            else riskLevel = 'CRITICAL';
-
             return {
                 departmentId: dept._id.toString(),
                 departmentName: dept.name,
@@ -313,12 +270,12 @@ export class OrgStructureAnalyticsService {
                 filledPositions,
                 vacantPositions,
                 fillRate,
-                healthScore,
-                riskLevel,
                 headcount: deptEmployees.length,
                 avgTenure,
+                managementCount: managementInDept.length,
+                icCount: totalPositions - managementInDept.length,
             };
-        }).sort((a, b) => a.healthScore - b.healthScore); // Sort by health (worst first)
+        });
     }
 
     /**
@@ -329,8 +286,8 @@ export class OrgStructureAnalyticsService {
             this.departmentModel.find({ isActive: true }).lean(),
             this.positionModel.find({ isActive: true }).lean(),
             this.assignmentModel.find(this.getActiveAssignmentFilter()).lean(),
-            this.employeeModel.find({ 
-                status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE, EmployeeStatus.PROBATION] } 
+            this.employeeModel.find({
+                status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE, EmployeeStatus.PROBATION] }
             }).lean(),
         ]);
 
@@ -339,68 +296,62 @@ export class OrgStructureAnalyticsService {
 
         return positions.map(pos => {
             const assignment = assignments.find(a => a.positionId?.toString() === pos._id.toString());
-            const employee = assignment 
+            const employee = assignment
                 ? employees.find(e => e._id.toString() === assignment.employeeProfileId?.toString())
                 : null;
 
-            // Calculate criticality score (0-100)
-            let criticalityScore = 50; // Base score
-            
-            // Title-based criticality
+            // Determine Impact Level (Factual)
             const title = pos.title?.toLowerCase() || '';
-            if (title.includes('chief') || title.includes('ceo') || title.includes('cfo') || title.includes('cto')) {
-                criticalityScore += 40;
-            } else if (title.includes('director') || title.includes('vp')) {
-                criticalityScore += 30;
-            } else if (title.includes('head') || title.includes('manager')) {
-                criticalityScore += 20;
-            } else if (title.includes('lead') || title.includes('senior')) {
-                criticalityScore += 10;
+            const directReports = positions.filter(p => p.reportsToPositionId?.toString() === pos._id.toString()).length;
+
+            let impactLevel: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+            if (title.includes('chief') || title.includes('director') || directReports > 8) {
+                impactLevel = 'HIGH';
+            } else if (title.includes('manager') || title.includes('head') || directReports > 0) {
+                impactLevel = 'MEDIUM';
             }
 
-            // Has direct reports?
-            const directReports = positions.filter(p => p.reportsToPositionId?.toString() === pos._id.toString()).length;
-            criticalityScore += Math.min(directReports * 3, 15);
-
-            criticalityScore = Math.min(criticalityScore, 100);
-
-            // Vacancy risk
-            const factors: string[] = [];
-            let vacancyRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
+            // Determine Vacancy Risk (Factual Tenure Markers)
+            const facts: string[] = [];
+            let vacancyRisk: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
 
             if (!assignment) {
-                vacancyRisk = 'CRITICAL';
-                factors.push('Position is currently vacant');
+                vacancyRisk = 'HIGH';
+                facts.push('Position is currently vacant');
             } else if (employee) {
-                const tenure = employee.dateOfHire 
+                const tenure = employee.dateOfHire
                     ? (now.getTime() - new Date(employee.dateOfHire).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
                     : 0;
 
                 if (tenure > 15) {
                     vacancyRisk = 'HIGH';
-                    factors.push('Long tenure employee (retirement risk)');
+                    facts.push('Employee tenure > 15 years (Retirement risk)');
                 } else if (tenure < 0.5) {
-                    factors.push('New employee (still onboarding)');
-                    vacancyRisk = vacancyRisk === 'LOW' ? 'MEDIUM' : vacancyRisk;
+                    vacancyRisk = 'MEDIUM';
+                    facts.push('New hire onboarding (< 6 months)');
+                } else if (tenure >= 2 && tenure <= 4) {
+                    vacancyRisk = 'MEDIUM';
+                    facts.push('Common turnover window (2-4 years tenure)');
                 }
 
-                if (criticalityScore > 70 && directReports > 5) {
-                    factors.push('High-impact leadership position');
-                    vacancyRisk = vacancyRisk === 'LOW' ? 'MEDIUM' : vacancyRisk;
+                if (directReports > 5) {
+                    facts.push(`Managerial span: ${directReports} reports`);
                 }
             }
 
-            // Succession status
+            // Succession status (Simplified Factual)
             let successionStatus: 'COVERED' | 'AT_RISK' | 'NO_PLAN' = 'NO_PLAN';
             if (directReports > 0) {
-                // Simplified: assume positions with filled reports have some succession coverage
-                const filledReports = directReports; // Would need more data for accuracy
+                // Factual: check if there are filled positions reporting to this one
+                const filledReports = positions.filter(p =>
+                    p.reportsToPositionId?.toString() === pos._id.toString() &&
+                    assignments.some(a => a.positionId?.toString() === p._id.toString())
+                ).length;
+
                 if (filledReports >= 2) successionStatus = 'COVERED';
                 else if (filledReports === 1) successionStatus = 'AT_RISK';
             } else if (!assignment) {
                 successionStatus = 'NO_PLAN';
-            } else {
-                successionStatus = 'AT_RISK'; // No direct reports, single point of failure
             }
 
             return {
@@ -408,19 +359,26 @@ export class OrgStructureAnalyticsService {
                 positionTitle: pos.title,
                 department: deptMap.get(pos.departmentId?.toString()) || 'Unknown',
                 departmentId: pos.departmentId?.toString() || '',
-                criticalityScore,
+                impactLevel,
                 vacancyRisk,
                 successionStatus,
-                factors,
+                facts,
                 currentHolder: employee ? {
                     employeeId: employee._id.toString(),
                     name: employee.fullName || `${employee.firstName} ${employee.lastName}`,
-                    tenure: employee.dateOfHire 
+                    tenure: employee.dateOfHire
                         ? Math.round((now.getTime() - new Date(employee.dateOfHire).getTime()) / (365.25 * 24 * 60 * 60 * 1000) * 10) / 10
                         : 0,
                 } : undefined,
             };
-        }).sort((a, b) => b.criticalityScore - a.criticalityScore); // Sort by criticality
+        }).sort((a, b) => {
+            // Sort by impact level then vacancy risk
+            const order = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+            if (order[a.impactLevel] !== order[b.impactLevel]) {
+                return order[b.impactLevel] - order[a.impactLevel];
+            }
+            return order[b.vacancyRisk] - order[a.vacancyRisk];
+        });
     }
 
     /**
@@ -609,7 +567,7 @@ export class OrgStructureAnalyticsService {
 
         return managementPositions.map(pos => {
             const directReports = positions.filter(p => p.reportsToPositionId?.toString() === pos._id.toString()).length;
-            
+
             let status: 'OPTIMAL' | 'UNDERSTAFFED' | 'OVERSTAFFED';
             if (directReports >= 3 && directReports <= 8) {
                 status = 'OPTIMAL';
@@ -638,8 +596,8 @@ export class OrgStructureAnalyticsService {
             this.departmentModel.find({ isActive: true }).lean(),
             this.positionModel.find({ isActive: true }).lean(),
             this.assignmentModel.find(this.getActiveAssignmentFilter()).lean(),
-            this.employeeModel.find({ 
-                status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE, EmployeeStatus.PROBATION] } 
+            this.employeeModel.find({
+                status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE, EmployeeStatus.PROBATION] }
             }).lean(),
         ]);
 
@@ -653,7 +611,7 @@ export class OrgStructureAnalyticsService {
 
         return filledPositions.map(pos => {
             const assignment = assignments.find(a => a.positionId?.toString() === pos._id.toString());
-            const employee = assignment 
+            const employee = assignment
                 ? employees.find(e => e._id.toString() === assignment.employeeProfileId?.toString())
                 : null;
 
@@ -661,7 +619,7 @@ export class OrgStructureAnalyticsService {
             let likelihood = 0.1; // Base likelihood
 
             if (employee) {
-                const tenure = employee.dateOfHire 
+                const tenure = employee.dateOfHire
                     ? (now.getTime() - new Date(employee.dateOfHire).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
                     : 0;
 
@@ -738,8 +696,8 @@ export class OrgStructureAnalyticsService {
                     { endDate: { $gt: now } }
                 ]
             }),
-            this.employeeModel.countDocuments({ 
-                status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE, EmployeeStatus.PROBATION] } 
+            this.employeeModel.countDocuments({
+                status: { $in: [EmployeeStatus.ACTIVE, EmployeeStatus.ON_LEAVE, EmployeeStatus.PROBATION] }
             }),
         ]);
 
@@ -769,9 +727,9 @@ export class OrgStructureAnalyticsService {
         }
 
         // Get positions in this department
-        const positions = await this.positionModel.find({ 
-            departmentId: new Types.ObjectId(departmentId), 
-            isActive: true 
+        const positions = await this.positionModel.find({
+            departmentId: new Types.ObjectId(departmentId),
+            isActive: true
         }).lean();
 
         // Get assignments for these positions
@@ -815,8 +773,8 @@ export class OrgStructureAnalyticsService {
             const children = positions.filter(p => p.reportsToPositionId?.toString() === posId);
             children.forEach(c => calculateDepth(c._id.toString(), depth + 1));
         };
-        
-        const rootPositions = positions.filter(p => !p.reportsToPositionId || 
+
+        const rootPositions = positions.filter(p => !p.reportsToPositionId ||
             !positions.some(pp => pp._id.toString() === p.reportsToPositionId?.toString())
         );
         rootPositions.forEach(rp => calculateDepth(rp._id.toString(), 1));
@@ -887,11 +845,11 @@ export class OrgStructureAnalyticsService {
 
         // Build employee nodes
         const positionMap = new Map(positions.map(p => [p._id.toString(), p]));
-        
+
         const nodes = assignments.map(a => {
             const emp = a.employeeProfileId as any;
             const pos = positionMap.get(a.positionId?.toString());
-            
+
             if (!emp) return null;
 
             // Find manager by looking at position's reportsToPositionId

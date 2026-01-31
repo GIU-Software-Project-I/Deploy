@@ -84,12 +84,14 @@ import { LeavesAnalyticsController } from './controllers/leaves-analytics.contro
             { name: Department.name, schema: DepartmentSchema },
             { name: Position.name, schema: PositionSchema },
             { name: PositionAssignment.name, schema: PositionAssignmentSchema },
+
             { name: payrollRuns.name, schema: payrollRunsSchema },
             { name: paySlip.name, schema: paySlipSchema },
             { name: employeePayrollDetails.name, schema: employeePayrollDetailsSchema },
             { name: claims.name, schema: claimsSchema },
             { name: disputes.name, schema: disputesSchema },
             { name: AttendanceRecord.name, schema: AttendanceRecordSchema },
+
             { name: JobTemplate.name, schema: JobTemplateSchema },
             { name: JobRequisition.name, schema: JobRequisitionSchema },
             { name: Application.name, schema: ApplicationSchema },
@@ -98,6 +100,7 @@ import { LeavesAnalyticsController } from './controllers/leaves-analytics.contro
             { name: Interview.name, schema: InterviewSchema },
             { name: AssessmentResult.name, schema: AssessmentResultSchema },
             { name: Offer.name, schema: OfferSchema },
+
             { name: Contract.name, schema: ContractSchema },
             { name: Document.name, schema: DocumentSchema },
             { name: ClearanceChecklist.name, schema: ClearanceChecklistSchema },

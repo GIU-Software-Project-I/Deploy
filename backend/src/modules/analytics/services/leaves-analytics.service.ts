@@ -9,6 +9,7 @@ import { LeaveCategory, LeaveCategoryDocument } from '../../leaves/models/leave-
 import { LeaveAdjustment, LeaveAdjustmentDocument } from '../../leaves/models/leave-adjustment.schema';
 import { EmployeeProfile } from '../../employee/models/employee/employee-profile.schema';
 import { Department } from '../../organization-structure/models/department.schema';
+import { LeaveStatus } from '../../leaves/enums/leave-status.enum';
 
 // ==================== INTERFACES ====================
 
@@ -227,23 +228,23 @@ export class LeavesAnalyticsService {
     const requests = await this.leaveRequestModel.find(query).exec();
     
     const totalRequests = requests.length;
-    const pendingRequests = requests.filter(r => r.status === 'pending').length;
-    const approvedRequests = requests.filter(r => r.status === 'approved').length;
-    const rejectedRequests = requests.filter(r => r.status === 'rejected').length;
-    const cancelledRequests = requests.filter(r => r.status === 'cancelled').length;
+    const pendingRequests = requests.filter(r => r.status === LeaveStatus.PENDING).length;
+    const approvedRequests = requests.filter(r => r.status === LeaveStatus.APPROVED).length;
+    const rejectedRequests = requests.filter(r => r.status === LeaveStatus.REJECTED).length;
+    const cancelledRequests = requests.filter(r => r.status === LeaveStatus.CANCELLED).length;
     const totalDaysTaken = requests
-      .filter(r => r.status === 'approved')
+      .filter(r => r.status === LeaveStatus.APPROVED)
       .reduce((sum, r) => sum + (r.durationDays || 0), 0);
     
     // Calculate average approval time
     const approvedWithDates = requests.filter(r => 
-      r.status === 'approved' && r.approvalFlow?.some(a => a.decidedAt)
+      r.status === LeaveStatus.APPROVED && r.approvalFlow?.some(a => a.decidedAt)
     );
     
     let avgApprovalTimeDays = 0;
     if (approvedWithDates.length > 0) {
       const totalDays = approvedWithDates.reduce((sum, r) => {
-        const approvalDate = r.approvalFlow?.find(a => a.status === 'approved')?.decidedAt;
+        const approvalDate = r.approvalFlow?.find(a => a.status === LeaveStatus.APPROVED)?.decidedAt;
         if (approvalDate) {
           const createdAt = (r as any).createdAt || new Date();
           return sum + Math.ceil((new Date(approvalDate).getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
@@ -334,8 +335,8 @@ export class LeavesAnalyticsService {
         $group: {
           _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
           totalRequests: { $sum: 1 },
-          approvedRequests: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } },
-          rejectedRequests: { $sum: { $cond: [{ $eq: ['$status', 'rejected'] }, 1, 0] } },
+          approvedRequests: { $sum: { $cond: [{ $eq: ['$status', LeaveStatus.APPROVED] }, 1, 0] } },
+          rejectedRequests: { $sum: { $cond: [{ $eq: ['$status', LeaveStatus.REJECTED] }, 1, 0] } },
           totalDays: { $sum: '$durationDays' },
         }
       },
@@ -363,7 +364,7 @@ export class LeavesAnalyticsService {
     for (const lt of leaveTypes) {
       const category = categories.find(c => c._id.toString() === lt.categoryId?.toString());
       const typeRequests = requests.filter(r => r.leaveTypeId.toString() === lt._id.toString());
-      const approvedRequests = typeRequests.filter(r => r.status === 'approved');
+      const approvedRequests = typeRequests.filter(r => r.status === LeaveStatus.APPROVED);
       const totalDays = approvedRequests.reduce((sum, r) => sum + (r.durationDays || 0), 0);
       
       // Find popular months
@@ -419,7 +420,7 @@ export class LeavesAnalyticsService {
         employeeIds.includes(r.employeeId.toString())
       );
       
-      const approvedRequests = deptRequests.filter(r => r.status === 'approved');
+      const approvedRequests = deptRequests.filter(r => r.status === LeaveStatus.APPROVED);
       const totalDays = approvedRequests.reduce((sum, r) => sum + (r.durationDays || 0), 0);
       
       // Count by leave type
@@ -450,7 +451,7 @@ export class LeavesAnalyticsService {
         totalDaysTaken: totalDays,
         avgDaysPerEmployee: deptEmployees.length > 0 ? 
           Math.round((totalDays / deptEmployees.length) * 100) / 100 : 0,
-        pendingRequests: deptRequests.filter(r => r.status === 'pending').length,
+        pendingRequests: deptRequests.filter(r => r.status === LeaveStatus.PENDING).length,
         approvalRate: deptRequests.length > 0 ?
           Math.round((approvedRequests.length / deptRequests.length) * 10000) / 100 : 0,
         topLeaveTypes,
@@ -463,7 +464,7 @@ export class LeavesAnalyticsService {
 
   // ==================== SEASONAL PATTERNS ====================
   async getSeasonalPatterns(): Promise<SeasonalPattern[]> {
-    const requests = await this.leaveRequestModel.find({ status: 'approved' }).exec();
+    const requests = await this.leaveRequestModel.find({ status: LeaveStatus.APPROVED }).exec();
     const leaveTypes = await this.leaveTypeModel.find().exec();
     
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
@@ -556,7 +557,7 @@ export class LeavesAnalyticsService {
 
   // ==================== ABSENTEEISM ANALYSIS ====================
   async getAbsenteeismAnalysis(): Promise<AbsenteeismAnalysis> {
-    const requests = await this.leaveRequestModel.find({ status: 'approved' }).exec();
+    const requests = await this.leaveRequestModel.find({ status: LeaveStatus.APPROVED }).exec();
     const employees = await this.employeeModel.find().exec();
     const departments = await this.departmentModel.find().exec();
     
@@ -728,7 +729,7 @@ export class LeavesAnalyticsService {
     const requests = await this.leaveRequestModel.find().exec();
     
     // Calculate approval times
-    const approvedRequests = requests.filter(r => r.status === 'approved');
+    const approvedRequests = requests.filter(r => r.status === LeaveStatus.APPROVED);
     
     let totalApprovalTime = 0;
     let approvalCount = 0;
@@ -757,7 +758,7 @@ export class LeavesAnalyticsService {
       avgTime: stats.count > 0 ? Math.round((stats.totalTime / stats.count) * 100) / 100 : 0,
     }));
     
-    const pendingCount = requests.filter(r => r.status === 'pending').length;
+    const pendingCount = requests.filter(r => r.status === LeaveStatus.PENDING).length;
     const returnedCount = requests.filter(r => r.status === 'returned_for_correction').length;
     
     return {

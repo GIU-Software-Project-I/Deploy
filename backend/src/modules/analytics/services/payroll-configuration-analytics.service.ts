@@ -13,6 +13,10 @@ import { CompanyWideSettings } from '../../payroll/payroll-configuration/models/
 import { ConfigStatus, PolicyType, Applicability } from '../../payroll/payroll-configuration/enums/payroll-configuration-enums';
 import { EmployeeProfile } from '../../employee/models/employee/employee-profile.schema';
 
+// Default minimum wage fallback (Egyptian minimum wage reference)
+// This value is used for compliance checks if no pay grades are configured
+const DEFAULT_MINIMUM_WAGE = 6000;
+
 // ============ INTERFACES ============
 
 export interface ConfigStatusOverview {
@@ -748,8 +752,8 @@ export class PayrollConfigurationAnalyticsService {
             recommendations.push('Configure company pay date, timezone, and currency');
         }
 
-        // Check minimum salary compliance
-        if (payGradeAnalysis.minSalary < 6000) {
+        // Check minimum salary compliance using configurable constant
+        if (payGradeAnalysis.minSalary < DEFAULT_MINIMUM_WAGE) {
             criticalIssues.push('Some pay grades below minimum wage threshold');
             recommendations.push('Update pay grades to meet minimum wage requirements');
         }

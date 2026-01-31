@@ -3,24 +3,25 @@ import apiService from '../api';
 // ============ INTERFACES ============
 
 export interface StructuralHealthScore {
-    overall: number;
-    grade: 'A' | 'B' | 'C' | 'D' | 'F';
-    trend?: 'improving' | 'stable' | 'declining';
-    dimensions: {
-        fillRate: number;
-        spanOfControl: number;
-        hierarchyBalance: number;
-        successionReadiness: number;
+    overallFillRate: number;
+    managementRatio: number;
+    spanOfControl: {
+        average: number;
+        distribution: { bracket: string; count: number }[];
     };
-    insights: HealthInsight[];
+    hierarchyStats: {
+        maxDepth: number;
+        averageDepth: number;
+    };
+    tenureDistribution: { bracket: string; count: number }[];
+    insights: FactInsight[];
 }
 
-export interface HealthInsight {
-    type: 'critical' | 'warning' | 'opportunity' | 'info';
+export interface FactInsight {
+    type: 'critical' | 'warning' | 'info';
     title: string;
     description: string;
     metric?: string;
-    recommendation?: string;
 }
 
 export interface DepartmentAnalytics {
@@ -29,13 +30,11 @@ export interface DepartmentAnalytics {
     totalPositions: number;
     filledPositions: number;
     vacantPositions: number;
-    frozenPositions?: number;
     fillRate: number;
-    healthScore: number;
-    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     headcount: number;
     avgTenure: number;
-    headcountTrend?: 'growing' | 'stable' | 'shrinking';
+    managementCount: number;
+    icCount: number;
 }
 
 export interface PositionRiskAssessment {
@@ -43,10 +42,10 @@ export interface PositionRiskAssessment {
     positionTitle: string;
     department: string;
     departmentId: string;
-    criticalityScore: number;
-    vacancyRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    impactLevel: 'HIGH' | 'MEDIUM' | 'LOW';
+    vacancyRisk: 'HIGH' | 'MEDIUM' | 'LOW';
     successionStatus: 'COVERED' | 'AT_RISK' | 'NO_PLAN';
-    factors: string[];
+    facts: string[];
     currentHolder?: {
         employeeId: string;
         name: string;

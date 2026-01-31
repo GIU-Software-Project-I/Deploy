@@ -8,6 +8,7 @@ import { ShiftType, ShiftTypeDocument } from '../../time-management/models/shift
 import { Holiday, HolidayDocument } from '../../time-management/models/holiday.schema';
 import { TimeException, TimeExceptionDocument } from '../../time-management/models/time-exception.schema';
 import { OvertimeRule, OvertimeRuleDocument } from '../../time-management/models/overtime-rule.schema';
+import { TimeExceptionType } from '../../time-management/models/enums';
 import { EmployeeProfile } from '../../employee/models/employee/employee-profile.schema';
 import { Department } from '../../organization-structure/models/department.schema';
 
@@ -284,7 +285,7 @@ export class TimeManagementAnalyticsService {
 
   // ==================== DEPARTMENT ATTENDANCE ====================
   async getDepartmentAttendance(): Promise<DepartmentAttendance[]> {
-    const departments = await this.departmentModel.find({ status: 'active' }).exec();
+    const departments = await this.departmentModel.find({ isActive: true }).exec();
     const employees = await this.employeeModel.find().exec();
     const exceptions = await this.timeExceptionModel.find().exec();
     
@@ -328,7 +329,7 @@ export class TimeManagementAnalyticsService {
         missedPunchRate: totalRecords > 0 ? 
           Math.round((missedPunchCount / totalRecords) * 100) : 0,
         lateArrivalRate: deptExceptions.length > 0 ? 
-          Math.round((deptExceptions.filter(e => e.type === 'LATE').length / totalRecords) * 100) : 0,
+          Math.round((deptExceptions.filter(e => e.type === TimeExceptionType.LATE).length / totalRecords) * 100) : 0,
         trend: 'STABLE',
       });
     }
@@ -566,8 +567,8 @@ export class TimeManagementAnalyticsService {
     const employees = await this.employeeModel.find().exec();
     
     const totalRecords = attendanceRecords.length;
-    const lateCount = exceptions.filter(e => e.type === 'LATE').length;
-    const earlyLeaveCount = exceptions.filter(e => e.type === 'EARLY_LEAVE').length;
+    const lateCount = exceptions.filter(e => e.type === TimeExceptionType.LATE).length;
+    const earlyLeaveCount = exceptions.filter(e => e.type === TimeExceptionType.EARLY_LEAVE).length;
     const onTimeCount = totalRecords - lateCount - earlyLeaveCount;
     
     const onTimePercentage = totalRecords > 0 ? Math.round((onTimeCount / totalRecords) * 100) : 100;
@@ -589,8 +590,8 @@ export class TimeManagementAnalyticsService {
         deptEmployeeIds.includes(e.employeeId.toString())
       );
       
-      const deptLate = deptExceptions.filter(e => e.type === 'LATE').length;
-      const deptEarly = deptExceptions.filter(e => e.type === 'EARLY_LEAVE').length;
+      const deptLate = deptExceptions.filter(e => e.type === TimeExceptionType.LATE).length;
+      const deptEarly = deptExceptions.filter(e => e.type === TimeExceptionType.EARLY_LEAVE).length;
       const deptTotal = deptEmployeeIds.length * 22; // Approx work days per month
       
       const score = deptTotal > 0 ? 

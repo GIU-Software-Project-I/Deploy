@@ -35,4 +35,21 @@ export class AnalyticsController {
     async getDepartmentSkills(@Param('departmentId') departmentId: string, @CurrentUser() user: any) {
         return this.analyticsService.getDepartmentSkillMatrix(departmentId, user.sub);
     }
+
+    @Get('skills')
+    @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.DEPARTMENT_HEAD)
+    @ApiOperation({ summary: 'Get organization-wide skills analytics with optional department filter' })
+    async getOrgSkillsAnalytics(@Query('departmentId') departmentId?: string) {
+        return this.analyticsService.getOrgSkillsAnalytics(departmentId);
+    }
+
+    @Get('skills/compare')
+    @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+    @ApiOperation({ summary: 'Compare skills between two departments' })
+    async compareSkills(
+        @Query('dept1') dept1: string,
+        @Query('dept2') dept2: string
+    ) {
+        return this.analyticsService.compareSkillsBetweenDepartments(dept1, dept2);
+    }
 }

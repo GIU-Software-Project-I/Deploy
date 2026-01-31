@@ -9,3 +9,10 @@ export { AgeDemographicsChart } from './AgeDemographicsChart';
 export { AttritionForecastCard } from './AttritionForecastCard';
 export { HighRiskEmployeesCard } from './HighRiskEmployeesCard';
 export { EmploymentTypeChart } from './EmploymentTypeChart';
+// Skills Analytics Components
+export { SkillsOverviewCard } from './SkillsOverviewCard';
+export { SkillsDistributionChart } from './SkillsDistributionChart';
+export { SkillGapsCard } from './SkillGapsCard';
+export { SkillsCategoryChart } from './SkillsCategoryChart';
+export { SkillsComparisonChart } from './SkillsComparisonChart';
+export { SkillsRadarChart } from './SkillsRadarChart';

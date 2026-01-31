@@ -11,6 +11,10 @@ import { EmployeeProfile, EmployeeProfileDocument } from '../../employee/models/
 // Enums
 import { OnboardingTaskStatus } from '../../recruitment/enums/onboarding-task-status.enum';
 
+// Configurable SLA target for onboarding completion (in days)
+// TODO: Consider making this a database-driven configuration
+const ONBOARDING_SLA_TARGET_DAYS = 14;
+
 // ============ INTERFACES ============
 
 export interface OnboardingOverviewMetrics {
@@ -129,7 +133,7 @@ export class OnboardingAnalyticsService {
             if (createdAt && onb.completedAt) {
                 const days = this.daysBetween(new Date(createdAt), new Date(onb.completedAt));
                 totalDays += days;
-                if (days <= 14) onTimeCount++; // Assuming 14 days is the target
+                if (days <= ONBOARDING_SLA_TARGET_DAYS) onTimeCount++; // Configurable SLA target
             }
         }
 
@@ -488,7 +492,7 @@ export class OnboardingAnalyticsService {
                         new Date(onb.completedAt)
                     );
                     totalDays += days;
-                    if (days > 14) overdueCount++; // More than 2 weeks considered overdue
+                    if (days > ONBOARDING_SLA_TARGET_DAYS) overdueCount++; // More than SLA target considered overdue
                 }
             }
 

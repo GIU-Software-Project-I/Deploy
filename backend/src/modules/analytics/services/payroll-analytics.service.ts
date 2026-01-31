@@ -9,8 +9,14 @@ import { EmployeeProfile } from '../../employee/models/employee/employee-profile
 import { Department } from '../../organization-structure/models/department.schema';
 import { claims } from '../../payroll/payroll-tracking/models/claims.schema';
 import { disputes } from '../../payroll/payroll-tracking/models/disputes.schema';
-import { PayRollStatus, PayRollPaymentStatus } from '../../payroll/payroll-execution/enums/payroll-execution-enum';
+import { payGrade } from '../../payroll/payroll-configuration/models/payGrades.schema';
+import { PayRollStatus, PayRollPaymentStatus, PaySlipPaymentStatus } from '../../payroll/payroll-execution/enums/payroll-execution-enum';
 import { ClaimStatus, DisputeStatus } from '../../payroll/payroll-tracking/enums/payroll-tracking-enum';
+import { ConfigStatus } from '../../payroll/payroll-configuration/enums/payroll-configuration-enums';
+
+// Default minimum wage fallback (Egyptian minimum wage reference)
+// This value is used if no pay grades are configured
+const DEFAULT_MINIMUM_WAGE = 6000;
 
 // ============ INTERFACES ============
 
@@ -166,6 +172,7 @@ export class PayrollAnalyticsService {
         @InjectModel(Department.name) private departmentModel: Model<Department>,
         @InjectModel(claims.name) private claimsModel: Model<claims>,
         @InjectModel(disputes.name) private disputesModel: Model<disputes>,
+        @InjectModel(payGrade.name) private payGradeModel: Model<payGrade>,
     ) { }
 
     /**
@@ -637,8 +644,12 @@ export class PayrollAnalyticsService {
         const missingBankAccounts = payrollDetails.filter(p => p.bankStatus === 'missing').length;
         const negativeNetPay = payrollDetails.filter(p => p.netPay < 0).length;
         
-        // Egyptian minimum wage reference (can be made configurable)
-        const minimumWage = 6000;
+        // Get minimum wage from approved pay grades, or fall back to default
+        const lowestPayGrade = await this.payGradeModel.findOne({ status: ConfigStatus.APPROVED })
+            .sort({ baseSalary: 1 })
+            .lean()
+            .exec();
+        const minimumWage = lowestPayGrade?.baseSalary ?? DEFAULT_MINIMUM_WAGE;
         const salaryBelowMinimum = payrollDetails.filter(p => p.baseSalary < minimumWage).length;
 
         // Calculate compliance score (weighted)
@@ -891,7 +902,7 @@ export class PayrollAnalyticsService {
             this.getDepartmentCostBreakdown(),
             this.getDeductionsBreakdown(),
             this.getSalaryDistribution(),
-            this.getClaimsDisputesMetrics(1),
+            this.getClaimsDisputesMetrics(6), // Fixed: Show 6 months of claims data instead of just 1
             this.getComplianceMetrics(),
             this.getAdvancedForecast(),
             this.detectAllAnomalies(),
@@ -907,8 +918,8 @@ export class PayrollAnalyticsService {
                 totalDeductions,
                 pendingApprovals: pendingRuns,
                 exceptionsCount: latestRun?.exceptions || 0,
-                paymentsPending: currentPayslips.filter(p => p.paymentStatus === 'pending').length,
-                paymentsPaid: currentPayslips.filter(p => p.paymentStatus === 'paid').length,
+                paymentsPending: currentPayslips.filter(p => p.paymentStatus === PaySlipPaymentStatus.PENDING).length,
+                paymentsPaid: currentPayslips.filter(p => p.paymentStatus === PaySlipPaymentStatus.PAID).length,
             },
             trends,
             departmentBreakdown,

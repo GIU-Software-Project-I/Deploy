@@ -13,6 +13,10 @@ import { TerminationStatus } from '../../recruitment/enums/termination-status.en
 import { TerminationInitiation } from '../../recruitment/enums/termination-initiation.enum';
 import { ApprovalStatus } from '../../recruitment/enums/approval-status.enum';
 
+// Configurable SLA target for clearance processing (in days)
+// TODO: Consider making this a database-driven configuration
+const CLEARANCE_SLA_TARGET_DAYS = 7;
+
 // ============ INTERFACES ============
 
 export interface OffboardingOverviewMetrics {
@@ -219,14 +223,14 @@ export class OffboardingAnalyticsService {
                     if (termCreatedAt && item.updatedAt) {
                         const days = this.daysBetween(new Date(termCreatedAt), new Date(item.updatedAt));
                         data.processingDays.push(days);
-                        if (days <= 7) data.onTime++; // 7 days target
+                        if (days <= CLEARANCE_SLA_TARGET_DAYS) data.onTime++; // Configurable SLA target
                     } else {
                         data.onTime++; // No date = assume on time
                     }
                 } else if (item.status === ApprovalStatus.PENDING) {
                     data.pending++;
-                    // Check if overdue (more than 7 days since creation)
-                    if (termCreatedAt && this.daysBetween(new Date(termCreatedAt), now) > 7) {
+                    // Check if overdue (more than SLA target since creation)
+                    if (termCreatedAt && this.daysBetween(new Date(termCreatedAt), now) > CLEARANCE_SLA_TARGET_DAYS) {
                         data.overdue++;
                     }
                 }
