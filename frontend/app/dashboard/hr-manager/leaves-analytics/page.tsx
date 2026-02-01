@@ -60,58 +60,34 @@ export default function LeavesAnalyticsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-destructive">
-          {error}
-        </div>
-      </div>
-    );
-  }
-
-  if (!dashboard) return null;
-
-  const { overview, balanceSummary, requestTrends, leaveTypeAnalysis, departmentAnalysis, 
-          seasonalPatterns, forecasting, absenteeism, policyCompliance, approvalWorkflow, healthScore, stories } = dashboard;
-
-  // Get unique departments and leave types for filter dropdowns
-  const departments = departmentAnalysis.map(d => ({ id: d.departmentId, name: d.departmentName }));
-  const leaveTypes = leaveTypeAnalysis.map(lt => ({ id: lt.leaveTypeId, name: lt.leaveTypeName }));
+  const departmentAnalysisData = dashboard?.departmentAnalysis ?? [];
+  const requestTrendsData = dashboard?.requestTrends ?? [];
+  const leaveTypeAnalysisData = dashboard?.leaveTypeAnalysis ?? [];
+  const seasonalPatternsData = dashboard?.seasonalPatterns ?? [];
 
   // Filter department analysis
   const filteredDepartmentAnalysis = useMemo(() => {
-    if (selectedDepartment === 'all') return departmentAnalysis;
-    return departmentAnalysis.filter(d => d.departmentId === selectedDepartment);
-  }, [departmentAnalysis, selectedDepartment]);
+    if (selectedDepartment === 'all') return departmentAnalysisData;
+    return departmentAnalysisData.filter(d => d.departmentId === selectedDepartment);
+  }, [departmentAnalysisData, selectedDepartment]);
 
   // Filter request trends by date range
   const filteredRequestTrends = useMemo(() => {
-    if (selectedDateRange === 'all') return requestTrends;
+    if (selectedDateRange === 'all') return requestTrendsData;
     const days = parseInt(selectedDateRange);
-    return requestTrends.slice(-days);
-  }, [requestTrends, selectedDateRange]);
+    return requestTrendsData.slice(-days);
+  }, [requestTrendsData, selectedDateRange]);
 
   // Filter leave type analysis
   const filteredLeaveTypeAnalysis = useMemo(() => {
-    if (selectedLeaveType === 'all') return leaveTypeAnalysis;
-    return leaveTypeAnalysis.filter(lt => lt.leaveTypeId === selectedLeaveType);
-  }, [leaveTypeAnalysis, selectedLeaveType]);
+    if (selectedLeaveType === 'all') return leaveTypeAnalysisData;
+    return leaveTypeAnalysisData.filter(lt => lt.leaveTypeId === selectedLeaveType);
+  }, [leaveTypeAnalysisData, selectedLeaveType]);
 
   // Generate monthly leave heatmap data
   const monthlyLeaveHeatmap = useMemo(() => {
     const monthlyData: Record<string, { month: string; requests: number; approved: number; pending: number }> = {};
-    seasonalPatterns?.forEach((pattern) => {
+    seasonalPatternsData.forEach((pattern) => {
       monthlyData[pattern.month] = {
         month: pattern.month,
         requests: pattern.totalRequests || 0,
@@ -120,7 +96,7 @@ export default function LeavesAnalyticsPage() {
       };
     });
     return Object.values(monthlyData);
-  }, [seasonalPatterns]);
+  }, [seasonalPatternsData]);
 
   // Department comparison radar data
   const departmentComparisonData = useMemo(() => {
@@ -140,7 +116,7 @@ export default function LeavesAnalyticsPage() {
     const avgRequests = recentTrends.reduce((sum, t) => sum + (t.totalRequests || 0), 0) / 7;
     const avgApproved = recentTrends.reduce((sum, t) => sum + (t.approvedRequests || 0), 0) / 7;
     const avgApprovalRate = avgRequests > 0 ? (avgApproved / avgRequests) * 100 : 80;
-    
+
     return Array.from({ length: 7 }, (_, i) => ({
       day: `Day +${i + 1}`,
       predictedRequests: Math.round(avgRequests + (Math.random() - 0.5) * 3),
@@ -175,9 +151,37 @@ export default function LeavesAnalyticsPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-destructive">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (!dashboard) return null;
+
+  const { overview, balanceSummary, forecasting, absenteeism, policyCompliance, approvalWorkflow, healthScore, stories } = dashboard;
+
+  // Get unique departments and leave types for filter dropdowns
+  const departments = departmentAnalysisData.map(d => ({ id: d.departmentId, name: d.departmentName }));
+  const leaveTypes = leaveTypeAnalysisData.map(lt => ({ id: lt.leaveTypeId, name: lt.leaveTypeName }));
+
   // Calculate utilization rate from balance summary
-  const utilizationRate = balanceSummary.totalEntitlements > 0 
-    ? Math.round((balanceSummary.totalTaken / balanceSummary.totalEntitlements) * 100) 
+  const utilizationRate = balanceSummary.totalEntitlements > 0
+    ? Math.round((balanceSummary.totalTaken / balanceSummary.totalEntitlements) * 100)
     : 0;
 
   const tabs = [
@@ -347,7 +351,7 @@ export default function LeavesAnalyticsPage() {
               <div className="bg-card rounded-xl border p-5">
                 <h3 className="font-semibold mb-4">Leave Request Trends</h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={requestTrends.slice(-14)}>
+                  <AreaChart data={requestTrendsData.slice(-14)}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="period" tick={{ fontSize: 10 }} />
                     <YAxis />
@@ -364,7 +368,7 @@ export default function LeavesAnalyticsPage() {
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={leaveTypeAnalysis as { leaveTypeName: string; totalDays: number }[]}
+                      data={leaveTypeAnalysisData as { leaveTypeName: string; totalDays: number }[]}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -375,7 +379,7 @@ export default function LeavesAnalyticsPage() {
                         `${props.leaveTypeName || ''}: ${Math.round((props.percent || 0) * 100)}%`
                       }
                     >
-                      {leaveTypeAnalysis.map((_, idx) => (
+                      {leaveTypeAnalysisData.map((_, idx) => (
                         <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                       ))}
                     </Pie>
@@ -703,7 +707,7 @@ export default function LeavesAnalyticsPage() {
             <div className="bg-card rounded-xl border p-5">
               <h3 className="font-semibold mb-4">Request Volume Over Time</h3>
               <ResponsiveContainer width="100%" height={350}>
-                <ComposedChart data={requestTrends.slice(-21)}>
+                <ComposedChart data={requestTrendsData.slice(-21)}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="period" tick={{ fontSize: 10 }} />
                   <YAxis />
@@ -730,7 +734,7 @@ export default function LeavesAnalyticsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {leaveTypeAnalysis.map((type, idx) => (
+                    {leaveTypeAnalysisData.map((type, idx) => (
                       <tr key={idx} className="border-b hover:bg-muted/50">
                         <td className="py-3 px-4 font-medium">{type.leaveTypeName}</td>
                         <td className="text-center py-3 px-4">{type.totalRequests}</td>
@@ -770,7 +774,7 @@ export default function LeavesAnalyticsPage() {
             <div className="bg-card rounded-xl border p-5">
               <h3 className="font-semibold mb-4">Seasonal Leave Patterns</h3>
               <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={seasonalPatterns}>
+                <BarChart data={seasonalPatternsData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="month" />
                   <YAxis />

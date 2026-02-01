@@ -104,8 +104,8 @@ export default function HRAdminPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       ),
-      iconBg: 'bg-black',
-      iconColor: 'text-white',
+      iconBg: 'bg-primary',
+      iconColor: 'text-primary-foreground',
       userStory: 'US-EP-04, US-EP-05',
     },
     {
@@ -117,8 +117,8 @@ export default function HRAdminPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
         </svg>
       ),
-      iconBg: 'bg-black',
-      iconColor: 'text-white',
+      iconBg: 'bg-primary',
+      iconColor: 'text-primary-foreground',
       badge: stats.pendingRequests > 0 ? stats.pendingRequests : undefined,
       userStory: 'US-E2-03',
     },
@@ -131,8 +131,8 @@ export default function HRAdminPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
         </svg>
       ),
-      iconBg: 'bg-black',
-      iconColor: 'text-white',
+      iconBg: 'bg-primary',
+      iconColor: 'text-primary-foreground',
       userStory: 'US-E7-05',
     },
     {
@@ -144,8 +144,8 @@ export default function HRAdminPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       ),
-      iconBg: 'bg-black',
-      iconColor: 'text-white',
+      iconBg: 'bg-primary',
+      iconColor: 'text-primary-foreground',
       userStory: 'Leave Config',
     },
     {
@@ -157,8 +157,8 @@ export default function HRAdminPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
-      iconBg: 'bg-black',
-      iconColor: 'text-white',
+      iconBg: 'bg-primary',
+      iconColor: 'text-primary-foreground',
       userStory: 'Analytics',
     },
     {
@@ -170,8 +170,8 @@ export default function HRAdminPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
       ),
-      iconBg: 'bg-black',
-      iconColor: 'text-white',
+      iconBg: 'bg-primary',
+      iconColor: 'text-primary-foreground',
       userStory: 'Org Analytics',
     },
   ];
@@ -216,46 +216,14 @@ export default function HRAdminPage() {
     },
   ];
 
-  const colorClasses: Record<string, {
-    bg: string;
-    text: string;
-    gradient: string;
-    hoverShadow: string;
-    borderGlow: string;
-    iconHoverShadow: string;
-  }> = {
-    blue: {
-      bg: 'bg-blue-50/80 dark:bg-blue-900/30',
-      text: 'text-blue-600 dark:text-blue-400',
-      gradient: 'from-blue-500/20 to-blue-600/10',
-      hoverShadow: 'hover:shadow-blue-500/50',
-      borderGlow: 'border-blue-500/30',
-      iconHoverShadow: 'group-hover:shadow-blue-500/50',
-    },
-    amber: {
-      bg: 'bg-amber-50/80 dark:bg-amber-900/30',
-      text: 'text-amber-600 dark:text-amber-400',
-      gradient: 'from-amber-500/20 to-amber-600/10',
-      hoverShadow: 'hover:shadow-amber-500/50',
-      borderGlow: 'border-amber-500/30',
-      iconHoverShadow: 'group-hover:shadow-amber-500/50',
-    },
-    green: {
-      bg: 'bg-green-50/80 dark:bg-green-900/30',
-      text: 'text-green-600 dark:text-green-400',
-      gradient: 'from-green-500/20 to-green-600/10',
-      hoverShadow: 'hover:shadow-green-500/50',
-      borderGlow: 'border-green-500/30',
-      iconHoverShadow: 'group-hover:shadow-green-500/50',
-    },
-    red: {
-      bg: 'bg-red-50/80 dark:bg-red-900/30',
-      text: 'text-red-600 dark:text-red-400',
-      gradient: 'from-red-500/20 to-red-600/10',
-      hoverShadow: 'hover:shadow-red-500/50',
-      borderGlow: 'border-red-500/30',
-      iconHoverShadow: 'group-hover:shadow-red-500/50',
-    },
+  // Theme-compatible color classes for cards (using semantic tokens)
+  const themeColorClasses = {
+    bg: 'bg-primary/10',
+    text: 'text-primary',
+    gradient: 'from-primary/20 to-primary/10',
+    hoverShadow: 'hover:shadow-primary/20',
+    borderGlow: 'border-primary/30',
+    iconHoverShadow: 'group-hover:shadow-primary/30',
   };
 
   return (
@@ -297,8 +265,8 @@ export default function HRAdminPage() {
                     )}
                   </p>
                 </div>
-                <div className={`p-3 rounded-2xl bg-muted/50 backdrop-blur-sm relative overflow-hidden`}>
-                  <div className={`text-black dark:text-white relative z-10`}>
+                <div className={`p-3 rounded-2xl bg-primary/10 backdrop-blur-sm relative overflow-hidden`}>
+                  <div className={`text-primary relative z-10`}>
                     {stat.icon}
                   </div>
                 </div>
@@ -348,7 +316,7 @@ export default function HRAdminPage() {
                         {action.title}
                       </h3>
                       {action.badge && (
-                        <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
+                        <span className="px-2 py-0.5 text-xs font-bold bg-destructive text-destructive-foreground rounded-full">
                           {action.badge}
                         </span>
                       )}

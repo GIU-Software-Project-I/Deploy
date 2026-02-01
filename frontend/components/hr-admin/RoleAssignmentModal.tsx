@@ -110,22 +110,22 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
 
       <div className="relative w-full max-w-xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="bg-black px-6 py-5 text-white">
+        <div className="bg-primary px-6 py-5 text-primary-foreground">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-primary-foreground/20 flex items-center justify-center">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                 </svg>
               </div>
               <div>
                 <h2 className="text-xl font-semibold">Assign Roles & Permissions</h2>
-                <p className="text-white/70 text-sm">{displayName}</p>
+                <p className="text-primary-foreground/70 text-sm">{displayName}</p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              className="p-2 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -152,7 +152,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
                   <button
                     type="button"
                     onClick={handleApplyRecommendation}
-                    className="flex items-center gap-1.5 px-2 py-1 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded hover:opacity-80 transition-all animate-pulse"
+                    className="flex items-center gap-1.5 px-2 py-1 bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest rounded hover:bg-primary/90 transition-all animate-pulse"
                   >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -170,7 +170,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
                     return (
                       <span
                         key={role}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 text-zinc-900 border border-zinc-200 text-sm font-medium rounded-full"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-muted text-foreground border border-border text-sm font-medium rounded-full"
                       >
                         {info?.label || role}
                         <button
@@ -194,7 +194,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
               {Object.entries(ROLE_CATEGORIES).map(([category, roles]) => (
                 <div key={category}>
                   <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-black" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                     {category}
                   </h3>
                   <div className="grid grid-cols-1 gap-2">
@@ -205,8 +205,8 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
                         <label
                           key={roleValue}
                           className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${isSelected
-                            ? 'border-black bg-zinc-50'
-                            : 'border-border hover:border-black/50 hover:bg-muted/50'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50 hover:bg-muted/50'
                             }`}
                         >
                           <input
@@ -216,7 +216,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
                             className="sr-only"
                           />
                           <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isSelected
-                            ? 'bg-black border-black'
+                            ? 'bg-primary border-primary'
                             : 'border-muted-foreground'
                             }`}>
                             {isSelected && (
@@ -226,7 +226,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
                             )}
                           </div>
                           <div className="flex-1">
-                            <p className={`text-sm font-medium ${isSelected ? 'text-black' : 'text-foreground'}`}>
+                            <p className={`text-sm font-medium ${isSelected ? 'text-primary' : 'text-foreground'}`}>
                               {roleInfo?.label || roleValue}
                             </p>
                             <p className="text-xs text-muted-foreground">{roleInfo?.description}</p>
@@ -265,7 +265,7 @@ export default function RoleAssignmentModal({ employee, isOpen, onClose, onSave 
             <button
               type="submit"
               disabled={saving || selectedRoles.length === 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:bg-zinc-800 disabled:opacity-50 transition-all flex items-center gap-2"
+              className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-2"
             >
               {saving ? (
                 <>

@@ -677,11 +677,6 @@ const PAYROLL_MANAGER_NAV: NavItem[] = [
     icon: 'credit-card',
   },
   {
-    label: 'Payroll Overview',
-    href: '/dashboard/payroll-manager/overview',
-    icon: 'dollar-sign',
-  },
-  {
     label: 'Payroll Runs',
     href: '/dashboard/payroll-manager/runs',
     icon: 'play-circle',

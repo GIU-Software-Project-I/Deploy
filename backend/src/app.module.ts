@@ -17,6 +17,7 @@ import { AuthenticationGuard } from "./modules/common/guards/authentication-guar
 import { BackupModule } from "./modules/data-backup/backup-module";
 import { RecruitmentModule } from "./modules/recruitment/recruitment.module";
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { OpenAIModule } from './modules/openai/openai.module';
 
 @Module({
     imports: [
@@ -41,6 +42,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
         PayrollExecutionModule,
         PayrollTrackingModule,
         AnalyticsModule,
+        OpenAIModule,
     ],
     providers: [
         // { provide: APP_GUARD, useClass: AuthenticationGuard },

@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalThemeCustomizer } from "@/components/GlobalThemeCustomizer";
 import { Toaster } from "sonner";
 import { SidebarConfigProvider } from "@/context/sidebar-context";
+import { AIAssistant } from "@/components/ai-assistant";
 
 
 const inter = Inter({
@@ -42,6 +43,7 @@ export default function RootLayout({
             <AuthProvider>
               {children}
               <GlobalThemeCustomizer />
+              <AIAssistant />
               <Toaster />
             </AuthProvider>
           </SidebarConfigProvider>

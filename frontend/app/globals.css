@@ -496,6 +496,7 @@ body {
   ::view-transition-new(root) {
     animation: none;
   }
+}
 
 /* ============================================
    PRINT STYLES FOR PDF EXPORT
@@ -607,4 +608,78 @@ body {
     print-color-adjust: exact !important;
   }
 }
+
+/* Department Head legacy color normalization to theme tokens */
+.dept-head-theme .bg-white {
+  background-color: var(--card);
+}
+.dept-head-theme .bg-slate-50,
+.dept-head-theme .bg-slate-100,
+.dept-head-theme .bg-slate-200 {
+  background-color: var(--muted);
+}
+.dept-head-theme .bg-slate-50\/50 {
+  background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+}
+.dept-head-theme .bg-slate-900 {
+  background-color: var(--primary);
+}
+.dept-head-theme .text-white {
+  color: var(--primary-foreground);
+}
+.dept-head-theme .text-slate-900,
+.dept-head-theme .text-slate-800,
+.dept-head-theme .text-slate-700 {
+  color: var(--foreground);
+}
+.dept-head-theme .text-slate-600,
+.dept-head-theme .text-slate-500,
+.dept-head-theme .text-slate-400,
+.dept-head-theme .text-slate-300 {
+  color: var(--muted-foreground);
+}
+.dept-head-theme .border-slate-300,
+.dept-head-theme .border-slate-200,
+.dept-head-theme .border-slate-100 {
+  border-color: var(--border);
+}
+.dept-head-theme .bg-amber-50,
+.dept-head-theme .bg-amber-100,
+.dept-head-theme .bg-yellow-100,
+.dept-head-theme .bg-amber-500 {
+  background-color: color-mix(in oklch, var(--warning) 12%, var(--background));
+}
+.dept-head-theme .text-amber-500,
+.dept-head-theme .text-amber-600,
+.dept-head-theme .text-amber-700,
+.dept-head-theme .text-yellow-600,
+.dept-head-theme .text-yellow-700 {
+  color: var(--warning);
+}
+.dept-head-theme .bg-red-50,
+.dept-head-theme .bg-red-100,
+.dept-head-theme .bg-red-500 {
+  background-color: color-mix(in oklch, var(--destructive) 12%, var(--background));
+}
+.dept-head-theme .text-red-500,
+.dept-head-theme .text-red-600,
+.dept-head-theme .text-red-700 {
+  color: var(--destructive);
+}
+.dept-head-theme .border-red-200 {
+  border-color: color-mix(in oklch, var(--destructive) 30%, var(--border));
+}
+.dept-head-theme .bg-green-100 {
+  background-color: color-mix(in oklch, var(--success) 12%, var(--background));
+}
+.dept-head-theme .text-green-600,
+.dept-head-theme .text-green-700 {
+  color: var(--success);
+}
+.dept-head-theme .bg-blue-100 {
+  background-color: color-mix(in oklch, var(--info) 12%, var(--background));
+}
+.dept-head-theme .text-blue-600,
+.dept-head-theme .text-blue-700 {
+  color: var(--info);
 }

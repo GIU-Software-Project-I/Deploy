@@ -9,10 +9,21 @@ import {
   PunchType,
   CorrectAttendanceDto,
 } from '@/app/services/time-management';
+import { employeeProfileService } from '@/app/services/employee-profile';
 import { useAuth } from '@/context/AuthContext';
+import { Search, Clock, CheckCircle, AlertTriangle, X, Users, Loader2 } from 'lucide-react';
 
 // Dynamically import the Lateness page component for the repeated lateness tab
 const RepeatedLatenessPage = lazy(() => import('../../../hr-manager/time-management/Lateness/page').then(mod => ({ default: mod.default })));
+
+// Employee interface for dropdown
+interface EmployeeOption {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber?: string;
+  fullName?: string;
+}
 
 // Issue interface for review results
 interface AttendanceIssue {
@@ -41,10 +52,16 @@ export default function AttendanceRecordsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Employee selection state
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeOption | null>(null);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+
   // Filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [employeeIdFilter, setEmployeeIdFilter] = useState('');
   const [issueFilter, setIssueFilter] = useState<'ALL' | 'MISSING_PUNCH' | 'INVALID_SEQUENCE' | 'SHORT_TIME'>('ALL');
 
   // Data state
@@ -124,9 +141,41 @@ export default function AttendanceRecordsPage() {
     }
   };
 
+  // Fetch employees for dropdown
+  const fetchEmployees = useCallback(async () => {
+    try {
+      setLoadingEmployees(true);
+      const response = await employeeProfileService.getAllEmployees(1, 500) as any;
+      const data = response?.data?.data || response?.data || response || [];
+
+      if (Array.isArray(data)) {
+        setEmployees(data.map((emp: any) => ({
+          _id: emp._id,
+          firstName: emp.firstName || '',
+          lastName: emp.lastName || '',
+          employeeNumber: emp.employeeNumber || '',
+          fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim()
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to fetch employees:', err);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  }, []);
+
+  // Filter employees based on search
+  const filteredEmployees = employees.filter(emp => {
+    const searchLower = employeeSearch.toLowerCase();
+    const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+    return fullName.includes(searchLower) ||
+           emp.employeeNumber?.toLowerCase().includes(searchLower) ||
+           emp._id.toLowerCase().includes(searchLower);
+  });
+
   // Fetch attendance records with review
   const fetchAttendanceRecords = useCallback(async () => {
-    if (!employeeIdFilter) {
+    if (!selectedEmployee) {
       setAttendanceRecords([]);
       return;
     }
@@ -137,7 +186,7 @@ export default function AttendanceRecordsPage() {
 
       // First get monthly records
       const recordsResponse = await timeManagementService.getMonthlyAttendance(
-        employeeIdFilter,
+        selectedEmployee._id,
         selectedMonth,
         selectedYear
       );
@@ -196,7 +245,7 @@ export default function AttendanceRecordsPage() {
     } finally {
       setLoading(false);
     }
-  }, [employeeIdFilter, selectedMonth, selectedYear, issueFilter]);
+  }, [selectedEmployee, selectedMonth, selectedYear, issueFilter]);
 
   // Fetch corrections
   const fetchCorrections = useCallback(async () => {
@@ -222,12 +271,12 @@ export default function AttendanceRecordsPage() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchCorrections()]);
+      await Promise.all([fetchCorrections(), fetchEmployees()]);
       setLoading(false);
     };
 
     loadData();
-  }, [fetchCorrections]);
+  }, [fetchCorrections, fetchEmployees]);
 
   // Apply correction
   const handleCorrectAttendance = async () => {
@@ -347,28 +396,28 @@ export default function AttendanceRecordsPage() {
   const getStatusBadgeColor = (status: CorrectionRequestStatus) => {
     switch (status) {
       case CorrectionRequestStatus.SUBMITTED:
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        return 'bg-info/10 text-info border border-info/30';
       case CorrectionRequestStatus.IN_REVIEW:
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+        return 'bg-warning/10 text-warning border border-warning/30';
       case CorrectionRequestStatus.APPROVED:
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+        return 'bg-success/10 text-success border border-success/30';
       case CorrectionRequestStatus.REJECTED:
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        return 'bg-destructive/10 text-destructive border border-destructive/30';
       default:
-        return 'bg-muted text-muted-foreground';
+        return 'bg-muted text-muted-foreground border border-border';
     }
   };
 
   const getSeverityColor = (severity: 'HIGH' | 'MEDIUM' | 'LOW') => {
     switch (severity) {
       case 'HIGH':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        return 'bg-destructive/10 text-destructive border border-destructive/30';
       case 'MEDIUM':
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+        return 'bg-warning/10 text-warning border border-warning/30';
       case 'LOW':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        return 'bg-info/10 text-info border border-info/30';
       default:
-        return 'bg-muted text-muted-foreground';
+        return 'bg-muted text-muted-foreground border border-border';
     }
   };
 
@@ -379,9 +428,9 @@ export default function AttendanceRecordsPage() {
     return 'N/A';
   };
 
-  if (loading && activeTab === 'records' && employeeIdFilter) {
+  if (loading && activeTab === 'records' && selectedEmployee) {
     return (
-      <div className="p-6 lg:p-8">
+      <div className="p-6 lg:p-8 bg-background min-h-screen">
         <div className="max-w-7xl mx-auto">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-muted rounded w-1/3"></div>
@@ -418,7 +467,8 @@ export default function AttendanceRecordsPage() {
         )}
 
         {success && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 rounded-lg">
+          <div className="bg-success/10 border border-success/20 text-success px-4 py-3 rounded-lg flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
             {success}
           </div>
         )}
@@ -477,17 +527,79 @@ export default function AttendanceRecordsPage() {
           <div className="space-y-6">
             {/* Filters */}
             <div className="bg-card rounded-xl border border-border p-6">
-              <h2 className="font-semibold text-foreground mb-4">Search & Review Attendance</h2>
+              <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Search className="w-5 h-5 text-primary" />
+                Search & Review Attendance
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Employee ID</label>
-                  <input
-                    type="text"
-                    value={employeeIdFilter}
-                    onChange={(e) => setEmployeeIdFilter(e.target.value)}
-                    placeholder="Enter employee ID"
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                {/* Employee Selection Dropdown */}
+                <div className="relative md:col-span-2">
+                  <label className="block text-sm font-medium text-foreground mb-1">Employee</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : employeeSearch}
+                      onChange={(e) => {
+                        setEmployeeSearch(e.target.value);
+                        setSelectedEmployee(null);
+                        setShowEmployeeDropdown(true);
+                      }}
+                      onFocus={() => setShowEmployeeDropdown(true)}
+                      placeholder="Search employee by name..."
+                      className="w-full px-3 py-2 pl-10 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    {selectedEmployee && (
+                      <button
+                        onClick={() => {
+                          setSelectedEmployee(null);
+                          setEmployeeSearch('');
+                          setAttendanceRecords([]);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown */}
+                  {showEmployeeDropdown && !selectedEmployee && (
+                    <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {loadingEmployees ? (
+                        <div className="p-4 text-center text-muted-foreground flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading employees...
+                        </div>
+                      ) : filteredEmployees.length === 0 ? (
+                        <div className="p-4 text-center text-muted-foreground">
+                          No employees found
+                        </div>
+                      ) : (
+                        filteredEmployees.slice(0, 20).map((emp) => (
+                          <button
+                            key={emp._id}
+                            onClick={() => {
+                              setSelectedEmployee(emp);
+                              setEmployeeSearch('');
+                              setShowEmployeeDropdown(false);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-muted transition-colors flex items-center gap-3 border-b border-border last:border-b-0"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-medium">
+                              {emp.firstName?.[0]}{emp.lastName?.[0]}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{emp.firstName} {emp.lastName}</p>
+                              {emp.employeeNumber && (
+                                <p className="text-xs text-muted-foreground">#{emp.employeeNumber}</p>
+                              )}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">Month</label>
@@ -553,13 +665,15 @@ export default function AttendanceRecordsPage() {
                 )}
               </h2>
 
-              {!employeeIdFilter ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  Enter an employee ID to view attendance records.
+              {!selectedEmployee ? (
+                <div className="text-center py-12">
+                  <Users className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+                  <p className="text-muted-foreground">Select an employee to view attendance records.</p>
                 </div>
               ) : attendanceRecords.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  No attendance records found for the selected period.
+                <div className="text-center py-12">
+                  <Clock className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+                  <p className="text-muted-foreground">No attendance records found for the selected period.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -577,7 +691,7 @@ export default function AttendanceRecordsPage() {
                             </span>
                             <div className="flex flex-wrap gap-1">
                               {reviewResult.issues.length === 0 ? (
-                                <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                <span className="px-2 py-1 rounded-full text-xs bg-success/10 text-success border border-success/30">
                                   ✓ No Issues
                                 </span>
                               ) : (
@@ -591,7 +705,7 @@ export default function AttendanceRecordsPage() {
                                 ))
                               )}
                               {reviewResult.canFinalize && (
-                                <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                <span className="px-2 py-1 rounded-full text-xs bg-info/10 text-info border border-info/30">
                                   Ready to Finalize
                                 </span>
                               )}
@@ -604,10 +718,10 @@ export default function AttendanceRecordsPage() {
                               reviewResult.record.punches.map((punch, idx) => (
                                 <span
                                   key={idx}
-                                  className={`text-xs px-2 py-1 rounded ${
+                                  className={`text-xs px-2 py-1 rounded-lg border ${
                                     punch.type === PunchType.IN
-                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                      ? 'bg-success/10 text-success border-success/30'
+                                      : 'bg-destructive/10 text-destructive border-destructive/30'
                                   }`}
                                 >
                                   {punch.type}: {formatTime(punch.time)}
@@ -627,7 +741,7 @@ export default function AttendanceRecordsPage() {
                               </span>
                             </span>
                             {reviewResult.record.finalisedForPayroll && (
-                              <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                              <span className="text-xs px-2 py-1 rounded-lg bg-success/10 text-success border border-success/30">
                                 Finalized for Payroll
                               </span>
                             )}

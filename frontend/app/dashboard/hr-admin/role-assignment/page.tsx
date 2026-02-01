@@ -6,17 +6,17 @@ import { employeeProfileService } from '@/app/services/employee-profile';
 import { RoleAssignmentModal, Employee } from '@/components/hr-admin';
 
 const ROLE_INFO = [
-  { value: 'department employee', label: 'Department Employee', color: 'bg-black', description: 'Basic employee access', count: 0 },
-  { value: 'department head', label: 'Department Head', color: 'bg-zinc-800', description: 'Team management', count: 0 },
-  { value: 'HR Employee', label: 'HR Employee', color: 'bg-zinc-700', description: 'HR operations', count: 0 },
-  { value: 'HR Manager', label: 'HR Manager', color: 'bg-zinc-600', description: 'HR management', count: 0 },
-  { value: 'HR Admin', label: 'HR Admin', color: 'bg-zinc-500', description: 'Full HR access', count: 0 },
-  { value: 'Payroll Specialist', label: 'Payroll Specialist', color: 'bg-zinc-400', description: 'Payroll processing', count: 0 },
-  { value: 'Payroll Manager', label: 'Payroll Manager', color: 'bg-zinc-300', description: 'Payroll management', count: 0 },
-  { value: 'Finance Staff', label: 'Finance Staff', color: 'bg-zinc-200', description: 'Financial operations', count: 0 },
-  { value: 'Recruiter', label: 'Recruiter', color: 'bg-black', description: 'Recruitment', count: 0 },
-  { value: 'Legal & Policy Admin', label: 'Legal & Policy Admin', color: 'bg-black', description: 'Policy management', count: 0 },
-  { value: 'System Admin', label: 'System Admin', color: 'bg-black', description: 'Full system access', count: 0 },
+  { value: 'department employee', label: 'Department Employee', color: 'bg-primary', description: 'Basic employee access', count: 0 },
+  { value: 'department head', label: 'Department Head', color: 'bg-primary/80', description: 'Team management', count: 0 },
+  { value: 'HR Employee', label: 'HR Employee', color: 'bg-info', description: 'HR operations', count: 0 },
+  { value: 'HR Manager', label: 'HR Manager', color: 'bg-info/80', description: 'HR management', count: 0 },
+  { value: 'HR Admin', label: 'HR Admin', color: 'bg-success', description: 'Full HR access', count: 0 },
+  { value: 'Payroll Specialist', label: 'Payroll Specialist', color: 'bg-warning', description: 'Payroll processing', count: 0 },
+  { value: 'Payroll Manager', label: 'Payroll Manager', color: 'bg-warning/80', description: 'Payroll management', count: 0 },
+  { value: 'Finance Staff', label: 'Finance Staff', color: 'bg-purple-500', description: 'Financial operations', count: 0 },
+  { value: 'Recruiter', label: 'Recruiter', color: 'bg-orange-500', description: 'Recruitment', count: 0 },
+  { value: 'Legal & Policy Admin', label: 'Legal & Policy Admin', color: 'bg-destructive', description: 'Policy management', count: 0 },
+  { value: 'System Admin', label: 'System Admin', color: 'bg-foreground', description: 'Full system access', count: 0 },
 ];
 
 export default function RoleAssignmentPage() {
@@ -107,8 +107,8 @@ export default function RoleAssignmentPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <div className="p-2 bg-black rounded-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-2 bg-primary rounded-lg">
+                <svg className="w-6 h-6 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                 </svg>
               </div>
@@ -137,7 +137,7 @@ export default function RoleAssignmentPage() {
         )}
 
         {success && (
-          <div className="bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg flex items-center gap-2">
+          <div className="bg-success/10 border border-success/20 text-success px-4 py-3 rounded-lg flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -152,29 +152,29 @@ export default function RoleAssignmentPage() {
             <button
               onClick={() => setSelectedRole(null)}
               className={`p-3 rounded-lg border text-left transition-all ${!selectedRole
-                ? 'bg-black border-black text-white'
-                : 'bg-muted/30 border-border hover:border-black/50'
+                ? 'bg-primary border-primary text-primary-foreground'
+                : 'bg-muted/30 border-border hover:border-primary/50'
                 }`}
             >
-              <p className={`text-2xl font-bold ${!selectedRole ? 'text-white' : 'text-foreground'}`}>{employees.length}</p>
-              <p className="text-xs text-muted-foreground">All Employees</p>
+              <p className={`text-2xl font-bold ${!selectedRole ? 'text-primary-foreground' : 'text-foreground'}`}>{employees.length}</p>
+              <p className={`text-xs ${!selectedRole ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>All Employees</p>
             </button>
             {roleStats.map((role) => (
               <button
                 key={role.value}
                 onClick={() => setSelectedRole(selectedRole === role.value ? null : role.value)}
                 className={`p-3 rounded-lg border text-left transition-all ${selectedRole === role.value
-                  ? 'bg-black border-black text-white'
-                  : 'bg-muted/30 border-border hover:border-black/50'
+                  ? 'bg-primary border-primary text-primary-foreground'
+                  : 'bg-muted/30 border-border hover:border-primary/50'
                   }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <div className={`w-2 h-2 rounded-full ${role.color}`} />
-                  <p className={`text-xl font-bold ${selectedRole === role.value ? 'text-white' : 'text-foreground'}`}>
+                  <p className={`text-xl font-bold ${selectedRole === role.value ? 'text-primary-foreground' : 'text-foreground'}`}>
                     {role.count}
                   </p>
                 </div>
-                <p className={`text-xs truncate ${selectedRole === role.value ? 'text-white/80' : 'text-muted-foreground'}`} title={role.label}>
+                <p className={`text-xs truncate ${selectedRole === role.value ? 'text-primary-foreground/80' : 'text-muted-foreground'}`} title={role.label}>
                   {role.label}
                 </p>
               </button>
@@ -241,7 +241,7 @@ export default function RoleAssignmentPage() {
                   className="bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/30 transition-all"
                 >
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-black flex items-center justify-center text-white font-semibold">
+                    <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold">
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -263,9 +263,9 @@ export default function RoleAssignmentPage() {
                           return (
                             <span
                               key={role}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-zinc-100 text-zinc-900 border border-zinc-200 rounded"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-muted text-foreground border border-border rounded"
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full ${roleInfo?.color || 'bg-gray-400'}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${roleInfo?.color || 'bg-muted-foreground'}`} />
                               {roleInfo?.label || role}
                             </span>
                           );
@@ -279,7 +279,7 @@ export default function RoleAssignmentPage() {
                   {/* Action Button */}
                   <button
                     onClick={() => setSelectedEmployee(employee)}
-                    className="w-full px-4 py-2 text-sm font-medium text-white bg-black rounded-lg hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />

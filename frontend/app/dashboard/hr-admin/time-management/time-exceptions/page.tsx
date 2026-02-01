@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { timeManagementService } from '@/app/services/time-management';
+import { employeeProfileService } from '@/app/services/employee-profile';
 import { useAuth } from '@/context/AuthContext';
+import { CheckCircle, User } from 'lucide-react';
 
 interface TimeException {
   _id: string;
@@ -14,6 +16,13 @@ interface TimeException {
   assignedTo?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+interface EmployeeOption {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber?: string;
 }
 
 interface BreakPermissionLimit {
@@ -38,6 +47,10 @@ export default function TimeExceptionsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [exceptions, setExceptions] = useState<TimeException[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Employee data for displaying names
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [employeeMap, setEmployeeMap] = useState<Record<string, string>>({});
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'requests' | 'settings'>('requests');
@@ -80,6 +93,33 @@ export default function TimeExceptionsPage() {
       setLoading(false);
     }
   }, [user?.id]);
+
+  // Fetch employees for name display
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const response = await employeeProfileService.getAllEmployees(1, 500) as any;
+      const data = response?.data?.data || response?.data || response || [];
+
+      if (Array.isArray(data)) {
+        const empList = data.map((emp: any) => ({
+          _id: emp._id,
+          firstName: emp.firstName || '',
+          lastName: emp.lastName || '',
+          employeeNumber: emp.employeeNumber || ''
+        }));
+        setEmployees(empList);
+
+        // Build a lookup map
+        const map: Record<string, string> = {};
+        empList.forEach((emp: EmployeeOption) => {
+          map[emp._id] = `${emp.firstName} ${emp.lastName}`.trim() || emp.employeeNumber || emp._id.slice(-6);
+        });
+        setEmployeeMap(map);
+      }
+    } catch (err) {
+      console.error('[TimeExceptions] Error fetching employees:', err);
+    }
+  }, []);
 
   // Fetch break permission limit
   const fetchBreakLimit = useCallback(async () => {
@@ -130,7 +170,8 @@ export default function TimeExceptionsPage() {
   useEffect(() => {
     fetchExceptions();
     fetchBreakLimit();
-  }, [fetchExceptions, fetchBreakLimit]);
+    fetchEmployees();
+  }, [fetchExceptions, fetchBreakLimit, fetchEmployees]);
 
   // Get filtered exceptions
   const filteredExceptions = exceptions.filter((ex) => {
@@ -181,30 +222,38 @@ export default function TimeExceptionsPage() {
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'APPROVED':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+        return 'bg-success/10 text-success border border-success/30';
       case 'REJECTED':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        return 'bg-destructive/10 text-destructive border border-destructive/30';
       case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+        return 'bg-warning/10 text-warning border border-warning/30';
       case 'OPEN':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        return 'bg-info/10 text-info border border-info/30';
       case 'ESCALATED':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+        return 'bg-orange-500/10 text-orange-500 border border-orange-500/30';
       case 'RESOLVED':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+        return 'bg-purple-500/10 text-purple-500 border border-purple-500/30';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+        return 'bg-muted text-muted-foreground border border-border';
     }
   };
 
   const getEmployeeName = (employeeId: string | { _id: string; name: string }): string => {
+    // If populated object with name
     if (typeof employeeId === 'object' && employeeId.name) {
       return employeeId.name;
     }
-    if (typeof employeeId === 'string') {
-      return employeeId.substring(0, 8);
+
+    // Get ID string
+    const id = typeof employeeId === 'object' ? employeeId._id : employeeId;
+
+    // Look up in employee map
+    if (id && employeeMap[id]) {
+      return employeeMap[id];
     }
-    return 'Unknown';
+
+    // Fallback
+    return id ? `Employee #${id.slice(-6)}` : 'Unknown';
   };
 
   if (loading) {
@@ -276,7 +325,8 @@ export default function TimeExceptionsPage() {
           </div>
         )}
         {success && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 rounded-lg">
+          <div className="bg-success/10 border border-success/20 text-success px-4 py-3 rounded-lg flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
             {success}
           </div>
         )}
@@ -348,7 +398,12 @@ export default function TimeExceptionsPage() {
                   {filteredExceptions.map((exception) => (
                     <tr key={exception._id} className="border-b border-border last:border-0 hover:bg-muted/50">
                       <td className="py-3 px-4 text-sm text-foreground font-medium">
-                        {getEmployeeName(exception.employeeId)}
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <User className="w-4 h-4 text-primary" />
+                          </div>
+                          <span>{getEmployeeName(exception.employeeId)}</span>
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-sm text-foreground">
                         {getExceptionTypeLabel(exception.type)}
@@ -466,9 +521,9 @@ export default function TimeExceptionsPage() {
             </div>
 
             {/* Information Card */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <p className="text-sm text-blue-900 dark:text-blue-300">
-                <strong>ℹ️ About Break Permission Limits:</strong> This setting controls the maximum duration of break time that employees can request. Requests exceeding this limit will be rejected automatically.
+            <div className="bg-info/10 border border-info/20 rounded-lg p-4">
+              <p className="text-sm text-foreground">
+                <strong className="text-info">ℹ️ About Break Permission Limits:</strong> This setting controls the maximum duration of break time that employees can request. Requests exceeding this limit will be rejected automatically.
               </p>
             </div>
           </div>
@@ -528,7 +583,7 @@ export default function TimeExceptionsPage() {
                   handleAction();
                 }}
                 disabled={submitting}
-                className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                className="flex-1 px-4 py-2 bg-success text-white font-medium rounded-lg hover:bg-success/90 disabled:opacity-50 transition-colors"
               >
                 {submitting ? 'Processing...' : 'Approve'}
               </button>

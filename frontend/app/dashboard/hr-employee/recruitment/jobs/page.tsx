@@ -76,9 +76,9 @@ const defaultEmployerBranding: EmployerBranding = {
 
 function StatusBadge({ status }: { status: 'draft' | 'published' | 'closed' }) {
   const statusStyles = {
-    draft: 'bg-slate-100 text-slate-700 border-slate-200',
-    published: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    closed: 'bg-red-50 text-red-700 border-red-200',
+    draft: 'bg-muted text-muted-foreground border-border',
+    published: 'bg-success/10 text-success border-success/30',
+    closed: 'bg-destructive/10 text-destructive border-destructive/30',
   };
 
   const statusLabels = {
@@ -115,20 +115,20 @@ function JobPreviewModal({
 }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-card rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header with Branding */}
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-6 rounded-t-xl">
+        <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground p-6 rounded-t-xl">
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center">
-              <span className="text-indigo-600 font-bold text-xl">TC</span>
+            <div className="w-16 h-16 bg-background rounded-lg flex items-center justify-center">
+              <span className="text-primary font-bold text-xl">TC</span>
             </div>
             <div>
               <h2 className="text-xl font-bold">{branding.companyName}</h2>
-              <p className="text-indigo-200">{branding.tagline}</p>
+              <p className="text-primary-foreground/70">{branding.tagline}</p>
             </div>
           </div>
           <h1 className="text-2xl font-bold">{job.title || job.templateTitle || 'Position'}</h1>
-          <div className="flex flex-wrap gap-4 mt-2 text-sm text-indigo-200">
+          <div className="flex flex-wrap gap-4 mt-2 text-sm text-primary-foreground/70">
             {job.department && (
               <span className="flex items-center gap-1">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,16 +160,16 @@ function JobPreviewModal({
           {/* Description */}
           {job.description && (
             <section>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">About This Role</h3>
-              <p className="text-slate-600">{job.description}</p>
+              <h3 className="text-lg font-semibold text-foreground mb-2">About This Role</h3>
+              <p className="text-muted-foreground">{job.description}</p>
             </section>
           )}
 
           {/* Responsibilities */}
           {job.responsibilities && job.responsibilities.length > 0 && (
             <section>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">Responsibilities</h3>
-              <ul className="list-disc list-inside space-y-1 text-slate-600">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Responsibilities</h3>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                 {job.responsibilities.map((item: string, idx: number) => (
                   <li key={idx}>{item}</li>
                 ))}
@@ -180,8 +180,8 @@ function JobPreviewModal({
           {/* Requirements */}
           {job.requirements && job.requirements.length > 0 && (
             <section>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">Requirements</h3>
-              <ul className="list-disc list-inside space-y-1 text-slate-600">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Requirements</h3>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                 {job.requirements.map((item: string, idx: number) => (
                   <li key={idx}>{item}</li>
                 ))}
@@ -192,8 +192,8 @@ function JobPreviewModal({
           {/* Qualifications */}
           {job.qualifications && job.qualifications.length > 0 && (
             <section>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">Qualifications</h3>
-              <ul className="list-disc list-inside space-y-1 text-slate-600">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Qualifications</h3>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                 {job.qualifications.map((item: string, idx: number) => (
                   <li key={idx}>{item}</li>
                 ))}
@@ -202,15 +202,15 @@ function JobPreviewModal({
           )}
 
           {/* Benefits & Culture */}
-          <section className="bg-slate-50 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-slate-900 mb-3">Why Join Us?</h3>
+          <section className="bg-muted/50 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-foreground mb-3">Why Join Us?</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <h4 className="font-medium text-slate-800 mb-2">Benefits</h4>
+                <h4 className="font-medium text-foreground mb-2">Benefits</h4>
                 <ul className="space-y-1">
                   {branding.benefits.map((benefit, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-sm text-slate-600">
-                      <svg className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+                    <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <svg className="w-4 h-4 text-success" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                       {benefit}
@@ -219,11 +219,11 @@ function JobPreviewModal({
                 </ul>
               </div>
               <div>
-                <h4 className="font-medium text-slate-800 mb-2">Our Culture</h4>
+                <h4 className="font-medium text-foreground mb-2">Our Culture</h4>
                 <ul className="space-y-1">
                   {branding.culture.map((item, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-sm text-slate-600">
-                      <svg className="w-4 h-4 text-indigo-500" fill="currentColor" viewBox="0 0 20 20">
+                    <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                       {item}
@@ -236,7 +236,7 @@ function JobPreviewModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="border-t border-slate-200 p-4 flex justify-end gap-3">
+        <div className="border-t border-border p-4 flex justify-end gap-3">
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
@@ -263,18 +263,18 @@ function EmployerBrandingSection({ branding }: { branding: EmployerBranding }) {
   return (
     <Card className="mb-6">
       <div className="flex items-start gap-4">
-        <div className="w-20 h-20 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
-          <span className="text-indigo-600 font-bold text-2xl">TC</span>
+        <div className="w-20 h-20 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+          <span className="text-primary font-bold text-2xl">TC</span>
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-bold text-slate-900">{branding.companyName}</h2>
-          <p className="text-indigo-600 font-medium">{branding.tagline}</p>
-          <p className="text-slate-600 mt-2 text-sm">{branding.description}</p>
+          <h2 className="text-xl font-bold text-foreground">{branding.companyName}</h2>
+          <p className="text-primary font-medium">{branding.tagline}</p>
+          <p className="text-muted-foreground mt-2 text-sm">{branding.description}</p>
           <div className="flex flex-wrap gap-2 mt-3">
             {branding.culture.slice(0, 4).map((item, idx) => (
               <span
                 key={idx}
-                className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium"
+                className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium"
               >
                 {item}
               </span>
@@ -400,20 +400,20 @@ export default function HREmployeeJobsPage() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Page Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Job Publishing</h1>
-        <p className="text-slate-600 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Job Publishing</h1>
+        <p className="text-muted-foreground mt-1">
           Manage and publish job postings to the company careers page
         </p>
       </div>
 
       {/* Error Alert */}
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-          <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+        <div className="mb-6 bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex items-center gap-3">
+          <svg className="w-5 h-5 text-destructive" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
-          <span className="text-red-800 font-medium">{error}</span>
-          <button onClick={() => setError(null)} className="ml-auto text-red-600 hover:text-red-800">
+          <span className="text-destructive font-medium">{error}</span>
+          <button onClick={() => setError(null)} className="ml-auto text-destructive hover:text-destructive/80">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
@@ -426,21 +426,21 @@ export default function HREmployeeJobsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Total Jobs</p>
-          <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
+        <div className="bg-card rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">Total Jobs</p>
+          <p className="text-2xl font-bold text-foreground">{stats.total}</p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Draft</p>
-          <p className="text-2xl font-bold text-slate-700">{stats.draft}</p>
+        <div className="bg-card rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">Draft</p>
+          <p className="text-2xl font-bold text-muted-foreground">{stats.draft}</p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Published</p>
-          <p className="text-2xl font-bold text-emerald-600">{stats.published}</p>
+        <div className="bg-card rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">Published</p>
+          <p className="text-2xl font-bold text-success">{stats.published}</p>
         </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Closed</p>
-          <p className="text-2xl font-bold text-red-600">{stats.closed}</p>
+        <div className="bg-card rounded-lg border border-border p-4">
+          <p className="text-sm text-muted-foreground">Closed</p>
+          <p className="text-2xl font-bold text-destructive">{stats.closed}</p>
         </div>
       </div>
 
@@ -461,8 +461,8 @@ export default function HREmployeeJobsPage() {
                 onClick={() => setStatusFilter(status)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   statusFilter === status
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent'
                 }`}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -476,56 +476,56 @@ export default function HREmployeeJobsPage() {
       <Card className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-muted/50 border-b border-border">
               <tr>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Job Details
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Department
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Status
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Applications
                 </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Posted Date
                 </th>
-                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-border">
               {filteredJobs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                     No jobs found matching your criteria.
                   </td>
                 </tr>
               ) : (
                 filteredJobs.map((job, index) => (
-                  <tr key={job.id || job.requisitionId || `job-${index}`} className="hover:bg-slate-50 transition-colors">
+                  <tr key={job.id || job.requisitionId || `job-${index}`} className="hover:bg-muted/50 transition-colors">
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-medium text-slate-900">{job.title}</p>
-                        <p className="text-sm text-slate-500">{job.requisitionId}</p>
-                        <p className="text-sm text-slate-500">{job.location} • {job.openings} opening{job.openings > 1 ? 's' : ''}</p>
+                        <p className="font-medium text-foreground">{job.title}</p>
+                        <p className="text-sm text-muted-foreground">{job.requisitionId}</p>
+                        <p className="text-sm text-muted-foreground">{job.location} • {job.openings} opening{job.openings > 1 ? 's' : ''}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-slate-700">{job.department}</span>
+                      <span className="text-foreground">{job.department}</span>
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={job.publishStatus} />
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-slate-700">{job.applicationCount}</span>
+                      <span className="text-foreground">{job.applicationCount}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-slate-700">
+                      <span className="text-foreground">
                         {job.postingDate || '-'}
                       </span>
                     </td>
@@ -585,30 +585,30 @@ export default function HREmployeeJobsPage() {
       {/* Create Job Modal (REC-023: Test 3.2) */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-3xl w-full p-6">
+          <div className="bg-card rounded-xl max-w-3xl w-full p-6">
             <div className="flex items-start gap-4 mb-6">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Job Creation Notice</h2>
-                <p className="text-slate-600 mb-4">
+                <h2 className="text-2xl font-bold text-foreground mb-2">Job Creation Notice</h2>
+                <p className="text-muted-foreground mb-4">
                   Job creation is currently managed through the HR Manager dashboard where job templates are configured.
                 </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-800 mb-2">
+                <div className="bg-info/10 border border-info/30 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-info mb-2">
                     <strong>Current Process:</strong>
                   </p>
-                  <ol className="list-decimal list-inside space-y-1 text-sm text-blue-700">
+                  <ol className="list-decimal list-inside space-y-1 text-sm text-info/80">
                     <li>HR Manager creates job requisitions using templates</li>
                     <li>Job requisitions appear in your dashboard as "Draft"</li>
                     <li>You can preview and publish approved jobs to the careers page</li>
                     <li>You can manage employer branding and job visibility</li>
                   </ol>
                 </div>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted-foreground">
                   If you need to create a new job, please contact your HR Manager or use the HR Manager role dashboard.
                 </p>
               </div>

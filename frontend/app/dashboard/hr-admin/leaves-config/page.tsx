@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { leavesService } from '@/app/services/leaves';
 import { organizationStructureService } from '@/app/services/organization-structure';
+import { employeeProfileService } from '@/app/services/employee-profile';
+import { Users, X, Search } from 'lucide-react';
 
 type TabType =
   | 'categories'
@@ -78,8 +80,43 @@ type AdjustmentType = 'add' | 'deduct' | 'encashment'; // remove 'encashment' if
 
 type AppRole = 'HR_ADMIN' | 'HR_MANAGER' | 'MANAGER' | 'EMPLOYEE';
 
+// Employee interface for dropdown selection
+interface EmployeeOption {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber?: string;
+  fullName?: string;
+}
+
 export default function HRAdminLeavesConfigPage() {
   const { user } = useAuth();
+
+  // --------------------------
+  // Employee selection state (for dropdowns)
+  // --------------------------
+  const [allEmployees, setAllEmployees] = useState<EmployeeOption[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+
+  // For entitlements tab
+  const [selectedEntEmployee, setSelectedEntEmployee] = useState<EmployeeOption | null>(null);
+  const [entEmployeeSearch, setEntEmployeeSearch] = useState('');
+  const [showEntEmployeeDropdown, setShowEntEmployeeDropdown] = useState(false);
+
+  // For manual adjustment tab
+  const [selectedAdjEmployee, setSelectedAdjEmployee] = useState<EmployeeOption | null>(null);
+  const [adjEmployeeSearch, setAdjEmployeeSearch] = useState('');
+  const [showAdjEmployeeDropdown, setShowAdjEmployeeDropdown] = useState(false);
+
+  // For adjustment history
+  const [selectedHistEmployee, setSelectedHistEmployee] = useState<EmployeeOption | null>(null);
+  const [histEmployeeSearch, setHistEmployeeSearch] = useState('');
+  const [showHistEmployeeDropdown, setShowHistEmployeeDropdown] = useState(false);
+
+  // For recalculate single employee
+  const [selectedRecalcEmployee, setSelectedRecalcEmployee] = useState<EmployeeOption | null>(null);
+  const [recalcEmployeeSearch, setRecalcEmployeeSearch] = useState('');
+  const [showRecalcEmployeeDropdown, setShowRecalcEmployeeDropdown] = useState(false);
 
   // --------------------------
   // helpers
@@ -446,14 +483,55 @@ const fetchTypes = useCallback(async () => {
     }
   }, []);
 
+  // Fetch all employees for dropdowns
+  const fetchAllEmployees = useCallback(async () => {
+    try {
+      setLoadingEmployees(true);
+      const response = await employeeProfileService.getAllEmployees(1, 500) as any;
+      const data = response?.data?.data || response?.data || response || [];
+
+      if (Array.isArray(data)) {
+        setAllEmployees(data.map((emp: any) => ({
+          _id: emp._id,
+          firstName: emp.firstName || '',
+          lastName: emp.lastName || '',
+          employeeNumber: emp.employeeNumber || '',
+          fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim()
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to fetch employees:', err);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  }, []);
+
+  // Filter employees based on search
+  const filterEmployees = (search: string) => {
+    const searchLower = search.toLowerCase();
+    return allEmployees.filter(emp => {
+      const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+      return fullName.includes(searchLower) ||
+             emp.employeeNumber?.toLowerCase().includes(searchLower) ||
+             emp._id.toLowerCase().includes(searchLower);
+    });
+  };
+
   useEffect(() => {
     if (activeTab !== 'manual-adjustment') return;
-    if (!adjForm.employeeId.trim()) {
+    if (!selectedAdjEmployee) {
       setAdjPreviewEntitlements([]);
       return;
     }
-    fetchAdjPreviewEntitlements(adjForm.employeeId);
-  }, [activeTab, adjForm.employeeId, fetchAdjPreviewEntitlements]);
+    fetchAdjPreviewEntitlements(selectedAdjEmployee._id);
+  }, [activeTab, selectedAdjEmployee, fetchAdjPreviewEntitlements]);
+
+  // Load employees when entering relevant tabs
+  useEffect(() => {
+    if (['entitlements', 'manual-adjustment', 'accruals'].includes(activeTab) && allEmployees.length === 0) {
+      fetchAllEmployees();
+    }
+  }, [activeTab, allEmployees.length, fetchAllEmployees]);
 
   // ==========================================================
   // Category handlers
@@ -950,16 +1028,15 @@ const fetchTypes = useCallback(async () => {
   };
 
   const handleRecalcEmployee = async () => {
-    const id = recalcEmployeeId.trim();
-    if (!id) {
-      setError('Employee ID is required for recalculation');
+    if (!selectedRecalcEmployee) {
+      setError('Please select an employee for recalculation');
       return;
     }
 
     try {
       setLoading(true);
       clearMessages();
-      await leavesService.recalcEmployee(id);
+      await leavesService.recalcEmployee(selectedRecalcEmployee._id);
       setSuccess('Employee recalculation done ✅');
     } catch (err: Error | unknown) {
       setError(getErrorMessage(err) || 'Failed to recalculate employee');
@@ -979,16 +1056,15 @@ const fetchTypes = useCallback(async () => {
   };
 
   const loadEntitlements = async () => {
-    const ids = parseEmployeeIds(entForm.employeeIds);
-    if (ids.length !== 1) {
-      setError('To load entitlements, enter exactly ONE employeeId');
+    if (!selectedEntEmployee) {
+      setError('Please select an employee to load entitlements');
       return;
     }
 
     try {
       setLoading(true);
       clearMessages();
-      const res = await leavesService.getEntitlements(ids[0]);
+      const res = await leavesService.getEntitlements(selectedEntEmployee._id);
       setEntitlements(Array.isArray(res.data) ? (res.data as Entitlement[]) : []);
       setSuccess('Entitlements loaded ✅');
     } catch (err: Error | unknown) {
@@ -1000,16 +1076,15 @@ const fetchTypes = useCallback(async () => {
   };
 
   const loadEntitlementSummary = async () => {
-    const ids = parseEmployeeIds(entForm.employeeIds);
-    if (ids.length !== 1) {
-      setError('To load summary, enter exactly ONE employeeId');
+    if (!selectedEntEmployee) {
+      setError('Please select an employee to load summary');
       return;
     }
 
     try {
       setLoading(true);
       clearMessages();
-      const res = await leavesService.getEntitlementSummary(ids[0]);
+      const res = await leavesService.getEntitlementSummary(selectedEntEmployee._id);
       setEntSummary(res.data);
       setSuccess('Entitlement summary loaded ✅');
     } catch (err: Error | unknown) {
@@ -1021,9 +1096,12 @@ const fetchTypes = useCallback(async () => {
   };
 
   const handleAssignEntitlement = async () => {
-    const ids = parseEmployeeIds(entForm.employeeIds);
-    if (ids.length === 0 || !entForm.leaveTypeId || !entForm.yearlyEntitlement) {
-      setError('Employee IDs, Leave Type, and Yearly Entitlement are required');
+    if (!selectedEntEmployee) {
+      setError('Please select an employee');
+      return;
+    }
+    if (!entForm.leaveTypeId || !entForm.yearlyEntitlement) {
+      setError('Leave Type and Yearly Entitlement are required');
       return;
     }
 
@@ -1037,25 +1115,15 @@ const fetchTypes = useCallback(async () => {
       setLoading(true);
       clearMessages();
 
-      // group support: loop
-      for (const empId of ids) {
-        await leavesService.assignEntitlement({
-          employeeId: empId,
-          leaveTypeId: entForm.leaveTypeId,
-          yearlyEntitlement: value,
-        });
-      }
+      await leavesService.assignEntitlement({
+        employeeId: selectedEntEmployee._id,
+        leaveTypeId: entForm.leaveTypeId,
+        yearlyEntitlement: value,
+      });
 
-      setSuccess(ids.length === 1 ? 'Entitlement assigned ✅' : `Assigned to ${ids.length} employees ✅`);
-
-      // if single employee, refresh table + summary
-      if (ids.length === 1) {
-        await loadEntitlements();
-        await loadEntitlementSummary();
-      } else {
-        setEntitlements([]);
-        setEntSummary(null);
-      }
+      setSuccess('Entitlement assigned ✅');
+      await loadEntitlements();
+      await loadEntitlementSummary();
     } catch (err: Error | unknown) {
       setError(getErrorMessage(err) || 'Failed to assign entitlement');
     } finally {
@@ -1067,16 +1135,15 @@ const fetchTypes = useCallback(async () => {
   // Manual adjustments handlers (REQ-013)
   // ==========================================================
   const loadAdjustmentHistory = async () => {
-    const empId = adjHistoryFilter.employeeId.trim();
-    if (!empId) {
-      setError('Employee ID is required to load adjustment history');
+    if (!selectedHistEmployee) {
+      setError('Please select an employee to load adjustment history');
       return;
     }
 
     try {
       setLoading(true);
       clearMessages();
-      const res = await leavesService.getAdjustmentHistory(empId, adjHistoryFilter.leaveTypeId || undefined);
+      const res = await leavesService.getAdjustmentHistory(selectedHistEmployee._id, adjHistoryFilter.leaveTypeId || undefined);
       setAdjHistory(Array.isArray(res.data) ? res.data : []);
       setSuccess('Adjustment history loaded ✅');
     } catch (err: Error | unknown) {
@@ -1088,13 +1155,17 @@ const fetchTypes = useCallback(async () => {
   };
 
   const handleCreateAdjustment = async () => {
-    const employeeId = adjForm.employeeId.trim();
+    if (!selectedAdjEmployee) {
+      setError('Please select an employee');
+      return;
+    }
+    const employeeId = selectedAdjEmployee._id;
     const hrUserId = (adjForm.hrUserId || getActorId()).trim();
     const leaveTypeId = adjForm.leaveTypeId;
     const amount = Number(adjForm.amount);
 
-    if (!employeeId || !leaveTypeId || !adjForm.reason.trim() || !hrUserId) {
-      setError('Employee ID, Leave Type, and Reason are required');
+    if (!leaveTypeId || !adjForm.reason.trim() || !hrUserId) {
+      setError('Leave Type and Reason are required');
       return;
     }
     if (Number.isNaN(amount) || amount <= 0) {
@@ -2710,20 +2781,73 @@ const handleResetLeaveYear = async () => {
             <h2 className="text-lg font-semibold text-foreground mb-4">Recalculate Single Employee</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Employee ID *</label>
-                <input
-                  type="text"
-                  value={recalcEmployeeId}
-                  onChange={(e) => setRecalcEmployeeId(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                  placeholder="MongoId"
-                />
+              <div className="relative">
+                <label className="block text-sm font-medium text-foreground mb-1">Employee *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedRecalcEmployee ? `${selectedRecalcEmployee.firstName} ${selectedRecalcEmployee.lastName}` : recalcEmployeeSearch}
+                    onChange={(e) => {
+                      setRecalcEmployeeSearch(e.target.value);
+                      setSelectedRecalcEmployee(null);
+                      setShowRecalcEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowRecalcEmployeeDropdown(true)}
+                    placeholder="Search employee..."
+                    className="w-full px-3 py-2 pl-10 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                  />
+                  <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  {selectedRecalcEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRecalcEmployee(null);
+                        setRecalcEmployeeSearch('');
+                        setRecalcEmployeeId('');
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {showRecalcEmployeeDropdown && !selectedRecalcEmployee && (
+                  <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {loadingEmployees ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : filterEmployees(recalcEmployeeSearch).length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">No employees found</div>
+                    ) : (
+                      filterEmployees(recalcEmployeeSearch).slice(0, 10).map((emp) => (
+                        <button
+                          type="button"
+                          key={emp._id}
+                          onClick={() => {
+                            setSelectedRecalcEmployee(emp);
+                            setRecalcEmployeeSearch('');
+                            setShowRecalcEmployeeDropdown(false);
+                            setRecalcEmployeeId(emp._id);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <div>
+                            <span className="text-sm text-foreground">{emp.firstName} {emp.lastName}</span>
+                            {emp.employeeNumber && <span className="text-xs text-muted-foreground ml-2">#{emp.employeeNumber}</span>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
               <button
                 onClick={handleRecalcEmployee}
-                disabled={loading}
+                disabled={loading || !selectedRecalcEmployee}
                 className="px-4 py-2 bg-foreground text-primary-foreground rounded-lg hover:bg-foreground/90 disabled:opacity-50"
               >
                 {loading ? 'Processing...' : 'Recalculate'}
@@ -2743,17 +2867,70 @@ const handleResetLeaveYear = async () => {
             <h2 className="text-lg font-semibold text-foreground mb-4">Entitlements</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-foreground mb-1">Employee IDs *</label>
-                <textarea
-                  value={entForm.employeeIds}
-                  onChange={(e) => setEntForm({ ...entForm, employeeIds: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                  rows={3}
-                  placeholder="One employeeId OR multiple separated by comma/new line"
-                />
+              <div className="md:col-span-1 relative">
+                <label className="block text-sm font-medium text-foreground mb-1">Employee *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedEntEmployee ? `${selectedEntEmployee.firstName} ${selectedEntEmployee.lastName}` : entEmployeeSearch}
+                    onChange={(e) => {
+                      setEntEmployeeSearch(e.target.value);
+                      setSelectedEntEmployee(null);
+                      setShowEntEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowEntEmployeeDropdown(true)}
+                    placeholder="Search employee..."
+                    className="w-full px-3 py-2 pl-10 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                  />
+                  <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  {selectedEntEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedEntEmployee(null);
+                        setEntEmployeeSearch('');
+                        setEntForm({ ...entForm, employeeIds: '' });
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {showEntEmployeeDropdown && !selectedEntEmployee && (
+                  <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {loadingEmployees ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : filterEmployees(entEmployeeSearch).length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">No employees found</div>
+                    ) : (
+                      filterEmployees(entEmployeeSearch).slice(0, 10).map((emp) => (
+                        <button
+                          type="button"
+                          key={emp._id}
+                          onClick={() => {
+                            setSelectedEntEmployee(emp);
+                            setEntEmployeeSearch('');
+                            setShowEntEmployeeDropdown(false);
+                            setEntForm({ ...entForm, employeeIds: emp._id });
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <div>
+                            <span className="text-sm text-foreground">{emp.firstName} {emp.lastName}</span>
+                            {emp.employeeNumber && <span className="text-xs text-muted-foreground ml-2">#{emp.employeeNumber}</span>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  For Load/Summary you must enter exactly 1 employeeId. For Assign you can enter a group.
+                  Select an employee to load/update entitlements.
                 </p>
               </div>
 
@@ -2892,16 +3069,69 @@ const handleResetLeaveYear = async () => {
 
             {/* Form */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Employee ID *</label>
-                <input
-                  type="text"
-                  value={adjForm.employeeId}
-                  onChange={(e) => setAdjForm({ ...adjForm, employeeId: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                  placeholder="MongoId"
-                />
-                <p className="text-xs text-muted-foreground mt-1">When you type an ID, balances auto-load for preview.</p>
+              <div className="relative">
+                <label className="block text-sm font-medium text-foreground mb-1">Employee *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedAdjEmployee ? `${selectedAdjEmployee.firstName} ${selectedAdjEmployee.lastName}` : adjEmployeeSearch}
+                    onChange={(e) => {
+                      setAdjEmployeeSearch(e.target.value);
+                      setSelectedAdjEmployee(null);
+                      setShowAdjEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowAdjEmployeeDropdown(true)}
+                    placeholder="Search employee..."
+                    className="w-full px-3 py-2 pl-10 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                  />
+                  <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  {selectedAdjEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAdjEmployee(null);
+                        setAdjEmployeeSearch('');
+                        setAdjForm({ ...adjForm, employeeId: '' });
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {showAdjEmployeeDropdown && !selectedAdjEmployee && (
+                  <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {loadingEmployees ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : filterEmployees(adjEmployeeSearch).length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">No employees found</div>
+                    ) : (
+                      filterEmployees(adjEmployeeSearch).slice(0, 10).map((emp) => (
+                        <button
+                          type="button"
+                          key={emp._id}
+                          onClick={() => {
+                            setSelectedAdjEmployee(emp);
+                            setAdjEmployeeSearch('');
+                            setShowAdjEmployeeDropdown(false);
+                            setAdjForm({ ...adjForm, employeeId: emp._id });
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <div>
+                            <span className="text-sm text-foreground">{emp.firstName} {emp.lastName}</span>
+                            {emp.employeeNumber && <span className="text-xs text-muted-foreground ml-2">#{emp.employeeNumber}</span>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Balances auto-load when you select an employee.</p>
               </div>
 
               <div>
@@ -3007,15 +3237,68 @@ const handleResetLeaveYear = async () => {
             <h3 className="text-lg font-semibold text-foreground mb-4">Adjustment History</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Employee ID *</label>
-                <input
-                  type="text"
-                  value={adjHistoryFilter.employeeId}
-                  onChange={(e) => setAdjHistoryFilter({ ...adjHistoryFilter, employeeId: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                  placeholder="MongoId"
-                />
+              <div className="relative">
+                <label className="block text-sm font-medium text-foreground mb-1">Employee *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedHistEmployee ? `${selectedHistEmployee.firstName} ${selectedHistEmployee.lastName}` : histEmployeeSearch}
+                    onChange={(e) => {
+                      setHistEmployeeSearch(e.target.value);
+                      setSelectedHistEmployee(null);
+                      setShowHistEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowHistEmployeeDropdown(true)}
+                    placeholder="Search employee..."
+                    className="w-full px-3 py-2 pl-10 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                  />
+                  <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  {selectedHistEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedHistEmployee(null);
+                        setHistEmployeeSearch('');
+                        setAdjHistoryFilter({ ...adjHistoryFilter, employeeId: '' });
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {showHistEmployeeDropdown && !selectedHistEmployee && (
+                  <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {loadingEmployees ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : filterEmployees(histEmployeeSearch).length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">No employees found</div>
+                    ) : (
+                      filterEmployees(histEmployeeSearch).slice(0, 10).map((emp) => (
+                        <button
+                          type="button"
+                          key={emp._id}
+                          onClick={() => {
+                            setSelectedHistEmployee(emp);
+                            setHistEmployeeSearch('');
+                            setShowHistEmployeeDropdown(false);
+                            setAdjHistoryFilter({ ...adjHistoryFilter, employeeId: emp._id });
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <div>
+                            <span className="text-sm text-foreground">{emp.firstName} {emp.lastName}</span>
+                            {emp.employeeNumber && <span className="text-xs text-muted-foreground ml-2">#{emp.employeeNumber}</span>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

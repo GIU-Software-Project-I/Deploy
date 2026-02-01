@@ -71,33 +71,8 @@ export default function TimeManagementAnalyticsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-destructive">
-          {error}
-        </div>
-      </div>
-    );
-  }
-
-  if (!dashboard) return null;
-
-  const { overview, attendanceTrends, departmentAttendance, shiftDistribution, overtimeAnalysis, 
-          exceptionAnalysis, holidayCalendar, punctualityScore, workPatterns, healthScore, stories } = dashboard;
-
-  // Get unique departments for filter dropdown
-  const departments = departmentAttendance.map(d => ({ id: d.departmentId, name: d.departmentName }));
+  const attendanceTrends = dashboard?.attendanceTrends ?? [];
+  const departmentAttendance = dashboard?.departmentAttendance ?? [];
 
   // Filter attendance trends by date range
   const filteredAttendanceTrends = useMemo(() => {
@@ -147,7 +122,7 @@ export default function TimeManagementAnalyticsPage() {
     const recentTrends = filteredAttendanceTrends.slice(-7);
     const avgOnTimeRate = recentTrends.reduce((sum, t) => sum + t.onTimeRate, 0) / 7;
     const avgMissedPunches = recentTrends.reduce((sum, t) => sum + t.missedPunches, 0) / 7;
-    
+
     // Generate 7-day predictions
     return Array.from({ length: 7 }, (_, i) => ({
       day: `Day +${i + 1}`,
@@ -182,6 +157,34 @@ export default function TimeManagementAnalyticsPage() {
       default: return 'bg-gray-500';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-destructive">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (!dashboard) return null;
+
+  const { overview, shiftDistribution, overtimeAnalysis,
+          exceptionAnalysis, holidayCalendar, punctualityScore, workPatterns, healthScore, stories } = dashboard;
+
+  // Get unique departments for filter dropdown
+  const departments = departmentAttendance.map(d => ({ id: d.departmentId, name: d.departmentName }));
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Activity },
