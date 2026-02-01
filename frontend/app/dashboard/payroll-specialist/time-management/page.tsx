@@ -150,38 +150,38 @@ export default function PayrollTimeManagementPage() {
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'APPROVED':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+        return 'bg-success/15 text-success border border-success/30';
       case 'REJECTED':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        return 'bg-destructive/15 text-destructive border border-destructive/30';
       case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+        return 'bg-warning/15 text-warning border border-warning/30';
       case 'OPEN':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        return 'bg-primary/15 text-primary border border-primary/30';
       case 'ESCALATED':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+        return 'bg-info/15 text-info border border-info/30';
       case 'RESOLVED':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+        return 'bg-accent/15 text-accent border border-accent/30';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+        return 'bg-muted/50 text-muted-foreground border border-border';
     }
   };
 
   const getTypeColor = (type: string): string => {
     switch (type) {
       case 'OVERTIME_REQUEST':
-        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300';
+        return 'bg-primary/15 text-primary border border-primary/30';
       case 'SHORT_TIME':
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+        return 'bg-warning/15 text-warning border border-warning/30';
       case 'LATE':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        return 'bg-destructive/15 text-destructive border border-destructive/30';
       case 'EARLY_LEAVE':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+        return 'bg-info/15 text-info border border-info/30';
       case 'MISSED_PUNCH':
-        return 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300';
+        return 'bg-destructive/15 text-destructive border border-destructive/30';
       case 'MANUAL_ADJUSTMENT':
-        return 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300';
+        return 'bg-success/15 text-success border border-success/30';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+        return 'bg-muted/50 text-muted-foreground border border-border';
     }
   };
 
@@ -245,7 +245,7 @@ export default function PayrollTimeManagementPage() {
 
         {/* Alerts */}
         {error && (
-          <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+          <div className="rounded-lg bg-destructive/10 p-4 text-destructive border border-destructive/30">
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
@@ -256,7 +256,7 @@ export default function PayrollTimeManagementPage() {
         )}
 
         {success && (
-          <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-4 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
+          <div className="rounded-lg bg-success/10 p-4 text-success border border-success/30">
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -274,31 +274,31 @@ export default function PayrollTimeManagementPage() {
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Open</p>
-            <p className="text-2xl font-bold text-blue-600 mt-1">{stats.open}</p>
+            <p className="text-2xl font-bold text-primary mt-1">{stats.open}</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending</p>
-            <p className="text-2xl font-bold text-yellow-600 mt-1">{stats.pending}</p>
+            <p className="text-2xl font-bold text-warning mt-1">{stats.pending}</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Approved</p>
-            <p className="text-2xl font-bold text-green-600 mt-1">{stats.approved}</p>
+            <p className="text-2xl font-bold text-success mt-1">{stats.approved}</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Rejected</p>
-            <p className="text-2xl font-bold text-red-600 mt-1">{stats.rejected}</p>
+            <p className="text-2xl font-bold text-destructive mt-1">{stats.rejected}</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Resolved</p>
-            <p className="text-2xl font-bold text-purple-600 mt-1">{stats.resolved}</p>
+            <p className="text-2xl font-bold text-accent mt-1">{stats.resolved}</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Overtime</p>
-            <p className="text-2xl font-bold text-indigo-600 mt-1">{stats.overtime}</p>
+            <p className="text-2xl font-bold text-primary mt-1">{stats.overtime}</p>
           </div>
           <div className="bg-card rounded-xl border border-border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Short Time</p>
-            <p className="text-2xl font-bold text-amber-600 mt-1">{stats.shortTime}</p>
+            <p className="text-2xl font-bold text-warning mt-1">{stats.shortTime}</p>
           </div>
         </div>
 
@@ -312,7 +312,7 @@ export default function PayrollTimeManagementPage() {
             <button
               onClick={handleExportCSV}
               disabled={exporting || exceptions.length === 0}
-              className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2.5 bg-success text-success-foreground font-medium rounded-lg hover:bg-success/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exporting ? (
                 <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -329,7 +329,7 @@ export default function PayrollTimeManagementPage() {
             <button
               onClick={handleExportJSON}
               disabled={exporting || exceptions.length === 0}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exporting ? (
                 <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">

@@ -195,10 +195,10 @@ export default function HREmployeePerformancePage() {
   };
 
   const statusColors: Record<string, string> = {
-    PENDING: 'bg-muted text-muted-foreground border-border',
-    IN_PROGRESS: 'bg-primary/10 text-primary border-primary/30',
-    SUBMITTED: 'bg-info/10 text-info border-info/30',
-    PUBLISHED: 'bg-success/10 text-success border-success/30',
+    PENDING: 'bg-muted/50 text-muted-foreground border border-border',
+    IN_PROGRESS: 'bg-primary/15 text-primary border border-primary/30',
+    SUBMITTED: 'bg-warning/15 text-warning border border-warning/30',
+    PUBLISHED: 'bg-success/15 text-success border border-success/30',
   };
 
   const filteredAssignments = assignments.filter(a => {
@@ -246,21 +246,21 @@ export default function HREmployeePerformancePage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Active Tasks', value: assignments.length, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', bg: 'bg-primary/10 text-primary' },
-          { label: 'Pending', value: assignments.filter(a => a.status === 'PENDING').length, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-muted text-muted-foreground' },
-          { label: 'In Progress', value: assignments.filter(a => a.status === 'IN_PROGRESS').length, icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-primary text-primary-foreground' },
-          { label: 'Published', value: assignments.filter(a => a.status === 'PUBLISHED').length, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-success text-success-foreground' },
+          { label: 'Active Tasks', value: assignments.length, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', bg: 'bg-primary/12 text-primary' },
+          { label: 'Pending', value: assignments.filter(a => a.status === 'PENDING').length, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-muted/60 text-muted-foreground' },
+          { label: 'In Progress', value: assignments.filter(a => a.status === 'IN_PROGRESS').length, icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-warning/12 text-warning' },
+          { label: 'Published', value: assignments.filter(a => a.status === 'PUBLISHED').length, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-success/12 text-success' },
         ].map((stat, i) => (
           <div key={i} className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 ${stat.bg || ''} rounded-lg flex items-center justify-center`}>
+              <div className={`w-10 h-10 ${stat.bg || ''} rounded-lg flex items-center justify-center flex-shrink-0`}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
                 </svg>
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
-                <p className="text-2xl font-black text-foreground">{stat.value}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground truncate">{stat.label}</p>
+                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
               </div>
             </div>
           </div>
