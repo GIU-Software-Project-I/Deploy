@@ -11,6 +11,8 @@ export { payrollTrackingService } from './payroll-tracking';
 export { performanceService } from './performance';
 export { onboardingService } from './onboarding';
 export { offboardingService } from './offboarding';
+export { openaiService } from './openai';
 
 export type { LoginRequest, LoginResponse, RegisterCandidateRequest, RegisterCandidateResponse, LogoutResponse } from './auth';
+export type { ChatMessage, ChatRequest, CompletionRequest, AIResponse, AIStatusResponse } from './openai';
 

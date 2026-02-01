@@ -8,8 +8,32 @@ import {
   ShiftAssignmentStatus,
   AssignShiftDto,
 } from '@/app/services/time-management';
-import { useAuth } from '@/app/context/AuthContext';
-import notificationsService from "@/app/services/notifications";
+import { employeeProfileService } from '@/app/services/employee-profile';
+import { organizationStructureService } from '@/app/services/organization-structure';
+import { useAuth } from '@/context/AuthContext';
+import { Users, Calendar, Clock, X, Loader2, CheckCircle } from 'lucide-react';
+
+// Employee interface for dropdown
+interface EmployeeOption {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber?: string;
+}
+
+// Department interface
+interface DepartmentOption {
+  _id: string;
+  name: string;
+  code?: string;
+}
+
+// Position interface
+interface PositionOption {
+  _id: string;
+  title: string;
+  code?: string;
+}
 
 export default function ShiftAssignmentsPage() {
   const { user } = useAuth();
@@ -21,6 +45,17 @@ export default function ShiftAssignmentsPage() {
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [scheduleRules, setScheduleRules] = useState<any[]>([]);
+
+  // Employee/Department selection state
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+  const [positions, setPositions] = useState<PositionOption[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeOption | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<DepartmentOption | null>(null);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [departmentSearch, setDepartmentSearch] = useState('');
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
 
   // Form state
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -41,26 +76,27 @@ export default function ShiftAssignmentsPage() {
   // Filters
   const [statusFilter, setStatusFilter] = useState<ShiftAssignmentStatus | 'ALL'>('ALL');
 
-  // Expiry notifications
-  const [expiringAssignments, setExpiringAssignments] = useState<ShiftAssignment[]>([]);
-  const [showExpiryNotifications, setShowExpiryNotifications] = useState(true);
-  const [dismissedExpiryIds, setDismissedExpiryIds] = useState<Set<string>>(new Set());
 
   // Fetch all shift assignments and shifts
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [assignmentsRes, shiftsRes, rulesRes] = await Promise.all([
+      const [assignmentsRes, shiftsRes, rulesRes, employeesRes, deptsRes, positionsRes] = await Promise.all([
         timeManagementService.getAllAssignments(),
         timeManagementService.getShifts(),
         timeManagementService.getScheduleRules(),
+        employeeProfileService.getAllEmployees(1, 500) as Promise<any>,
+        organizationStructureService.getDepartments().catch(() => ({ data: [] })),
+        organizationStructureService.getPositions().catch(() => ({ data: [] })),
       ]);
 
       // Log for debugging
       console.log('Assignments Response:', assignmentsRes);
       console.log('Shifts Response:', shiftsRes);
       console.log('Schedule Rules Response:', rulesRes);
+      console.log('Departments Response:', deptsRes);
+      console.log('Positions Response:', positionsRes);
 
       // Safely extract data and filter out undefined items
       const assignmentsData = Array.isArray(assignmentsRes.data)
@@ -80,6 +116,37 @@ export default function ShiftAssignmentsPage() {
         : Array.isArray(rulesRes)
           ? rulesRes.filter(Boolean)
           : [];
+
+      // Extract employees
+      const empData = employeesRes?.data?.data || employeesRes?.data || employeesRes || [];
+      if (Array.isArray(empData)) {
+        setEmployees(empData.map((emp: any) => ({
+          _id: emp._id,
+          firstName: emp.firstName || '',
+          lastName: emp.lastName || '',
+          employeeNumber: emp.employeeNumber || ''
+        })));
+      }
+
+      // Extract departments from organization service
+      const deptData = (deptsRes as any)?.data?.data || (deptsRes as any)?.data || deptsRes || [];
+      if (Array.isArray(deptData)) {
+        setDepartments(deptData.map((dept: any) => ({
+          _id: dept._id,
+          name: dept.name || dept.departmentName || 'Unknown',
+          code: dept.code
+        })));
+      }
+
+      // Extract positions from organization service
+      const posData = (positionsRes as any)?.data?.data || (positionsRes as any)?.data || positionsRes || [];
+      if (Array.isArray(posData)) {
+        setPositions(posData.map((pos: any) => ({
+          _id: pos._id,
+          title: pos.title || pos.name || 'Unknown',
+          code: pos.code
+        })));
+      }
 
       setAssignments(assignmentsData);
       setShifts(shiftsData);
@@ -157,50 +224,10 @@ export default function ShiftAssignmentsPage() {
     }
   };
 
-  // Fetch shift expiry notifications from backend (ShiftExpiryScheduler creates these daily)
-  const fetchExpiringNotifications = async () => {
-    try {
-      // Fetch SHIFT_EXPIRY notifications that were created by the backend scheduler
-      const response = await notificationsService.getAllNotifications('SHIFT_EXPIRY');
-
-      if (response.error || !response.data) {
-        console.warn('[ShiftAssignments] Failed to fetch expiring notifications:', response.error);
-        setExpiringAssignments([]);
-        return;
-      }
-
-      // Extract assignment IDs from notification messages and match with assignments
-      const expiringAssignmentIds = response.data
-        .map((notification) => {
-          // Message format: "Shift assignment <ID> for employee <empId> expires on <date>..."
-          const match = notification.message.match(/Shift assignment ([a-f\d]{24})/);
-          return match?.[1];
-        })
-        .filter(Boolean);
-
-      // Filter assignments to show only those with expiry notifications
-      const expiring = assignments.filter((a) => expiringAssignmentIds.includes(a._id));
-
-      setExpiringAssignments(expiring);
-      console.log('[ShiftAssignments] Fetched expiring assignments from backend:', expiring.length);
-    } catch (err) {
-      console.error('[ShiftAssignments] Error fetching expiring notifications:', err);
-    }
-  };
-
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Fetch expiring shift notifications from backend scheduler
-  useEffect(() => {
-    fetchExpiringNotifications();
-
-    // Re-check every 60 minutes for new notifications from the scheduler
-    const intervalId = setInterval(fetchExpiringNotifications, 60 * 60 * 1000);
-
-    return () => clearInterval(intervalId);
-  }, [assignments]);
 
   // Handle form submission
   const handleAssignShift = async (e: React.FormEvent) => {
@@ -420,132 +447,52 @@ export default function ShiftAssignmentsPage() {
     return shifts.find((s) => s._id === shiftId)?.name || shiftId;
   };
 
-  // Calculate days until expiry
-  const getDaysUntilExpiry = (endDate: string | Date): number => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(0, 0, 0, 0);
-    const timeDiff = end.getTime() - today.getTime();
-    return Math.ceil(timeDiff / (1000 * 3600 * 24));
-  };
-
-  // Dismiss an expiry notification
-  const handleDismissExpiry = (assignmentId: string) => {
-    const newDismissed = new Set(dismissedExpiryIds);
-    newDismissed.add(assignmentId);
-    setDismissedExpiryIds(newDismissed);
-  };
-
-  // Get unread expiry notifications (not dismissed)
-  const getUnreadExpiryNotifications = () => {
-    return expiringAssignments.filter(a => !dismissedExpiryIds.has(a._id));
-  };
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Shift Assignments</h1>
-        <button
-          onClick={() => setShowAssignModal(true)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          Assign Shift
-        </button>
-      </div>
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Shift Assignments</h1>
+            <p className="text-muted-foreground mt-1">Manage employee shift schedules and assignments</p>
+          </div>
+          <button
+            onClick={() => setShowAssignModal(true)}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2"
+          >
+            <Calendar className="w-5 h-5" />
+            Assign Shift
+          </button>
+        </div>
 
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-700">
-          {error}
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-destructive/70 hover:text-destructive">
+            <X className="w-5 h-5" />
+          </button>
         </div>
       )}
 
       {success && (
-        <div className="mb-4 rounded-lg bg-green-50 p-4 text-green-700">
+        <div className="bg-success/10 border border-success/20 text-success px-4 py-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" />
           {success}
         </div>
       )}
 
-      {/* Expiry Notifications Banner */}
-      {showExpiryNotifications && getUnreadExpiryNotifications().length > 0 && (
-        <div className="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h3 className="mb-3 flex items-center text-lg font-semibold text-orange-900">
-                <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-orange-200 text-sm font-bold">
-                  ⚠
-                </span>
-                {getUnreadExpiryNotifications().length} Shift Assignment(s) Expiring Soon
-              </h3>
-              <div className="space-y-2">
-                {getUnreadExpiryNotifications().map((assignment) => {
-                  const daysLeft = assignment.endDate ? getDaysUntilExpiry(assignment.endDate) : 0;
-                  const targetName =
-                    assignment.employeeId ? `Employee: ${assignment.employeeId}` :
-                    assignment.departmentId ? `Department: ${assignment.departmentId}` :
-                    assignment.positionId ? `Position: ${assignment.positionId}` :
-                    'Unknown Target';
-
-                  return (
-                    <div key={assignment._id} className="flex items-center justify-between rounded bg-orange-100 px-3 py-2">
-                      <div className="text-sm text-orange-800">
-                        <strong>{getShiftName(assignment.shiftId)}</strong> for {targetName} expires in{' '}
-                        <strong className="text-orange-900">
-                          {daysLeft} day{daysLeft !== 1 ? 's' : ''}
-                        </strong>
-                        {assignment.endDate && (
-                          <span className="ml-2 text-xs">
-                            ({new Date(assignment.endDate).toLocaleDateString()})
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setStatusFilter(ShiftAssignmentStatus.APPROVED);
-                            setViewType(
-                              assignment.employeeId ? 'employee' :
-                              assignment.departmentId ? 'department' :
-                              'position'
-                            );
-                          }}
-                          className="rounded bg-orange-600 px-2 py-1 text-xs text-white hover:bg-orange-700"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleDismissExpiry(assignment._id)}
-                          className="rounded bg-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-400"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setShowExpiryNotifications(false)}
-                className="mt-3 text-xs font-medium text-orange-700 hover:text-orange-900"
-              >
-                Hide All Notifications
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* View Type Tabs */}
-      <div className="mb-6 border-b border-gray-200">
+      <div className="border-b border-border">
         <div className="flex gap-0">
           {(['employee', 'department', 'position'] as const).map((type) => (
             <button
               key={type}
               onClick={() => setViewType(type)}
-              className={`px-6 py-3 font-medium transition border-b-2 ${
+              className={`px-6 py-3 font-medium transition border-b-2 -mb-px ${
                 viewType === type
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <span className="capitalize">
@@ -553,7 +500,7 @@ export default function ShiftAssignmentsPage() {
                 {type === 'department' && 'Department Assignments'}
                 {type === 'position' && 'Position Assignments'}
               </span>
-              <span className="ml-2 text-sm text-gray-500">
+              <span className="ml-2 text-sm text-muted-foreground">
                 ({assignments.filter((a) =>
                   type === 'employee' ? (a.employeeId && a.employeeId !== '') :
                   type === 'department' ? (a.departmentId && a.departmentId !== '') :
@@ -566,15 +513,15 @@ export default function ShiftAssignmentsPage() {
       </div>
 
       {/* Status Filter */}
-      <div className="mb-6 flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {(['ALL', ...Object.values(ShiftAssignmentStatus)] as const).map((status) => (
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
             className={`rounded-lg px-4 py-2 font-medium transition ${
               statusFilter === status
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
             }`}
           >
             {status}
@@ -584,74 +531,91 @@ export default function ShiftAssignmentsPage() {
 
       {/* Assignments Table */}
       {loading ? (
-        <div className="flex justify-center py-8">
-          <div className="text-gray-500">Loading assignments...</div>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="ml-3 text-muted-foreground">Loading assignments...</span>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="border-b bg-gray-50">
+            <thead className="bg-muted/50 border-b border-border">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                  {viewType === 'employee' && 'Employee ID'}
-                  {viewType === 'department' && 'Department ID'}
-                  {viewType === 'position' && 'Position ID'}
+                <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+                  {viewType === 'employee' && 'Employee'}
+                  {viewType === 'department' && 'Department'}
+                  {viewType === 'position' && 'Position'}
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
                   Shift
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
                   Start Date
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
                   End Date
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">
+                <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {filteredAssignments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    No shift assignments found
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <Clock className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+                    <p className="text-muted-foreground">No shift assignments found</p>
                   </td>
                 </tr>
               ) : (
                 filteredAssignments.map((assignment, index) => {
                   if (!assignment) return null;
                   return (
-                    <tr key={assignment._id || index} className="border-b hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {viewType === 'employee' && (assignment.employeeId || 'N/A')}
-                        {viewType === 'department' && (assignment.departmentId || 'N/A')}
+                    <tr key={assignment._id || index} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-6 py-4 text-sm text-foreground">
+                        {viewType === 'employee' && (
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-medium">
+                              {employees.find(e => e._id === assignment.employeeId)?.firstName?.[0] || '?'}
+                              {employees.find(e => e._id === assignment.employeeId)?.lastName?.[0] || ''}
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                {employees.find(e => e._id === assignment.employeeId)
+                                  ? `${employees.find(e => e._id === assignment.employeeId)?.firstName} ${employees.find(e => e._id === assignment.employeeId)?.lastName}`
+                                  : 'Unknown Employee'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {viewType === 'department' && (departments.find(d => d._id === assignment.departmentId)?.name || assignment.departmentId || 'N/A')}
                         {viewType === 'position' && (assignment.positionId || 'N/A')}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-foreground">
                         {getShiftName(assignment.shiftId)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
                         {assignment.startDate ? new Date(assignment.startDate).toLocaleDateString() : 'N/A'}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
                         {assignment.endDate
                           ? new Date(assignment.endDate).toLocaleDateString()
                           : 'N/A'}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <span
-                          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+                          className={`inline-block rounded-lg px-3 py-1 text-xs font-semibold border ${
                             assignment.status === ShiftAssignmentStatus.APPROVED
-                              ? 'bg-green-100 text-green-800'
+                              ? 'bg-success/10 text-success border-success/30'
                               : assignment.status === ShiftAssignmentStatus.PENDING
-                                ? 'bg-yellow-100 text-yellow-800'
+                                ? 'bg-warning/10 text-warning border-warning/30'
                                 : assignment.status === ShiftAssignmentStatus.CANCELLED
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-gray-100 text-gray-800'
+                                  ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                  : 'bg-muted text-muted-foreground border-border'
                           }`}
                         >
                           {assignment.status || 'UNKNOWN'}
@@ -659,7 +623,7 @@ export default function ShiftAssignmentsPage() {
                       </td>
                       <td className="px-6 py-4 text-sm">
                         {assignment.status === ShiftAssignmentStatus.PENDING && (
-                          <>
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={() =>
                                 handleStatusUpdate(
@@ -667,7 +631,7 @@ export default function ShiftAssignmentsPage() {
                                   ShiftAssignmentStatus.APPROVED
                                 )
                               }
-                              className="mr-2 rounded bg-green-600 px-3 py-1 text-white hover:bg-green-700"
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-success/10 text-success border border-success/30 hover:bg-success/20 transition-colors"
                             >
                               Approve
                             </button>
@@ -678,7 +642,7 @@ export default function ShiftAssignmentsPage() {
                                   ShiftAssignmentStatus.CANCELLED
                                 )
                               }
-                              className="mr-2 rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700"
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20 transition-colors"
                             >
                               Reject
                             </button>
@@ -689,17 +653,17 @@ export default function ShiftAssignmentsPage() {
                                   ShiftAssignmentStatus.CANCELLED
                                 )
                               }
-                              className="rounded bg-gray-600 px-3 py-1 text-white hover:bg-gray-700"
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-muted text-muted-foreground border border-border hover:bg-muted/80 transition-colors"
                             >
                               Cancel
                             </button>
-                          </>
+                          </div>
                         )}
                         {assignment.status === ShiftAssignmentStatus.APPROVED && (
-                          <>
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleExpireAssignment(assignment._id)}
-                              className="mr-2 rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700"
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20 transition-colors"
                             >
                               Expire
                             </button>
@@ -710,11 +674,11 @@ export default function ShiftAssignmentsPage() {
                                   ShiftAssignmentStatus.CANCELLED
                                 )
                               }
-                              className="rounded bg-gray-600 px-3 py-1 text-white hover:bg-gray-700"
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-muted text-muted-foreground border border-border hover:bg-muted/80 transition-colors"
                             >
                               Cancel
                             </button>
-                          </>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -723,19 +687,25 @@ export default function ShiftAssignmentsPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* Assign Shift Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-lg max-h-96 overflow-y-auto">
-            <h2 className="mb-4 text-xl font-bold">Assign Shift</h2>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-card border border-border p-6 shadow-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-foreground">Assign Shift</h2>
+              <button onClick={() => setShowAssignModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             {/* Validation Errors */}
             {validationErrors.length > 0 && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 border border-red-200">
-                <ul className="list-disc list-inside text-red-700 text-sm">
+              <div className="mb-4 rounded-lg bg-destructive/10 p-3 border border-destructive/30">
+                <ul className="list-disc list-inside text-destructive text-sm">
                   {validationErrors.map((err, i) => (
                     <li key={i}>{err}</li>
                   ))}
@@ -746,7 +716,7 @@ export default function ShiftAssignmentsPage() {
             <form onSubmit={handleAssignShift} className="space-y-4">
               {/* Assignment Type Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Assign To
                 </label>
                 <div className="flex gap-4">
@@ -759,6 +729,8 @@ export default function ShiftAssignmentsPage() {
                         checked={assignmentType === type}
                         onChange={(e) => {
                           setAssignmentType(e.target.value as any);
+                          setSelectedEmployee(null);
+                          setSelectedDepartment(null);
                           setFormData({
                             shiftId: formData.shiftId,
                             startDate: formData.startDate,
@@ -766,71 +738,122 @@ export default function ShiftAssignmentsPage() {
                             status: formData.status,
                           });
                         }}
-                        className="w-4 h-4"
+                        className="w-4 h-4 accent-primary"
                       />
-                      <span className="text-sm capitalize font-medium">{type}</span>
+                      <span className="text-sm capitalize font-medium text-foreground">{type}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              {/* Target ID Input - Employee */}
+              {/* Target Selection - Employee */}
               {assignmentType === 'employee' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Employee ID *
+                <div className="relative">
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Employee *
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Enter Employee ID (MongoDB ObjectId)"
-                    value={formData.employeeId || ''}
-                    onChange={(e) =>
-                      setFormData({ ...formData, employeeId: e.target.value })
-                    }
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : employeeSearch}
+                      onChange={(e) => {
+                        setEmployeeSearch(e.target.value);
+                        setSelectedEmployee(null);
+                        setShowEmployeeDropdown(true);
+                      }}
+                      onFocus={() => setShowEmployeeDropdown(true)}
+                      placeholder="Search employee by name..."
+                      className="w-full px-3 py-2 pl-10 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    {selectedEmployee && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedEmployee(null);
+                          setEmployeeSearch('');
+                          setFormData({ ...formData, employeeId: '' });
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {showEmployeeDropdown && !selectedEmployee && (
+                    <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {employees.filter(emp => {
+                        const searchLower = employeeSearch.toLowerCase();
+                        return `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(searchLower);
+                      }).slice(0, 10).map((emp) => (
+                        <button
+                          type="button"
+                          key={emp._id}
+                          onClick={() => {
+                            setSelectedEmployee(emp);
+                            setEmployeeSearch('');
+                            setShowEmployeeDropdown(false);
+                            setFormData({ ...formData, employeeId: emp._id });
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <span className="text-sm text-foreground">{emp.firstName} {emp.lastName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Target ID Input - Department */}
+              {/* Target Selection - Department */}
               {assignmentType === 'department' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Department ID *
+                <div className="relative">
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Department *
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Enter Department ID (MongoDB ObjectId)"
+                  <select
                     value={(formData as any).departmentId || ''}
-                    onChange={(e) =>
-                      setFormData({ ...(formData as any), departmentId: e.target.value })
-                    }
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  />
+                    onChange={(e) => setFormData({ ...(formData as any), departmentId: e.target.value })}
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((dept) => (
+                      <option key={dept._id} value={dept._id}>{dept.name}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 
-              {/* Target ID Input - Position */}
+              {/* Target Selection - Position */}
               {assignmentType === 'position' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Position ID *
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Position *
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Enter Position ID (MongoDB ObjectId)"
+                  <select
                     value={(formData as any).positionId || ''}
                     onChange={(e) =>
                       setFormData({ ...(formData as any), positionId: e.target.value })
                     }
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  />
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select Position</option>
+                    {positions.map((pos) => (
+                      <option key={pos._id} value={pos._id}>
+                        {pos.title} {pos.code ? `(${pos.code})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
 
               {/* Shift Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Shift *
                 </label>
                 <select
@@ -838,7 +861,7 @@ export default function ShiftAssignmentsPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, shiftId: e.target.value })
                   }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">Select a shift</option>
                   {shifts.map((shift) => (
@@ -852,7 +875,7 @@ export default function ShiftAssignmentsPage() {
               {/* Date Range */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Start Date *
                   </label>
                   <input
@@ -865,12 +888,12 @@ export default function ShiftAssignmentsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, startDate: e.target.value })
                     }
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     End Date (Optional)
                   </label>
                   <input
@@ -883,14 +906,14 @@ export default function ShiftAssignmentsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, endDate: e.target.value })
                     }
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
 
               {/* Schedule Rule Selection (Optional) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Schedule Rule (Optional)
                 </label>
                 <select
@@ -898,7 +921,7 @@ export default function ShiftAssignmentsPage() {
                   onChange={(e) =>
                     setFormData({ ...(formData as any), scheduleRuleId: e.target.value || undefined })
                   }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">None - Static Assignment</option>
                   {scheduleRules.map((rule: any) => (
@@ -907,14 +930,14 @@ export default function ShiftAssignmentsPage() {
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Optionally select a schedule rule for rotating shifts
                 </p>
               </div>
 
               {/* Status Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Status
                 </label>
                 <select
@@ -922,7 +945,7 @@ export default function ShiftAssignmentsPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, status: e.target.value as any })
                   }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value={ShiftAssignmentStatus.PENDING}>Pending</option>
                   <option value={ShiftAssignmentStatus.APPROVED}>Approved</option>
@@ -930,29 +953,30 @@ export default function ShiftAssignmentsPage() {
               </div>
 
               {/* Form Actions */}
-              <div className="flex gap-3 pt-4 border-t">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-400 text-sm font-medium"
-                >
-                  {loading ? 'Assigning...' : 'Assign Shift'}
-                </button>
+              <div className="flex gap-3 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAssignModal(false);
                     setValidationErrors([]);
                   }}
-                  className="flex-1 rounded-lg bg-gray-300 px-4 py-2 text-gray-800 hover:bg-gray-400 text-sm font-medium"
+                  className="flex-1 px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors font-medium"
+                >
+                  {loading ? 'Assigning...' : 'Assign Shift'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

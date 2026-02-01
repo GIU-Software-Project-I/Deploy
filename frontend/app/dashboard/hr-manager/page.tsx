@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { employeeProfileService } from '@/app/services/employee-profile';
 import { performanceService } from '@/app/services/performance';
 import { 
@@ -12,10 +12,10 @@ import {
   getOffers 
 } from '@/app/services/recruitment';
 import { onboardingService } from '@/app/services/onboarding';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   Users,
   Briefcase,

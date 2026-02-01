@@ -1429,7 +1429,17 @@ export class AttendanceService {
                         att.exceptionIds.push(new Types.ObjectId((ex as any)._id));
                         att.finalisedForPayroll = false;
 
-                        // Repeated lateness evaluation
+                        // Check threshold and notify immediately after late is recorded
+                        try {
+                            const thresholdResult = await this.repeatedLatenessService.checkThresholdAndNotify(att.employeeId);
+                            if (thresholdResult.thresholdExceeded) {
+                                this.logger.log(`[RECOMPUTE] Employee ${att.employeeId} exceeded lateness threshold: ${thresholdResult.count}/${thresholdResult.threshold}`);
+                            }
+                        } catch (e) {
+                            this.logger.warn('Threshold check failed', e);
+                        }
+
+                        // Repeated lateness evaluation (for escalation if needed)
                         try {
                             await this.repeatedLatenessService.evaluateAndEscalateIfNeeded(att.employeeId);
                         } catch (e) {

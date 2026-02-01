@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { onboardingService, Onboarding, OnboardingTaskStatus } from '@/app/services/onboarding';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Users,
   CheckSquare,
@@ -78,6 +78,12 @@ export default function OnboardingDashboard() {
     if (progress >= 50) return 'bg-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]';
     if (progress >= 25) return 'bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]';
     return 'bg-destructive shadow-[0_0_15px_rgba(239,68,68,0.3)]';
+  };
+
+  const getEmployeeDisplayName = (emp: any) => {
+    if (!emp) return 'Elite Talent';
+    if (typeof emp === 'string') return emp; // Fallback if not populated
+    return `${emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Elite Talent'}${emp.employeeNumber ? ` (${emp.employeeNumber})` : ''}`;
   };
 
   if (loading) {
@@ -252,10 +258,7 @@ export default function OnboardingDashboard() {
               ) : (
                 filteredOnboardings.map((onboarding) => {
                   const progress = calculateProgress(onboarding.tasks);
-                  const employee = typeof onboarding.employeeId === 'object' ? onboarding.employeeId as any : null;
-                  const employeeName = employee
-                    ? `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'Elite Talent'
-                    : 'Elite Talent';
+                  const employeeName = getEmployeeDisplayName(onboarding.employeeId);
 
                   return (
                     <div key={onboarding._id} className="group hover:bg-muted/30 transition-all p-6 relative">

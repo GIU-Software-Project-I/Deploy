@@ -3,22 +3,21 @@ import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { PayrollExecutionModule} from './modules/payroll/payroll-execution/payroll-execution.module';
+import { PayrollExecutionModule } from './modules/payroll/payroll-execution/payroll-execution.module';
 import { PayrollConfigurationModule } from './modules/payroll/payroll-configuration/payroll-configuration.module';
-import {TimeManagementModule} from "./modules/time-management/time-management.module";
+import { TimeManagementModule } from "./modules/time-management/time-management.module";
 import { PayrollTrackingModule } from './modules/payroll/payroll-tracking/payroll-tracking.module';
-
-import { OrganizationStructureModule } from "./modules/employee/organization-structure.module";
+import { OrganizationStructureModule } from "./modules/organization-structure/organization-structure.module";
 import { EmployeeModule } from "./modules/employee/employee.module";
-import { PerformanceModule } from "./modules/employee/performance.module";
+import { PerformanceModule } from "./modules/performance/performance.module";
 import { LeavesModule } from "./modules/leaves/leaves.module";
-import { AuthModule } from "./modules/auth/auth-module";
-import {AuthorizationGuard} from "./modules/auth/guards/authorization-guard";
-import {AuthenticationGuard} from "./modules/auth/guards/authentication-guard";
-import {BackupModule} from "./modules/payroll/payroll-configuration/backup/backup-module";
-import {RecruitmentModule} from "./modules/recruitment/recruitment.module";
-
-
+import { AuthModule } from "./modules/auth/auth.module";
+import { AuthorizationGuard } from "./modules/common/guards/authorization-guard";
+import { AuthenticationGuard } from "./modules/common/guards/authentication-guard";
+import { BackupModule } from "./modules/data-backup/backup-module";
+import { RecruitmentModule } from "./modules/recruitment/recruitment.module";
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { OpenAIModule } from './modules/openai/openai.module';
 
 @Module({
     imports: [
@@ -32,22 +31,22 @@ import {RecruitmentModule} from "./modules/recruitment/recruitment.module";
             inject: [ConfigService],
         }),
         AuthModule,
-        PayrollExecutionModule,
-        PayrollConfigurationModule,
-        PayrollTrackingModule,
-        RecruitmentModule,
+        BackupModule,
         EmployeeModule,
         OrganizationStructureModule,
         PerformanceModule,
-        BackupModule,
         TimeManagementModule,
+        RecruitmentModule,
         LeavesModule,
-
-
+        PayrollConfigurationModule,
+        PayrollExecutionModule,
+        PayrollTrackingModule,
+        AnalyticsModule,
+        OpenAIModule,
     ],
-    // providers: [
-    //     { provide: APP_GUARD, useClass: AuthenticationGuard },
-    //     { provide: APP_GUARD, useClass: AuthorizationGuard },
-    // ],
+    providers: [
+        // { provide: APP_GUARD, useClass: AuthenticationGuard },
+        // { provide: APP_GUARD, useClass: AuthorizationGuard },
+    ],
 })
-export class AppModule {}
+export class AppModule { }

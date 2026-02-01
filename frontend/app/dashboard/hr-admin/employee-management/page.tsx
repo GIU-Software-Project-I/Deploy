@@ -8,8 +8,11 @@ import {
   EditEmployeeModal,
   RoleAssignmentModal,
   DeactivateEmployeeModal,
+  SearchInsightsPanel,
+  Talent9BoxGrid,
   Employee,
-} from '@/app/components/hr-admin';
+} from '@/components/hr-admin';
+import { analyticsService, OrgPulseResponse } from '@/app/services/analytics';
 
 export default function EmployeeManagementPage() {
   const [loading, setLoading] = useState(true);
@@ -18,9 +21,16 @@ export default function EmployeeManagementPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Advanced Stats & Insights
+  const [showInsights, setShowInsights] = useState(true);
+  const [orgPulse, setOrgPulse] = useState<OrgPulseResponse | null>(null);
+
+  // View Modes
+  const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
+
   // Pagination
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit] = useState(20);
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,16 +103,23 @@ export default function EmployeeManagementPage() {
     fetchEmployees();
   }, [page, limit, debouncedSearch, statusFilter]);
 
-  // Fetch stats
+  // Fetch stats & pulse
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await employeeProfileService.getEmployeeCountByStatus();
-        if (response.data) {
-          setStats(response.data as Record<string, number>);
+        const [statsRes, pulseRes] = await Promise.all([
+          employeeProfileService.getEmployeeCountByStatus(),
+          analyticsService.getOrgPulse()
+        ]);
+
+        if (statsRes.data) {
+          setStats(statsRes.data as Record<string, number>);
+        }
+        if (pulseRes) {
+          setOrgPulse(pulseRes);
         }
       } catch (err) {
-        console.error('Failed to fetch stats:', err);
+        console.error('Failed to fetch analytics stats:', err);
       }
     };
     fetchStats();
@@ -160,8 +177,8 @@ export default function EmployeeManagementPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-2 bg-primary rounded-lg">
+                <svg className="w-6 h-6 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
@@ -171,27 +188,66 @@ export default function EmployeeManagementPage() {
               Manage employee profiles, roles, and access permissions (BR 20a)
             </p>
           </div>
-          <Link
-            href="/dashboard/hr-admin"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground bg-card border border-border rounded-lg hover:bg-accent hover:text-foreground transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            {/* View Mode Switcher */}
+            <div className="hidden lg:flex p-1 bg-muted rounded-xl gap-1 mr-2">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setViewMode('matrix')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === 'matrix' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Matrix
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowInsights(!showInsights)}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${showInsights ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'bg-card text-muted-foreground border border-border hover:bg-accent'}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              {showInsights ? 'Hide Insights' : 'Show Smart Insights'}
+            </button>
+            <Link
+              href="/dashboard/hr-admin"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground bg-card border border-border rounded-lg hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </Link>
+          </div>
         </div>
+
+        {/* Smart Insights Panel */}
+        {showInsights && (
+          <SearchInsightsPanel
+            stats={orgPulse}
+            filteredEmployees={employees}
+            loading={loading && employees.length === 0}
+          />
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
-            { label: 'Total Employees', value: totalCount, color: 'blue' },
-            { label: 'Active', value: stats['ACTIVE'] || 0, color: 'green' },
-            { label: 'On Leave', value: stats['ON_LEAVE'] || 0, color: 'amber' },
-            { label: 'Probation', value: stats['PROBATION'] || 0, color: 'purple' },
-            { label: 'Terminated', value: stats['TERMINATED'] || 0, color: 'red' },
+            { label: 'Total Portfolio', value: stats['TOTAL_RECORDS'] || 0 },
+            { label: 'Active', value: stats['ACTIVE'] || 0 },
+            { label: 'On Leave', value: stats['ON_LEAVE'] || 0 },
+            { label: 'Probation', value: stats['PROBATION'] || 0 },
+            {
+              label: 'Terminated/Others',
+              value: (stats['TERMINATED'] || 0) + (stats['INACTIVE'] || 0) + (stats['SUSPENDED'] || 0) + (stats['RETIRED'] || 0) + (stats['UNKNOWN'] || 0),
+            },
           ].map((stat, idx) => (
-            <div key={idx} className="bg-card border border-border rounded-xl p-4">
+            <div key={idx} className="bg-card border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
               <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
               <p className="text-2xl font-bold text-foreground mt-1">{stat.value}</p>
             </div>
@@ -211,7 +267,7 @@ export default function EmployeeManagementPage() {
         )}
 
         {success && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 rounded-lg flex items-center gap-2">
+          <div className="bg-success/10 border border-success/20 text-success px-4 py-3 rounded-lg flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -269,90 +325,94 @@ export default function EmployeeManagementPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Employee</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Position</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hire Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contract</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Roles</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, idx) => (
-                    <tr key={idx} className="border-b border-border">
-                      <td colSpan={8} className="px-4 py-4">
-                        <div className="animate-pulse flex items-center gap-3">
-                          <div className="w-10 h-10 bg-muted rounded-full"></div>
-                          <div className="flex-1">
-                            <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
-                            <div className="h-3 bg-muted rounded w-1/4"></div>
+        {/* View Content */}
+        {viewMode === 'matrix' ? (
+          <Talent9BoxGrid employees={employees} />
+        ) : (
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted/50 border-b border-border">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Employee</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Position</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status & Insights</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hire Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contract</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Roles</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 5 }).map((_, idx) => (
+                      <tr key={idx} className="border-b border-border">
+                        <td colSpan={8} className="px-4 py-4">
+                          <div className="animate-pulse flex items-center gap-3">
+                            <div className="w-10 h-10 bg-muted rounded-full"></div>
+                            <div className="flex-1">
+                              <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
+                              <div className="h-3 bg-muted rounded w-1/4"></div>
+                            </div>
                           </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : employees.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-12 text-center">
+                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                          <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
                         </div>
+                        <p className="text-lg font-medium text-foreground">No employees found</p>
+                        <p className="text-muted-foreground mt-1">Try adjusting your search or filters</p>
                       </td>
                     </tr>
-                  ))
-                ) : employees.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center">
-                      <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </div>
-                      <p className="text-lg font-medium text-foreground">No employees found</p>
-                      <p className="text-muted-foreground mt-1">Try adjusting your search or filters</p>
-                    </td>
-                  </tr>
-                ) : (
-                  employees.map((employee) => (
-                    <EmployeeTableRow
-                      key={employee._id}
-                      employee={employee}
-                      onEdit={setEditEmployee}
-                      onAssignRole={setRoleEmployee}
-                      onDeactivate={setDeactivateEmployee}
-                      onViewHistory={handleViewHistory}
-                    />
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="px-4 py-3 border-t border-border flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 text-sm font-medium text-foreground bg-background border border-input rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-3 py-1.5 text-sm font-medium text-foreground bg-background border border-input rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
-              </div>
+                  ) : (
+                    employees.map((employee) => (
+                      <EmployeeTableRow
+                        key={employee._id}
+                        employee={employee}
+                        onEdit={setEditEmployee}
+                        onAssignRole={setRoleEmployee}
+                        onDeactivate={setDeactivateEmployee}
+                        onViewHistory={handleViewHistory}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-4 py-3 border-t border-border flex items-center justify-between bg-muted/30">
+                <p className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-3 py-1.5 text-sm font-medium text-foreground bg-background border border-input rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="px-3 py-1.5 text-sm font-medium text-foreground bg-background border border-input rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Audit Trail Notice */}
         <div className="bg-muted/50 border border-border rounded-xl p-4 flex items-start gap-3">

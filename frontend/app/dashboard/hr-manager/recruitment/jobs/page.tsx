@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/app/components/ui/button';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Input } from '@/app/components/ui/input';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
-import { useAuth } from '@/app/context/AuthContext';
+import { Button } from '@/components/ui/button';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Input } from '@/components/ui/input';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useAuth } from '@/context/AuthContext';
 import {
   getJobs,
   getJobTemplates,
@@ -14,7 +14,7 @@ import {
   publishJob,
   closeJob
 } from '@/app/services/recruitment';
-import { JobRequisition, JobTemplate } from '@/app/types/recruitment';
+import { JobRequisition, JobTemplate } from '@/types/recruitment';
 import {
   Plus,
   Search,
@@ -34,7 +34,7 @@ import {
   Info,
   AlertTriangle
 } from 'lucide-react';
-import { Badge } from '@/app/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 
 // =====================================================
 // Types

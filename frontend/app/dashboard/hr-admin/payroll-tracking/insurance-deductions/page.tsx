@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { payrollTrackingService } from '@/app/services/payroll-tracking';
 
 /**
@@ -89,14 +89,14 @@ export default function InsuranceDeductionsPage() {
   };
 
   const getInsuranceTypeIcon = (type?: string) => {
-    if (!type) return '';
+    if (!type) return '🏥';
     const lowerType = type.toLowerCase();
-    if (lowerType.includes('health')) return '';
-    if (lowerType.includes('pension') || lowerType.includes('retirement')) return '';
-    if (lowerType.includes('unemployment')) return '';
-    if (lowerType.includes('disability')) return '';
-    if (lowerType.includes('life')) return '';
-    return '';
+    if (lowerType.includes('health')) return '🏥';
+    if (lowerType.includes('pension') || lowerType.includes('retirement')) return '👴';
+    if (lowerType.includes('unemployment')) return '💼';
+    if (lowerType.includes('disability')) return '♿';
+    if (lowerType.includes('life')) return '🛡️';
+    return '🏥';
   };
 
   const getInsuranceTypeColor = (type?: string) => {
@@ -149,7 +149,7 @@ export default function InsuranceDeductionsPage() {
         </div>
         <Link href="/dashboard/department-employee/payroll-tracking">
           <button className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
-            Back to Payroll Tracking
+            ← Back to Payroll Tracking
           </button>
         </Link>
       </div>
@@ -164,7 +164,7 @@ export default function InsuranceDeductionsPage() {
               Across {insuranceData.length} payslip{insuranceData.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className="text-6xl"></div>
+          <div className="text-6xl">🏥</div>
         </div>
       </div>
 
@@ -192,7 +192,7 @@ export default function InsuranceDeductionsPage() {
       {/* Insurance Deductions List */}
       {filteredData.length === 0 ? (
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-12 text-center">
-          <div className="text-6xl mb-4"></div>
+          <div className="text-6xl mb-4">🏥</div>
           <p className="text-slate-700 font-medium text-lg">No insurance deductions found</p>
           <p className="text-slate-500 text-sm mt-2">
             Insurance deductions will appear here once payroll has been processed
@@ -319,4 +319,3 @@ export default function InsuranceDeductionsPage() {
     </div>
   );
 }
-

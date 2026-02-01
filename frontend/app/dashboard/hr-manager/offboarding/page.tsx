@@ -8,10 +8,10 @@ import {
   TerminationStatus,
   TerminationInitiation,
 } from '@/app/services/offboarding';
-import { StatusBadge } from '@/app/components/ui/status-badge';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   FileX,
   AlertTriangle,

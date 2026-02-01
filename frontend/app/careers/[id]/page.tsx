@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getJobById } from '@/app/services/recruitment';
-import { JobRequisition } from '@/app/types/recruitment';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
-import { LandingNavbar } from '@/app/components/landing/navbar';
-import { LandingFooter } from '@/app/components/landing/footer';
+import { JobRequisition } from '@/types/recruitment';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { GlassCard } from '@/components/ui/glass-card';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { LandingNavbar } from '@/components/landing/navbar';
+import { LandingFooter } from '@/components/landing/footer';
 import { 
   ArrowLeft, 
   MapPin, 

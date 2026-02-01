@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/app/components/theme-customizer';
+import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/components/theme-customizer';
 import Link from 'next/link';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
 import {
@@ -11,10 +11,10 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "../.././components/ui/card";
-import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
-import { Skeleton } from "../../components/ui/skeleton";
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   AlertCircle, 
   CheckCircle, 

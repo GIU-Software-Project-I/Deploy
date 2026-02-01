@@ -1,11 +1,11 @@
 "use client";
 
-import { useAuth } from "@/app/context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import Sidebar from "@/app/components/Sidebar";
-import DashboardHeader from "@/app/components/DashboardHeader";
-import { SystemRole } from "@/app/types";
+import Sidebar from "@/components/Sidebar";
+import DashboardHeader from "@/components/DashboardHeader";
+import { SystemRole } from "@/types";
 
 export default function DashboardLayout({
   children,

@@ -1,15 +1,19 @@
 import { Prop, Schema, SchemaFactory, } from '@nestjs/mongoose';
 import mongoose, { HydratedDocument } from 'mongoose';
-import { allowance, allowanceSchema } from '../../payroll-configuration/models/allowance.schema';
-import { signingBonus, signingBonusSchema } from '../../payroll-configuration/models/signingBonus.schema';
-import { terminationAndResignationBenefits, terminationAndResignationBenefitsSchema } from '../../payroll-configuration/models/terminationAndResignationBenefits';
-import { taxRules, taxRulesSchema } from '../../payroll-configuration/models/taxRules.schema';
-import { insuranceBrackets, insuranceBracketsSchema } from '../../payroll-configuration/models/insuranceBrackets.schema';
-import { employeePenalties, employeePenaltiesSchema } from './employeePenalties.schema';
-import {  EmployeeProfile as Employee} from '../../../employee/models/employee/employee-profile.schema';
-import { refundDetails, refundDetailsSchema } from '../../payroll-tracking/models/refunds.schema';
+
+import { EmployeeProfile as Employee } from '../../../employee/models/employee/employee-profile.schema';
 import { payrollRuns } from './payrollRuns.schema';
 import { PaySlipPaymentStatus } from '../enums/payroll-execution-enum';
+
+@Schema()
+export class PayItem {
+    @Prop({ required: true })
+    name: string;
+    @Prop({ required: true })
+    amount: number;
+}
+const PayItemSchema = SchemaFactory.createForClass(PayItem);
+
 
 
 
@@ -20,17 +24,17 @@ class Earnings {
     @Prop()
     baseSalary: number;
 
-    @Prop({ type: [allowanceSchema] })
-    allowances: allowance[]
+    @Prop({ type: [PayItemSchema] })
+    allowances: PayItem[]
 
-    @Prop({ type: [signingBonusSchema] })
-    bonuses?: signingBonus[]
+    @Prop({ type: [PayItemSchema] })
+    bonuses?: PayItem[]
 
-    @Prop({ type: [terminationAndResignationBenefitsSchema] })
-    benefits?: terminationAndResignationBenefits[]
+    @Prop({ type: [PayItemSchema] })
+    benefits?: PayItem[]
 
-    @Prop({ type: [refundDetailsSchema] })
-    refunds?: refundDetails[]
+    @Prop({ type: [PayItemSchema] })
+    refunds?: PayItem[]
 
 }
 const EarningsSchema = SchemaFactory.createForClass(Earnings)
@@ -38,14 +42,14 @@ const EarningsSchema = SchemaFactory.createForClass(Earnings)
 
 @Schema()
 class Deductions {
-    @Prop({ type: [taxRulesSchema] })
-    taxes: taxRules[]
+    @Prop({ type: [PayItemSchema] })
+    taxes: PayItem[]
 
-    @Prop({ type: [insuranceBracketsSchema] })
-    insurances?: insuranceBrackets[]
+    @Prop({ type: [PayItemSchema] })
+    insurances?: PayItem[]
 
-    @Prop({ type: employeePenaltiesSchema })
-    penalties?: employeePenalties
+    @Prop({ type: PayItemSchema })
+    penalties?: PayItem
 
 }
 const DeductionsSchema = SchemaFactory.createForClass(Deductions)

@@ -18,9 +18,10 @@ import { LeaveStatus } from '../enums/leave-status.enum';
 import { AccrualMethod } from '../enums/accrual-method.enum';
 import { RoundingRule } from '../enums/rounding-rule.enum';
 import { LeavePolicyDocument } from '../models/leave-policy.schema';
-import { SharedLeavesService } from '../../shared/services/shared-leaves.service';
+import { SharedLeavesService } from '../../integration/services/shared-leaves.service';
 import { AdjustmentType } from '../enums/adjustment-type.enum';
 import { SystemRole } from '../../employee/enums/employee-profile.enums';
+import { OrganizationStructureService } from '../../organization-structure/service/organization-structure.service';
 
 @Injectable()
 export class UnifiedLeaveService {
@@ -44,6 +45,7 @@ export class UnifiedLeaveService {
     @InjectModel('LeavePolicy')
     private policyModel: Model<LeavePolicyDocument>,
     private readonly sharedLeavesService: SharedLeavesService,
+    private readonly organizationStructureService: OrganizationStructureService,
   ) { }
 
   private validateObjectId(id: string, fieldName: string): void {
@@ -395,6 +397,18 @@ export class UnifiedLeaveService {
       throw new BadRequestException('Medical certificate is required for sick leave exceeding 1 day');
     }
 
+    // REQ-011: Validate special absence/mission type rules
+    try {
+      const specialValidation = await this.validateSpecialAbsenceRules(dto.employeeId, dto.leaveTypeId, duration);
+      if (!specialValidation.valid && specialValidation.errors && specialValidation.errors.length > 0) {
+        throw new BadRequestException(specialValidation.errors.join(' '));
+      }
+    } catch (error) {
+      // If validation method fails (e.g., no config), continue - it's optional
+      if (error instanceof BadRequestException) throw error;
+      this.logger.warn(`Special absence validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
     // Entitlement Check
     if (leaveType.deductible) {
       const entitlement = await this.entitlementModel
@@ -537,16 +551,48 @@ export class UnifiedLeaveService {
   }
 
   async updateRequest(id: string, dto: Partial<any>) {
+    this.validateObjectId(id, 'id');
+    
+    this.logger.log(`[UPDATE_REQUEST] Starting update for request ${id}`);
+    this.logger.debug(`[UPDATE_REQUEST] Update data:`, JSON.stringify(dto, null, 2));
+    
     const leave = await this.leaveRequestModel.findById(id);
-    if (!leave) throw new NotFoundException('Leave request not found');
-    if (leave.status !== LeaveStatus.PENDING) {
-      throw new BadRequestException('Only pending requests can be modified');
+    if (!leave) {
+      this.logger.error(`[UPDATE_REQUEST] Leave request ${id} not found`);
+      throw new NotFoundException('Leave request not found');
+    }
+    
+    this.logger.log(`[UPDATE_REQUEST] Current status: ${leave.status}`);
+    
+    // Allow updates for PENDING and RETURNED_FOR_CORRECTION statuses
+    if (leave.status !== LeaveStatus.PENDING && leave.status !== LeaveStatus.RETURNED_FOR_CORRECTION) {
+      this.logger.warn(`[UPDATE_REQUEST] Attempted to update ${leave.status} request ${id}`);
+      throw new BadRequestException(`Only pending or returned-for-correction requests can be modified. Current status: ${leave.status}`);
     }
 
+    // Handle leaveTypeId update if provided
+    if (dto.leaveTypeId) {
+      this.validateObjectId(dto.leaveTypeId, 'leaveTypeId');
+      const newLeaveType = await this.leaveTypeModel.findById(dto.leaveTypeId).lean();
+      if (!newLeaveType) {
+        this.logger.error(`[UPDATE_REQUEST] Invalid leave type ${dto.leaveTypeId}`);
+        throw new BadRequestException('Invalid leave type');
+      }
+      this.logger.log(`[UPDATE_REQUEST] Updating leave type from ${leave.leaveTypeId} to ${dto.leaveTypeId}`);
+      leave.leaveTypeId = new Types.ObjectId(dto.leaveTypeId);
+    }
+
+    // Handle date updates
     if (dto.from && dto.to) {
       const from = new Date(dto.from);
       const to = new Date(dto.to);
 
+      // Validate date order
+      if (from > to) {
+        throw new BadRequestException('Start date must be before or equal to end date');
+      }
+
+      // Check for overlaps with other approved requests (excluding current request)
       const overlap = await this.leaveRequestModel
         .findOne({
           _id: { $ne: leave._id },
@@ -562,37 +608,107 @@ export class UnifiedLeaveService {
         );
       }
 
-      const duration = await this._calculateWorkingDuration(
+      // Recalculate duration based on working days (for balance calculations)
+      const workingDuration = await this._calculateWorkingDuration(
         leave.employeeId.toString(),
         from,
         to,
       );
 
+      // Get leave type (either new one or existing one)
+      const leaveTypeId = dto.leaveTypeId ? new Types.ObjectId(dto.leaveTypeId) : leave.leaveTypeId;
       const leaveType = await this.leaveTypeModel
-        .findById(leave.leaveTypeId)
+        .findById(leaveTypeId)
         .lean();
       if (!leaveType) {
         throw new BadRequestException('Invalid leave type for this request');
       }
 
-      if (leaveType.maxDurationDays && duration > leaveType.maxDurationDays) {
+      // Validate max duration using working days
+      if (leaveType.maxDurationDays && workingDuration > leaveType.maxDurationDays) {
         throw new BadRequestException(
-          `Requested duration (${duration} days) exceeds the maximum allowed for this leave type (${leaveType.maxDurationDays} days)`,
+          `Requested duration (${workingDuration} working days) exceeds the maximum allowed for this leave type (${leaveType.maxDurationDays} days)`,
         );
       }
 
+      // Update dates and duration
+      // Use the durationDays from DTO if provided (calendar days), otherwise use working days
       leave.dates = { from, to };
-      leave.durationDays = duration;
+      if (dto.durationDays !== undefined && dto.durationDays > 0) {
+        // If frontend sends calendar days, use that for display purposes
+        // But we still need working days for balance calculations
+        leave.durationDays = dto.durationDays;
+      } else {
+        // Fallback to working days if no duration provided
+        leave.durationDays = workingDuration;
+      }
+    } else if (dto.durationDays !== undefined && dto.durationDays > 0) {
+      // If durationDays is provided directly (without dates), use it
+      leave.durationDays = dto.durationDays;
     }
 
-    if (dto.justification) {
+    // Update justification
+    if (dto.justification !== undefined) {
+      this.logger.log(`[UPDATE_REQUEST] Updating justification`);
       leave.justification = dto.justification;
     }
-    if (dto.attachmentId) {
-      leave.attachmentId = new Types.ObjectId(dto.attachmentId);
+
+    // Update attachment
+    if (dto.attachmentId !== undefined) {
+      if (dto.attachmentId) {
+        this.validateObjectId(dto.attachmentId, 'attachmentId');
+        const attachment = await this.attachmentModel.findById(dto.attachmentId).lean();
+        if (!attachment) {
+          throw new BadRequestException('Attachment not found');
+        }
+        leave.attachmentId = new Types.ObjectId(dto.attachmentId);
+      } else {
+        leave.attachmentId = undefined;
+      }
     }
 
-    return leave.save();
+    // If status was RETURNED_FOR_CORRECTION, change it back to PENDING after update
+    if (leave.status === LeaveStatus.RETURNED_FOR_CORRECTION) {
+      leave.status = LeaveStatus.PENDING;
+      // Clear any return-for-correction notes from approvalFlow
+      if (leave.approvalFlow && Array.isArray(leave.approvalFlow)) {
+        leave.approvalFlow = leave.approvalFlow.filter(
+          (entry: any) => entry.status !== 'returned_for_correction'
+        );
+        leave.markModified('approvalFlow');
+      }
+    }
+
+    this.logger.log(`[UPDATE_REQUEST] Saving leave request ${id}`);
+    const saved = await leave.save();
+    
+    // Update postLeave flag using raw MongoDB (not in schema)
+    if (dto.postLeave !== undefined) {
+      this.logger.log(`[UPDATE_REQUEST] Updating postLeave flag to ${dto.postLeave}`);
+      const collection = this.leaveRequestModel.collection;
+      await collection.updateOne(
+        { _id: new Types.ObjectId(id) },
+        { $set: { postLeave: !!dto.postLeave } }
+      );
+    }
+    
+    // Fetch updated document to return
+    const updated = await this.leaveRequestModel.findById(id).lean();
+    if (!updated) {
+      this.logger.error(`[UPDATE_REQUEST] Leave request ${id} not found after update`);
+      throw new NotFoundException('Leave request not found after update');
+    }
+    
+    this.logger.log(`[UPDATE_REQUEST] Leave request ${id} updated successfully`);
+    this.logger.debug(`[UPDATE_REQUEST] Updated request:`, JSON.stringify({
+      _id: updated._id,
+      status: updated.status,
+      dates: updated.dates,
+      durationDays: updated.durationDays,
+      leaveTypeId: updated.leaveTypeId,
+    }, null, 2));
+    
+    return updated;
   }
 
   async cancelRequest(id: string, employeeId: string) {
@@ -804,7 +920,7 @@ export class UnifiedLeaveService {
     const leaveType = await this.leaveTypeModel.findById(leave.leaveTypeId);
     const isDeductible = leaveType?.deductible ?? true;
     const isUnpaidLeave = leaveType?.paid === false;
-    
+
     // IMPORTANT: Unpaid leave should NOT affect balance
     // Unpaid leave is only tracked for payroll deduction, not balance tracking
     if (isDeductible && !isUnpaidLeave && ent) {
@@ -870,15 +986,15 @@ export class UnifiedLeaveService {
     const isUnpaidLeave = leaveType?.paid === false;
     
     if (!isUnpaidLeave) {
-      const ent = await this.entitlementModel.findOne({
-        employeeId: leave.employeeId,
-        leaveTypeId: leave.leaveTypeId,
-      });
+    const ent = await this.entitlementModel.findOne({
+      employeeId: leave.employeeId,
+      leaveTypeId: leave.leaveTypeId,
+    });
 
-      if (ent) {
-        ent.pending = Math.max(0, (ent.pending || 0) - (leave.durationDays || 0));
-        await ent.save();
-      }
+    if (ent) {
+      ent.pending = Math.max(0, (ent.pending || 0) - (leave.durationDays || 0));
+      await ent.save();
+    }
     } else {
       this.logger.log(
         `[BALANCE SKIP] Unpaid leave ${leave._id} rejected by manager - balance not affected (payroll tracking only)`
@@ -1020,13 +1136,13 @@ export class UnifiedLeaveService {
           );
         } else {
           // Initial rejection notification (not a finalization)
-          await this.sharedLeavesService.sendLeaveRequestRejectedNotification(
-            leave.employeeId.toString(),
-            leaveTypeForReject?.name || 'Leave',
-            leave.dates.from,
-            leave.dates.to,
-            reason
-          );
+        await this.sharedLeavesService.sendLeaveRequestRejectedNotification(
+          leave.employeeId.toString(),
+          leaveTypeForReject?.name || 'Leave',
+          leave.dates.from,
+          leave.dates.to,
+          reason
+        );
         }
       } catch (notifError) {
         this.logger.warn('Failed to send rejection/finalization notification:', notifError);
@@ -1102,12 +1218,12 @@ export class UnifiedLeaveService {
           }
         } else if (!isFinalizingApproved) {
           // Approving PENDING or overriding REJECTED to APPROVE
-          if (!allowNegative) {
-            const remaining = ent.remaining ?? 0;
-            if (leave.durationDays > remaining) {
-              throw new BadRequestException(`Insufficient balance for approval. Request: ${leave.durationDays}, Remaining: ${remaining}. Use allowNegative=true to override.`);
-            }
+        if (!allowNegative) {
+          const remaining = ent.remaining ?? 0;
+          if (leave.durationDays > remaining) {
+            throw new BadRequestException(`Insufficient balance for approval. Request: ${leave.durationDays}, Remaining: ${remaining}. Use allowNegative=true to override.`);
           }
+        }
 
           // Handle override of rejected request: pending was already removed by manager rejection
           // So we need to deduct directly from remaining, not from pending
@@ -1133,27 +1249,27 @@ export class UnifiedLeaveService {
             );
           }
           
-          await ent.save();
+        await ent.save();
         }
       } else {
         // No entitlement exists - only create if approving (not finalizing already-approved)
         if (!isFinalizingApproved) {
-          if (!allowNegative) {
-            throw new BadRequestException('No entitlement found. Cannot approve without allowNegative override.');
-          }
-          await this.entitlementModel.create({
-            employeeId: leave.employeeId,
-            leaveTypeId: leave.leaveTypeId,
-            yearlyEntitlement: 0,
-            accruedActual: 0,
-            accruedRounded: 0,
-            carryForward: 0,
-            taken: leave.durationDays || 0,
-            pending: 0,
-            remaining: -(leave.durationDays || 0),
-            lastAccrualDate: null,
-            nextResetDate: null,
-          });
+        if (!allowNegative) {
+          throw new BadRequestException('No entitlement found. Cannot approve without allowNegative override.');
+        }
+        await this.entitlementModel.create({
+          employeeId: leave.employeeId,
+          leaveTypeId: leave.leaveTypeId,
+          yearlyEntitlement: 0,
+          accruedActual: 0,
+          accruedRounded: 0,
+          carryForward: 0,
+          taken: leave.durationDays || 0,
+          pending: 0,
+          remaining: -(leave.durationDays || 0),
+          lastAccrualDate: null,
+          nextResetDate: null,
+        });
           this.logger.log(
             `[BALANCE UPDATE] Created entitlement with negative balance for leave ${leave._id} (allowNegative=true)`
           );
@@ -1194,12 +1310,12 @@ export class UnifiedLeaveService {
         );
       } else {
         // Initial approval notification
-        await this.sharedLeavesService.sendLeaveRequestApprovedNotification(
-          leave.employeeId.toString(),
-          leaveTypeForNotify?.name || 'Leave',
-          leave.dates.from,
-          leave.dates.to
-        );
+      await this.sharedLeavesService.sendLeaveRequestApprovedNotification(
+        leave.employeeId.toString(),
+        leaveTypeForNotify?.name || 'Leave',
+        leave.dates.from,
+        leave.dates.to
+      );
       }
 
       // Sync with Time Management
@@ -1291,11 +1407,11 @@ export class UnifiedLeaveService {
   // --------------------------------------------------------------------------------
   // Entitlements & Adjustments (REQ-008, REQ-013)
   // --------------------------------------------------------------------------------
-async assignEntitlement(
-  employeeId: string,
-  leaveTypeId: string,
-  yearlyEntitlement: number,
-) {
+  async assignEntitlement(
+    employeeId: string,
+    leaveTypeId: string,
+    yearlyEntitlement: number,
+  ) {
   this.validateObjectId(employeeId, 'employeeId');
   this.validateObjectId(leaveTypeId, 'leaveTypeId');
 
@@ -1340,12 +1456,12 @@ async assignEntitlement(
     employeeId,
     leaveType?.name || 'Leave',
     'set',
-    yearlyEntitlement,
+      yearlyEntitlement,
     `Entitlement set: ${yearlyEntitlement} days for ${leaveType?.name || 'Leave'}`,
   );
 
   return ent.toObject();
-}
+  }
 
   // no sessions: simple create + update
   async manualEntitlementAdjustment(
@@ -1606,7 +1722,7 @@ async assignEntitlement(
     return { data: docs, page, limit, total };
   }
 
-async recalcEmployee(employeeId: string) {
+  async recalcEmployee(employeeId: string) {
   this.validateObjectId(employeeId, 'employeeId');
   const empObj = new Types.ObjectId(employeeId);
 
@@ -1634,7 +1750,7 @@ async recalcEmployee(employeeId: string) {
 
   let processed = 0;
 
-  for (const e of entitlements) {
+    for (const e of entitlements) {
     const ltId = e.leaveTypeId.toString();
     const taken = takenMap.get(ltId) ?? 0;
     const pending = pendingMap.get(ltId) ?? 0;
@@ -1652,12 +1768,12 @@ async recalcEmployee(employeeId: string) {
 
     e.remaining = base + carryForward - taken - pending;
 
-    await e.save();
+      await e.save();
     processed++;
-  }
+    }
 
   return { ok: true, employeeId, processed };
-}
+  }
 
 
   // --------------------------------------------------------------------------------
@@ -2299,16 +2415,16 @@ async recalcEmployee(employeeId: string) {
 }
 
 
-async resetLeaveYear(
-  strategy: 'hireDate' | 'calendarYear' | 'custom',
-  referenceDate?: Date,
+  async resetLeaveYear(
+    strategy: 'hireDate' | 'calendarYear' | 'custom',
+    referenceDate?: Date,
   employeeId?: string,
   dryRun: boolean = false,
 ) {
   const ref = referenceDate ?? new Date();
 
   // policies
-  const policies = await this.policyModel.find().lean();
+    const policies = await this.policyModel.find().lean();
   const policyMap = new Map(policies.map((p: any) => [String(p.leaveTypeId), p]));
 
   // first vacation map
@@ -2323,7 +2439,7 @@ async resetLeaveYear(
   let processed = 0;
   const preview: any[] = [];
 
-  for (const e of entitlements) {
+    for (const e of entitlements) {
     const empId = String(e.employeeId);
 
     let criterion: Date | null = null;
@@ -2365,7 +2481,7 @@ async resetLeaveYear(
       after.accruedActual = yearly;
       after.accruedRounded = yearly;
       after.remaining = yearly + (e.carryForward || 0);
-    } else {
+      } else {
       after.accruedActual = 0;
       after.accruedRounded = 0;
       after.remaining = (e.carryForward || 0);
@@ -2540,7 +2656,7 @@ async resetLeaveYear(
         throw new NotFoundException(`Attachment with ID ${id} not found`);
       }
       
-      const type = (attachment.fileType || '').toLowerCase();
+    const type = (attachment.fileType || '').toLowerCase();
       const validTypes = ['pdf', 'image', 'jpeg', 'jpg', 'png', 'gif', 'bmp'];
       const isValidType = validTypes.some(validType => type.includes(validType));
       
@@ -2622,7 +2738,7 @@ async resetLeaveYear(
     for (const id of requestIds) {
       try {
         // Validate request exists and is in a processable state
-        const reqDoc = await this.leaveRequestModel.findById(id);
+      const reqDoc = await this.leaveRequestModel.findById(id);
         if (!reqDoc) {
           errors.push(`${id}: Request not found`);
           continue;
@@ -2656,16 +2772,59 @@ async resetLeaveYear(
     };
   }
 
-  async flagIrregular(requestId: string, flag: boolean, reason?: string) {
+  async flagIrregular(requestId: string, flag: boolean, reason?: string, managerId?: string) {
+    this.validateObjectId(requestId, 'requestId');
+    
     const leave = await this.leaveRequestModel.findById(requestId);
     if (!leave) throw new NotFoundException('Leave request not found');
+    
     leave.irregularPatternFlag = !!flag;
-    if (reason) {
-      this.logger.log(
-        `Irregular flag reason for ${requestId}: ${reason}`,
+    
+    // Store the reason in approvalFlow as a manager note when flagging
+    if (flag && reason) {
+      // Check if there's already an irregular flag entry in approvalFlow
+      const existingFlagIndex = leave.approvalFlow?.findIndex(
+        (entry: any) => entry.role === 'manager' && entry.status === 'irregular_flag'
       );
+      
+      const flagEntry: any = {
+        role: 'manager',
+        status: 'irregular_flag',
+        decidedBy: managerId ? new Types.ObjectId(managerId) : undefined,
+        decidedAt: new Date(),
+        reason: reason, // Store reason in the approvalFlow entry
+      };
+      
+      if (existingFlagIndex !== undefined && existingFlagIndex >= 0) {
+        // Update existing flag entry
+        leave.approvalFlow[existingFlagIndex] = flagEntry;
+      } else {
+        // Add new flag entry
+        if (!leave.approvalFlow) {
+          leave.approvalFlow = [];
+        }
+        leave.approvalFlow.push(flagEntry);
+      }
+      
+      // Mark approvalFlow as modified to ensure Mongoose saves the changes
+      leave.markModified('approvalFlow');
+      
+      this.logger.log(
+        `[IRREGULAR_FLAG] Leave ${requestId} flagged as irregular by manager ${managerId || 'unknown'}. Reason: ${reason.substring(0, 100)}`,
+      );
+    } else if (!flag) {
+      // Remove irregular flag entries when unflagging
+      if (leave.approvalFlow) {
+        leave.approvalFlow = leave.approvalFlow.filter(
+          (entry: any) => entry.role !== 'manager' || entry.status !== 'irregular_flag'
+        );
+        leave.markModified('approvalFlow');
+      }
+      this.logger.log(`[IRREGULAR_FLAG] Irregular flag removed from leave ${requestId}`);
     }
-    return leave.save();
+    
+    const saved = await leave.save();
+    return saved.toObject ? saved.toObject() : saved;
   }
 
   async calculateServiceDaysWrapper(
@@ -2734,6 +2893,325 @@ async resetLeaveYear(
     const deleted = await this.policyModel.findByIdAndDelete(id);
     if (!deleted) throw new NotFoundException('Policy not found');
     return { success: true };
+  }
+
+  // --------------------------------------------------------------------------------
+  // Approval Workflow Configuration (REQ-009)
+  // --------------------------------------------------------------------------------
+
+  /**
+   * Configure approval workflow for a leave policy
+   * Stores workflow configuration in the eligibility field
+   * @param policyId Policy ID
+   * @param workflowConfig Approval workflow configuration per position
+   */
+  async configureApprovalWorkflow(policyId: string, workflowConfig: {
+    defaultWorkflow?: Array<{ role: string; order: number; positionId?: string; positionCode?: string }>;
+    positionWorkflows?: Array<{
+      positionId: string;
+      positionCode?: string;
+      workflow: Array<{ role: string; order: number; positionId?: string; positionCode?: string }>;
+    }>;
+  }) {
+    this.validateObjectId(policyId, 'policyId');
+    
+    const policy = await this.policyModel.findById(policyId);
+    if (!policy) throw new NotFoundException('Policy not found');
+
+    // Validate position IDs if provided
+    if (workflowConfig.positionWorkflows) {
+      for (const pw of workflowConfig.positionWorkflows) {
+        if (pw.positionId) {
+          this.validateObjectId(pw.positionId, 'positionId');
+          try {
+            const position = await this.organizationStructureService.getPositionById(pw.positionId);
+            if (!position) {
+              throw new NotFoundException(`Position ${pw.positionId} not found`);
+            }
+          } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            this.logger.warn(`Could not validate position ${pw.positionId}: ${error.message}`);
+          }
+        }
+      }
+    }
+
+    // Store workflow in eligibility field using raw MongoDB collection to bypass Mongoose schema
+    // This allows saving approvalWorkflow even though it's not in the strict schema
+    const collection = this.policyModel.collection;
+    
+    const result = await collection.findOneAndUpdate(
+      { _id: new Types.ObjectId(policyId) },
+      {
+        $set: {
+          'eligibility.approvalWorkflow': workflowConfig,
+        },
+      },
+      { returnDocument: 'after' }
+    );
+
+    if (!result) {
+      throw new NotFoundException('Policy not found');
+    }
+
+    this.logger.log(`[WORKFLOW_CONFIG] Approval workflow configured for policy ${policyId}`);
+    this.logger.debug(`[WORKFLOW_CONFIG] Workflow saved: ${JSON.stringify(workflowConfig)}`);
+    
+    // Verify it was saved
+    const verification = await collection.findOne({ _id: new Types.ObjectId(policyId) });
+    const savedWorkflow = verification?.eligibility?.approvalWorkflow;
+    if (savedWorkflow) {
+      this.logger.log(`[WORKFLOW_CONFIG] Workflow verified in database`);
+    } else {
+      this.logger.error(`[WORKFLOW_CONFIG] ERROR: Workflow not found after save`);
+    }
+    
+    return result as any;
+  }
+
+  /**
+   * Get approval workflow for a policy, optionally filtered by position
+   * @param policyId Policy ID
+   * @param positionId Optional position ID to get position-specific workflow
+   */
+  async getApprovalWorkflow(policyId: string, positionId?: string) {
+    this.validateObjectId(policyId, 'policyId');
+    
+    const policy = await this.policyModel.findById(policyId).lean();
+    if (!policy) throw new NotFoundException('Policy not found');
+
+    const workflowConfig = (policy.eligibility as any)?.approvalWorkflow;
+    if (!workflowConfig) {
+      // Return default workflow if none configured
+      return {
+        defaultWorkflow: [
+          { role: 'manager', order: 1 },
+          { role: 'hr', order: 2 },
+        ],
+      };
+    }
+
+    // If positionId provided, try to find position-specific workflow
+    if (positionId && workflowConfig.positionWorkflows) {
+      this.validateObjectId(positionId, 'positionId');
+      const positionWorkflow = workflowConfig.positionWorkflows.find(
+        (pw: any) => pw.positionId === positionId
+      );
+      if (positionWorkflow) {
+        return {
+          workflow: positionWorkflow.workflow,
+          positionId: positionWorkflow.positionId,
+          positionCode: positionWorkflow.positionCode,
+        };
+      }
+    }
+
+    // Return default workflow
+    return {
+      defaultWorkflow: workflowConfig.defaultWorkflow || [
+        { role: 'manager', order: 1 },
+        { role: 'hr', order: 2 },
+      ],
+    };
+  }
+
+  /**
+   * Get all positions for workflow configuration UI
+   */
+  async getPositionsForWorkflow() {
+    try {
+      const positions = await this.organizationStructureService.searchPositions({
+        isActive: true,
+        limit: 1000,
+      });
+      return positions.data || [];
+    } catch (error) {
+      this.logger.error('Failed to fetch positions for workflow', error);
+      return [];
+    }
+  }
+
+  // --------------------------------------------------------------------------------
+  // Special Absence/Mission Types Configuration (REQ-011)
+  // --------------------------------------------------------------------------------
+
+  /**
+   * Configure special absence/mission type rules for a leave type
+   * Stores configuration using raw MongoDB to bypass schema validation
+   */
+  async configureSpecialAbsenceType(leaveTypeId: string, config: {
+    isSpecialAbsence?: boolean;
+    isMissionType?: boolean;
+    trackSickLeaveCycle?: boolean; // Track cumulatively over 3-year cycle
+    sickLeaveMaxDays?: number; // Max 360 days over 3 years
+    sickLeaveCycleYears?: number; // Default 3 years
+    trackMaternityCount?: boolean; // Track number of times taken
+    maxMaternityCount?: number; // Maximum number of times allowed
+    requiresSpecialApproval?: boolean;
+    specialRules?: Record<string, any>; // Additional rules (Hajj, exams, marriage, etc.)
+  }) {
+    this.validateObjectId(leaveTypeId, 'leaveTypeId');
+
+    const leaveType = await this.leaveTypeModel.findById(leaveTypeId);
+    if (!leaveType) throw new NotFoundException('Leave type not found');
+
+    // Use raw MongoDB collection to store special configuration
+    const collection = this.leaveTypeModel.collection;
+    
+    const result = await collection.findOneAndUpdate(
+      { _id: new Types.ObjectId(leaveTypeId) },
+      {
+        $set: {
+          'specialAbsenceConfig': config,
+        },
+      },
+      { returnDocument: 'after' }
+    );
+
+    if (!result) {
+      throw new NotFoundException('Leave type not found');
+    }
+
+    this.logger.log(`[SPECIAL_ABSENCE_CONFIG] Special absence configuration set for leave type ${leaveTypeId}`);
+    return result as any;
+  }
+
+  /**
+   * Get special absence/mission type configuration for a leave type
+   */
+  async getSpecialAbsenceConfig(leaveTypeId: string) {
+    this.validateObjectId(leaveTypeId, 'leaveTypeId');
+    
+    const collection = this.leaveTypeModel.collection;
+    const leaveType = await collection.findOne({ _id: new Types.ObjectId(leaveTypeId) });
+    
+    if (!leaveType) throw new NotFoundException('Leave type not found');
+    
+    return leaveType.specialAbsenceConfig || null;
+  }
+
+  /**
+   * Get sick leave usage for employee over 3-year cycle (REQ-011)
+   * Enhanced version that enforces 360-day max limit
+   */
+  async getSickLeaveUsage(employeeId: string, leaveTypeId: string) {
+    this.validateObjectId(employeeId, 'employeeId');
+    this.validateObjectId(leaveTypeId, 'leaveTypeId');
+
+    // Get special config to check if this is a sick leave type with cycle tracking
+    const config = await this.getSpecialAbsenceConfig(leaveTypeId);
+    const cycleYears = config?.sickLeaveCycleYears || 3;
+    const maxDays = config?.sickLeaveMaxDays || 360;
+
+    const end = new Date();
+    const start = new Date();
+    start.setFullYear(end.getFullYear() - cycleYears);
+
+    const [agg] = await this.leaveRequestModel.aggregate([
+      {
+        $match: {
+          employeeId: new Types.ObjectId(employeeId),
+          leaveTypeId: new Types.ObjectId(leaveTypeId),
+          status: LeaveStatus.APPROVED,
+          'dates.from': { $gte: start, $lte: end },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalDays: { $sum: '$durationDays' },
+          requests: { $push: { from: '$dates.from', to: '$dates.to', days: '$durationDays' } },
+        },
+      },
+    ]);
+
+    const totalDays = agg?.totalDays ?? 0;
+    const remainingAllowed = Math.max(0, maxDays - totalDays);
+    const isOverLimit = totalDays >= maxDays;
+
+    return {
+      employeeId,
+      leaveTypeId,
+      periodStart: start,
+      periodEnd: end,
+      cycleYears,
+      totalDays,
+      maxDays,
+      remainingAllowed,
+      isOverLimit,
+      requests: agg?.requests || [],
+    };
+  }
+
+  /**
+   * Get maternity leave count for employee (REQ-011)
+   */
+  async getMaternityLeaveCount(employeeId: string, leaveTypeId: string) {
+    this.validateObjectId(employeeId, 'employeeId');
+    this.validateObjectId(leaveTypeId, 'leaveTypeId');
+
+    const count = await this.leaveRequestModel.countDocuments({
+      employeeId: new Types.ObjectId(employeeId),
+      leaveTypeId: new Types.ObjectId(leaveTypeId),
+      status: LeaveStatus.APPROVED,
+    });
+
+    // Get config to check max allowed
+    const config = await this.getSpecialAbsenceConfig(leaveTypeId);
+    const maxCount = config?.maxMaternityCount;
+
+    return {
+      employeeId,
+      leaveTypeId,
+      count,
+      maxCount: maxCount || null,
+      canTakeMore: maxCount ? count < maxCount : true,
+    };
+  }
+
+  /**
+   * Validate special absence/mission type rules before approving leave
+   */
+  async validateSpecialAbsenceRules(employeeId: string, leaveTypeId: string, durationDays: number) {
+    this.validateObjectId(employeeId, 'employeeId');
+    this.validateObjectId(leaveTypeId, 'leaveTypeId');
+
+    const config = await this.getSpecialAbsenceConfig(leaveTypeId);
+    if (!config) {
+      return { valid: true }; // No special rules configured
+    }
+
+    const errors: string[] = [];
+
+    // Check sick leave 3-year cycle limit
+    if (config.trackSickLeaveCycle) {
+      const usage = await this.getSickLeaveUsage(employeeId, leaveTypeId);
+      const projectedTotal = usage.totalDays + durationDays;
+      
+      if (projectedTotal > usage.maxDays) {
+        errors.push(
+          `Sick leave limit exceeded. Used ${usage.totalDays}/${usage.maxDays} days in the last ${usage.cycleYears} years. ` +
+          `Requested ${durationDays} days would exceed the limit by ${projectedTotal - usage.maxDays} days.`
+        );
+      }
+    }
+
+    // Check maternity leave count limit
+    if (config.trackMaternityCount) {
+      const maternityInfo = await this.getMaternityLeaveCount(employeeId, leaveTypeId);
+      
+      if (maternityInfo.maxCount && maternityInfo.count >= maternityInfo.maxCount) {
+        errors.push(
+          `Maternity leave limit reached. Employee has already taken ${maternityInfo.count}/${maternityInfo.maxCount} maternity leaves.`
+        );
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      config,
+    };
   }
 
   // --------------------------------------------------------------------------------

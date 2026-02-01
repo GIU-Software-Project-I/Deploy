@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
@@ -27,7 +27,7 @@ import { OfferResponseStatus } from '../enums/offer-response-status.enum';
 import { ApprovalStatus } from '../enums/approval-status.enum';
 
 // Shared Services
-import { SharedRecruitmentService } from '../../shared/services/shared-recruitment.service';
+import { SharedRecruitmentService } from '../../integration/services/shared-recruitment.service';
 import { OnboardingService } from './onboarding.service';
 
 @Injectable()
@@ -55,9 +55,6 @@ export class RecruitmentService {
     }
 
     async createJobTemplate(dto: CreateJobTemplateDto): Promise<JobTemplate> {
-
-
-
         const template = new this.jobTemplateModel(dto);
         return template.save();
     }
@@ -302,7 +299,14 @@ export class RecruitmentService {
     async createApplication(dto: CreateApplicationDto): Promise<Application> {
         this.validateObjectId(dto.candidateId, 'candidateId');
 
-        const requisition = await this.jobRequisitionModel.findOne({ requisitionId: dto.requisitionId }).exec();
+        // Try to find requisition by requisitionId (string) or by _id (ObjectId)
+        let requisition = await this.jobRequisitionModel.findOne({ requisitionId: dto.requisitionId }).exec();
+
+        // If not found by requisitionId, try by _id (in case frontend sends MongoDB ID)
+        if (!requisition && Types.ObjectId.isValid(dto.requisitionId)) {
+            requisition = await this.jobRequisitionModel.findById(dto.requisitionId).exec();
+        }
+
         if (!requisition) {
             throw new NotFoundException(`Job requisition with ID ${dto.requisitionId} not found`);
         }
@@ -379,14 +383,32 @@ export class RecruitmentService {
     }
 
     async getApplicationById(id: string): Promise<Application> {
-        const application = await this.applicationModel
-            .findById(id)
-            .exec();
+        this.validateObjectId(id, 'id');
 
-        if (!application) {
-            throw new NotFoundException(`Application with ID ${id} not found`);
+        try {
+            const application = await this.applicationModel
+                .findById(id)
+                .populate('candidateId')
+                .populate({
+                    path: 'requisitionId',
+                    populate: {
+                        path: 'templateId',
+                    }
+                })
+                .populate('assignedHr', 'firstName lastName email')
+                .exec();
+
+            if (!application) {
+                throw new NotFoundException(`Application with ID ${id} not found`);
+            }
+            return application;
+        } catch (error) {
+            const application = await this.applicationModel.findById(id).exec();
+            if (!application) {
+                throw new NotFoundException(`Application with ID ${id} not found`);
+            }
+            return application;
         }
-        return application;
     }
 
     async getApplicationsByCandidate(candidateId: string): Promise<Application[]> {
@@ -762,7 +784,24 @@ export class RecruitmentService {
 
         return this.interviewModel
             .find({ panel: new Types.ObjectId(panelistId) })
-            .populate('applicationId', 'candidateId requisitionId currentStage status')
+            .populate({
+                path: 'applicationId',
+                select: 'candidateId requisitionId currentStage status',
+                populate: [
+                    {
+                        path: 'requisitionId',
+                        select: 'title templateTitle department location openings templateId',
+                        populate: {
+                            path: 'templateId',
+                            select: 'title templateTitle department description employmentType'
+                        }
+                    },
+                    {
+                        path: 'candidateId',
+                        select: 'firstName lastName personalEmail'
+                    }
+                ]
+            })
             .populate('panel', 'firstName lastName email')
             .sort({ scheduledDate: 1 })
             .exec();
@@ -931,6 +970,217 @@ export class RecruitmentService {
         return Math.round((total / feedbacks.length) * 10) / 10;
     }
 
+    // async createOffer(dto: CreateOfferDto): Promise<Offer> {
+    //     this.validateObjectId(dto.applicationId, 'applicationId');
+    //     this.validateObjectId(dto.candidateId, 'candidateId');
+    //     if (dto.hrEmployeeId) {
+    //         this.validateObjectId(dto.hrEmployeeId, 'hrEmployeeId');
+    //     }
+    //     dto.approvers.forEach((a, index) => this.validateObjectId(a.employeeId, `approvers[${index}].employeeId`));
+
+    //     const deadline = new Date(dto.deadline);
+    //     if (deadline <= new Date()) {
+    //         throw new BadRequestException('Offer deadline must be in the future');
+    //     }
+
+    //     const application = await this.applicationModel.findById(dto.applicationId).exec();
+    //     if (!application) {
+    //         throw new NotFoundException(`Application with ID ${dto.applicationId} not found`);
+    //     }
+
+    //     const existingOffer = await this.offerModel.findOne({
+    //         applicationId: new Types.ObjectId(dto.applicationId),
+    //         finalStatus: { $in: [OfferFinalStatus.PENDING, OfferFinalStatus.APPROVED] },
+    //     }).exec();
+
+    //     if (existingOffer) {
+    //         throw new ConflictException('An active offer already exists for this application');
+    //     }
+
+    //     const approvers = dto.approvers.map(a => ({
+    //         employeeId: new Types.ObjectId(a.employeeId),
+    //         role: a.role,
+    //         status: ApprovalStatus.PENDING,
+    //     }));
+
+    //     const offer = new this.offerModel({
+    //         applicationId: new Types.ObjectId(dto.applicationId),
+    //         candidateId: new Types.ObjectId(dto.candidateId),
+    //         hrEmployeeId: dto.hrEmployeeId ? new Types.ObjectId(dto.hrEmployeeId) : undefined,
+    //         role: dto.role,
+    //         grossSalary: dto.grossSalary,
+    //         signingBonus: dto.signingBonus,
+    //         benefits: dto.benefits,
+    //         insurances: dto.insurances,
+    //         conditions: dto.conditions,
+    //         content: dto.content,
+    //         deadline: new Date(dto.deadline),
+    //         approvers,
+    //         applicantResponse: OfferResponseStatus.PENDING,
+    //         finalStatus: OfferFinalStatus.PENDING,
+    //     });
+
+    //     const saved = await offer.save();
+
+    //     await this.updateApplicationStage(dto.applicationId, {
+    //         stage: ApplicationStage.OFFER,
+    //         notes: 'Offer created, pending approvals',
+    //     });
+
+    //     return saved;
+    // }
+
+    // async getOfferById(id: string): Promise<Offer> {
+    //     this.validateObjectId(id, 'id');
+
+    //     const offer = await this.offerModel
+    //         .findById(id)
+    //         .populate('applicationId', 'candidateId requisitionId currentStage status')
+    //         .populate('candidateId', 'firstName lastName personalEmail')
+    //         .exec();
+
+    //     if (!offer) {
+    //         throw new NotFoundException(`Offer with ID ${id} not found`);
+    //     }
+    //     return offer;
+    // }
+
+    // async getOfferByApplication(applicationId: string): Promise<Offer | null> {
+    //     this.validateObjectId(applicationId, 'applicationId');
+
+    //     return this.offerModel
+    //         .findOne({ applicationId: new Types.ObjectId(applicationId) })
+    //         .populate({
+    //             path: 'applicationId',
+    //             select: 'candidateId requisitionId currentStage status',
+    //             populate: [
+    //                 {
+    //                     path: 'requisitionId',
+    //                     select: 'title templateTitle department location openings templateId',
+    //                     populate: {
+    //                         path: 'templateId',
+    //                         select: 'title templateTitle department description employmentType'
+    //                     }
+    //                 },
+    //                 {
+    //                     path: 'candidateId',
+    //                     select: 'firstName lastName personalEmail'
+    //                 }
+    //             ]
+    //         })
+    //         .populate('candidateId', 'firstName lastName personalEmail')
+    //         .sort({ createdAt: -1 })
+    //         .exec();
+    // }
+
+    // async getAllOffers(filters?: { applicationId?: string; status?: OfferFinalStatus }): Promise<Offer[]> {
+    //     const query: any = {};
+
+    //     if (filters?.applicationId) {
+    //         query.applicationId = new Types.ObjectId(filters.applicationId);
+    //     }
+
+    //     if (filters?.status) {
+    //         query.finalStatus = filters.status;
+    //     }
+
+    //     return this.offerModel
+    //         .find(query)
+    //         .populate({
+    //             path: 'applicationId',
+    //             select: 'candidateId requisitionId currentStage status',
+    //             populate: [
+    //                 {
+    //                     path: 'requisitionId',
+    //                     select: 'title templateTitle department location openings templateId',
+    //                     populate: {
+    //                         path: 'templateId',
+    //                         select: 'title templateTitle department description employmentType'
+    //                     }
+    //                 },
+    //                 {
+    //                     path: 'candidateId',
+    //                     select: 'firstName lastName personalEmail'
+    //                 }
+    //             ]
+    //         })
+    //         .populate('candidateId', 'firstName lastName personalEmail')
+    //         .sort({ createdAt: -1 })
+    //         .exec();
+    // }
+
+    // async getPendingOffers(): Promise<Offer[]> {
+    //     return this.offerModel
+    //         .find({ finalStatus: OfferFinalStatus.PENDING })
+    //         .populate({
+    //             path: 'applicationId',
+    //             select: 'candidateId requisitionId currentStage status',
+    //             populate: [
+    //                 {
+    //                     path: 'requisitionId',
+    //                     select: 'title templateTitle department location openings templateId',
+    //                     populate: {
+    //                         path: 'templateId',
+    //                         select: 'title templateTitle department description employmentType'
+    //                     }
+    //                 },
+    //                 {
+    //                     path: 'candidateId',
+    //                     select: 'firstName lastName personalEmail'
+    //                 }
+    //             ]
+    //         })
+    //         .populate('candidateId', 'firstName lastName personalEmail')
+    //         .sort({ createdAt: -1 })
+    //         .exec();
+    // }
+
+    // async approveOffer(offerId: string, dto: ApproveOfferDto): Promise<Offer> {
+    //     this.validateObjectId(offerId, 'offerId');
+    //     this.validateObjectId(dto.approverId, 'approverId');
+
+    //     const offer = await this.offerModel.findById(offerId).exec();
+    //     if (!offer) {
+    //         throw new NotFoundException(`Offer with ID ${offerId} not found`);
+    //     }
+
+    //     if (offer.finalStatus === OfferFinalStatus.REJECTED) {
+    //         throw new BadRequestException('Cannot approve a rejected offer');
+    //     }
+
+    //     const approverIndex = offer.approvers.findIndex(
+    //         a => a.employeeId.toString() === dto.approverId,
+    //     );
+
+    //     if (approverIndex === -1) {
+    //         throw new BadRequestException('You are not an approver for this offer');
+    //     }
+
+    //     if (offer.approvers[approverIndex].status !== ApprovalStatus.PENDING) {
+    //         throw new BadRequestException('You have already submitted your approval decision');
+    //     }
+
+    //     offer.approvers[approverIndex].status = dto.status;
+    //     offer.approvers[approverIndex].actionDate = new Date();
+    //     offer.approvers[approverIndex].comment = dto.comment;
+
+    //     const allApproved = offer.approvers.every(
+    //         a => a.status === ApprovalStatus.APPROVED,
+    //     );
+
+    //     const anyRejected = offer.approvers.some(
+    //         a => a.status === ApprovalStatus.REJECTED,
+    //     );
+
+    //     if (allApproved) {
+    //         offer.finalStatus = OfferFinalStatus.APPROVED;
+    //     } else if (anyRejected) {
+    //         offer.finalStatus = OfferFinalStatus.REJECTED;
+    //     }
+
+    //     return offer.save();
+    // }
+
     async createOffer(dto: CreateOfferDto): Promise<Offer> {
         this.validateObjectId(dto.applicationId, 'applicationId');
         this.validateObjectId(dto.candidateId, 'candidateId');
@@ -983,10 +1233,15 @@ export class RecruitmentService {
 
         const saved = await offer.save();
 
-        await this.updateApplicationStage(dto.applicationId, {
-            stage: ApplicationStage.OFFER,
-            notes: 'Offer created, pending approvals',
-        });
+        try {
+            await this.updateApplicationStage(dto.applicationId, {
+                stage: ApplicationStage.OFFER,
+                notes: 'Offer created, pending approvals',
+            });
+        } catch (error) {
+            // Log but don't fail offer creation if stage update fails
+            console.warn(`Failed to update application stage: ${error.message}`);
+        }
 
         return saved;
     }
@@ -994,44 +1249,82 @@ export class RecruitmentService {
     async getOfferById(id: string): Promise<Offer> {
         this.validateObjectId(id, 'id');
 
-        const offer = await this.offerModel
-            .findById(id)
-            .populate('applicationId', 'candidateId requisitionId currentStage status')
-            .populate('candidateId', 'firstName lastName personalEmail')
-            .exec();
+        try {
+            const offer = await this.offerModel
+                .findById(id)
+                .populate({
+                    path: 'applicationId',
+                    select: 'candidateId requisitionId currentStage status',
+                    populate: [
+                        {
+                            path: 'requisitionId',
+                            select: 'title templateTitle department location openings templateId',
+                            populate: {
+                                path: 'templateId',
+                                select: 'title templateTitle department description employmentType'
+                            }
+                        },
+                        {
+                            path: 'candidateId',
+                            select: 'firstName lastName personalEmail'
+                        }
+                    ]
+                })
+                .populate('candidateId', 'firstName lastName personalEmail')
+                .populate('approvers.employeeId', 'firstName lastName email')
+                .exec();
 
-        if (!offer) {
-            throw new NotFoundException(`Offer with ID ${id} not found`);
+            if (!offer) {
+                throw new NotFoundException(`Offer with ID ${id} not found`);
+            }
+            return offer;
+        } catch (error) {
+            console.warn(`Failed to populate offer fields: ${error.message}`);
+            // If populate fails, try without populate
+            const offer = await this.offerModel.findById(id).exec();
+            if (!offer) {
+                throw new NotFoundException(`Offer with ID ${id} not found`);
+            }
+            return offer;
         }
-        return offer;
     }
 
     async getOfferByApplication(applicationId: string): Promise<Offer | null> {
         this.validateObjectId(applicationId, 'applicationId');
 
-        return this.offerModel
-            .findOne({ applicationId: new Types.ObjectId(applicationId) })
-            .populate({
-                path: 'applicationId',
-                select: 'candidateId requisitionId currentStage status',
-                populate: [
-                    {
-                        path: 'requisitionId',
-                        select: 'title templateTitle department location openings templateId',
-                        populate: {
-                            path: 'templateId',
-                            select: 'title templateTitle department description employmentType'
+        try {
+            return await this.offerModel
+                .findOne({ applicationId: new Types.ObjectId(applicationId) })
+                .populate({
+                    path: 'applicationId',
+                    select: 'candidateId requisitionId currentStage status',
+                    populate: [
+                        {
+                            path: 'requisitionId',
+                            select: 'title templateTitle department location openings templateId',
+                            populate: {
+                                path: 'templateId',
+                                select: 'title templateTitle department description employmentType'
+                            }
+                        },
+                        {
+                            path: 'candidateId',
+                            select: 'firstName lastName personalEmail'
                         }
-                    },
-                    {
-                        path: 'candidateId',
-                        select: 'firstName lastName personalEmail'
-                    }
-                ]
-            })
-            .populate('candidateId', 'firstName lastName personalEmail')
-            .sort({ createdAt: -1 })
-            .exec();
+                    ]
+                })
+                .populate('candidateId', 'firstName lastName personalEmail')
+                .populate('approvers.employeeId', 'firstName lastName email')
+                .sort({ createdAt: -1 })
+                .exec();
+        } catch (error) {
+            // If populate fails, return offer without populated fields
+            console.warn(`Failed to populate offer fields: ${error.message}`);
+            return this.offerModel
+                .findOne({ applicationId: new Types.ObjectId(applicationId) })
+                .sort({ createdAt: -1 })
+                .exec();
+        }
     }
 
     async getAllOffers(filters?: { applicationId?: string; status?: OfferFinalStatus }): Promise<Offer[]> {
@@ -1045,102 +1338,139 @@ export class RecruitmentService {
             query.finalStatus = filters.status;
         }
 
-        return this.offerModel
-            .find(query)
-            .populate({
-                path: 'applicationId',
-                select: 'candidateId requisitionId currentStage status',
-                populate: [
-                    {
-                        path: 'requisitionId',
-                        select: 'title templateTitle department location openings templateId',
-                        populate: {
-                            path: 'templateId',
-                            select: 'title templateTitle department description employmentType'
+        try {
+            return await this.offerModel
+                .find(query)
+                .populate({
+                    path: 'applicationId',
+                    select: 'candidateId requisitionId currentStage status',
+                    populate: [
+                        {
+                            path: 'requisitionId',
+                            select: 'title templateTitle department location openings templateId',
+                            populate: {
+                                path: 'templateId',
+                                select: 'title templateTitle department description employmentType'
+                            }
+                        },
+                        {
+                            path: 'candidateId',
+                            select: 'firstName lastName personalEmail'
                         }
-                    },
-                    {
-                        path: 'candidateId',
-                        select: 'firstName lastName personalEmail'
-                    }
-                ]
-            })
-            .populate('candidateId', 'firstName lastName personalEmail')
-            .sort({ createdAt: -1 })
-            .exec();
-    }
-
-    async getPendingOffers(): Promise<Offer[]> {
-        return this.offerModel
-            .find({ finalStatus: OfferFinalStatus.PENDING })
-            .populate({
-                path: 'applicationId',
-                select: 'candidateId requisitionId currentStage status',
-                populate: [
-                    {
-                        path: 'requisitionId',
-                        select: 'title templateTitle department location openings templateId',
-                        populate: {
-                            path: 'templateId',
-                            select: 'title templateTitle department description employmentType'
-                        }
-                    },
-                    {
-                        path: 'candidateId',
-                        select: 'firstName lastName personalEmail'
-                    }
-                ]
-            })
-            .populate('candidateId', 'firstName lastName personalEmail')
-            .sort({ createdAt: -1 })
-            .exec();
+                    ]
+                })
+                .populate('candidateId', 'firstName lastName personalEmail')
+                .populate('approvers.employeeId', 'firstName lastName email')
+                .sort({ createdAt: -1 })
+                .exec();
+        } catch (error) {
+            // If populate fails, return offers without populated fields
+            console.warn(`Failed to populate offer fields: ${error.message}`);
+            return this.offerModel
+                .find(query)
+                .sort({ createdAt: -1 })
+                .exec();
+        }
     }
 
     async approveOffer(offerId: string, dto: ApproveOfferDto): Promise<Offer> {
-        this.validateObjectId(offerId, 'offerId');
-        this.validateObjectId(dto.approverId, 'approverId');
+        try {
+            this.validateObjectId(offerId, 'offerId');
+            if (!dto.approverId) {
+                throw new BadRequestException('approverId is required');
+            }
+            this.validateObjectId(dto.approverId, 'approverId');
 
-        const offer = await this.offerModel.findById(offerId).exec();
-        if (!offer) {
-            throw new NotFoundException(`Offer with ID ${offerId} not found`);
+            const offer = await this.offerModel.findById(offerId).exec();
+            if (!offer) {
+                throw new NotFoundException(`Offer with ID ${offerId} not found`);
+            }
+
+            // Sanitize existing data to fix any case-sensitivity issues from legacy data
+            if (offer.finalStatus) offer.finalStatus = offer.finalStatus.toLowerCase() as OfferFinalStatus;
+            if (offer.applicantResponse) offer.applicantResponse = offer.applicantResponse.toLowerCase() as OfferResponseStatus;
+            if (offer.approvers && offer.approvers.length > 0) {
+                offer.approvers.forEach(a => {
+                    if (a.status) a.status = a.status.toString().toLowerCase() as ApprovalStatus;
+                });
+            }
+
+            if (offer.finalStatus === OfferFinalStatus.REJECTED) {
+                throw new BadRequestException('Cannot approve a rejected offer');
+            }
+
+            // Safely normalize status
+            const statusString = (dto.status || '').toString().toLowerCase();
+            const status = statusString as ApprovalStatus;
+
+            if (![ApprovalStatus.APPROVED, ApprovalStatus.REJECTED].includes(status)) {
+                throw new BadRequestException(`Invalid approval status: ${dto.status}`);
+            }
+
+            // Initialize approvers if missing
+            if (!offer.approvers) {
+                offer.approvers = [];
+            }
+
+            let approverIndex = offer.approvers.findIndex(
+                a => a && a.employeeId && a.employeeId.toString() === dto.approverId,
+            );
+
+            if (approverIndex === -1) {
+                // Support ad-hoc approval
+                offer.approvers.push({
+                    employeeId: new Types.ObjectId(dto.approverId),
+                    role: 'HR Manager',
+                    status: status,
+                    actionDate: new Date(),
+                    comment: dto.comment,
+                });
+                approverIndex = offer.approvers.length - 1;
+            } else {
+                // Verify status change or re-submission
+                const currentStatus = (offer.approvers[approverIndex].status || '').toString().toLowerCase();
+
+                if (currentStatus === status) {
+                    throw new BadRequestException('You have already submitted this approval decision');
+                }
+
+                offer.approvers[approverIndex].status = status;
+                offer.approvers[approverIndex].actionDate = new Date();
+                offer.approvers[approverIndex].comment = dto.comment;
+            }
+
+            // Re-evaluate final status
+            const allApproved = offer.approvers.length > 0 && offer.approvers.every(
+                a => a && a.status && a.status.toString().toLowerCase() === ApprovalStatus.APPROVED.toLowerCase(),
+            );
+
+            const anyRejected = offer.approvers.some(
+                a => a && a.status && a.status.toString().toLowerCase() === ApprovalStatus.REJECTED.toLowerCase(),
+            );
+
+            if (allApproved) {
+                offer.finalStatus = OfferFinalStatus.APPROVED;
+            } else if (anyRejected) {
+                offer.finalStatus = OfferFinalStatus.REJECTED;
+            }
+
+            // Mark modified for internal field updates
+            offer.markModified('approvers');
+
+            return await offer.save();
+        } catch (error) {
+            console.error('[RecruitmentService.approveOffer] Error:', error);
+            if (error instanceof BadRequestException || error instanceof NotFoundException) {
+                throw error;
+            }
+            if (error.name === 'ValidationError') {
+                throw new BadRequestException(`Validation Error: ${error.message}`);
+            }
+            throw new InternalServerErrorException(`Failed to approve offer: ${error.message}`);
         }
-
-        if (offer.finalStatus === OfferFinalStatus.REJECTED) {
-            throw new BadRequestException('Cannot approve a rejected offer');
-        }
-
-        const approverIndex = offer.approvers.findIndex(
-            a => a.employeeId.toString() === dto.approverId,
-        );
-
-        if (approverIndex === -1) {
-            throw new BadRequestException('You are not an approver for this offer');
-        }
-
-        if (offer.approvers[approverIndex].status !== ApprovalStatus.PENDING) {
-            throw new BadRequestException('You have already submitted your approval decision');
-        }
-
-        offer.approvers[approverIndex].status = dto.status;
-        offer.approvers[approverIndex].actionDate = new Date();
-        offer.approvers[approverIndex].comment = dto.comment;
-
-        const allApproved = offer.approvers.every(
-            a => a.status === ApprovalStatus.APPROVED,
-        );
-
-        const anyRejected = offer.approvers.some(
-            a => a.status === ApprovalStatus.REJECTED,
-        );
-
-        if (allApproved) {
-            offer.finalStatus = OfferFinalStatus.APPROVED;
-        } else if (anyRejected) {
-            offer.finalStatus = OfferFinalStatus.REJECTED;
-        }
-
-        return offer.save();
     }
+
+
 
     async recordCandidateResponse(offerId: string, dto: CandidateOfferResponseDto): Promise<Offer> {
         this.validateObjectId(offerId, 'offerId');
@@ -1207,7 +1537,7 @@ export class RecruitmentService {
             throw new BadRequestException('Application must be in HIRED status to trigger preboarding');
         }
 
-        // REC-029: Integration with Onboarding module
+        // REC-029: integration with Onboarding module
         // Get the offer and contract for this application
         const offer = await this.offerModel
             .findOne({ applicationId: new Types.ObjectId(applicationId) })
@@ -1426,15 +1756,6 @@ export class RecruitmentService {
         };
     }
 
-    async getCandidateById(id: string): Promise<any> {
-        this.validateObjectId(id, 'id');
-        return this.sharedRecruitmentService.validateCandidateExists(id);
-    }
-
-    async getAllCandidates(): Promise<Candidate[]> {
-        return this.candidateModel.find().sort({ createdAt: -1 }).exec();
-    }
-
     async getEmailTemplates(): Promise<any[]> {
         // TODO: Implement email template management
         // This would return available email templates for different notification types
@@ -1462,5 +1783,78 @@ export class RecruitmentService {
                 body: 'We are delighted to offer you the position of {{position}}...',
             },
         ];
+    }
+
+    // ============================================================
+    // Candidate Profile Methods
+    // ============================================================
+
+    async createCandidateProfile(candidateData: any): Promise<Candidate> {
+        // Check if candidate with this email already exists
+        const email = candidateData.personalEmail || candidateData.email;
+        const phone = candidateData.mobilePhone || candidateData.phone;
+
+        const existingCandidate = await this.candidateModel.findOne({
+            personalEmail: email
+        }).exec();
+
+        if (existingCandidate) {
+            // Return existing candidate instead of creating duplicate
+            return existingCandidate;
+        }
+
+        // Create new candidate
+        const candidate = new this.candidateModel({
+            firstName: candidateData.firstName,
+            lastName: candidateData.lastName,
+            personalEmail: email,
+            mobilePhone: phone,
+            linkedInUrl: candidateData.linkedInUrl,
+            portfolioUrl: candidateData.portfolioUrl,
+            source: candidateData.source || 'career_site',
+        });
+
+        return candidate.save();
+    }
+
+    async getAllCandidates(): Promise<Candidate[]> {
+        return this.candidateModel.find().exec();
+    }
+
+    async getCandidateById(id: string): Promise<Candidate> {
+        this.validateObjectId(id, 'candidateId');
+
+        const candidate = await this.candidateModel.findById(id).exec();
+        if (!candidate) {
+            throw new NotFoundException(`Candidate with ID ${id} not found`);
+        }
+        return candidate;
+    }
+
+    async getCandidateApplications(candidateId: string): Promise<any[]> {
+        this.validateObjectId(candidateId, 'candidateId');
+
+        const applications = await this.applicationModel.find({ candidateId: new Types.ObjectId(candidateId) })
+            .populate({
+                path: 'requisitionId',
+                populate: {
+                    path: 'templateId'
+                }
+            })
+            .sort({ createdAt: -1 })
+            .exec();
+
+        return applications.map(app => {
+            const appObj = app.toObject();
+            const requisition = appObj.requisitionId as any;
+            const template = requisition?.templateId as any;
+
+            return {
+                ...appObj,
+                jobTitle: template?.title || requisition?.title || 'Unknown Position',
+                departmentName: template?.department || requisition?.department || '',
+                location: requisition?.location || '',
+            };
+        });
     }
 }

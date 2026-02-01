@@ -4,10 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { leavesService } from '@/app/services/leaves';
-import { useAuth } from '@/app/context/AuthContext';
-import type { LeaveType } from '@/app/types/leaves';
-
-type LeaveTypeKey = 'annual' | 'sick' | 'personal';
+import { useAuth } from '@/context/AuthContext';
+import type { LeaveType } from '@/types/leaves';
 
 interface BackendLeaveRequest {
   _id: string;
@@ -26,12 +24,6 @@ interface BackendLeaveRequest {
   attachmentId?: string;
 }
 
-interface LeaveTypeMap {
-  annual?: string;
-  sick?: string;
-  personal?: string;
-}
-
 export default function EditLeaveRequestPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -40,16 +32,19 @@ export default function EditLeaveRequestPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [leaveTypeMap, setLeaveTypeMap] = useState<LeaveTypeMap>({});
+  const [success, setSuccess] = useState<string | null>(null);
+  const [requestStatus, setRequestStatus] = useState<string>('');
+  const [canEdit, setCanEdit] = useState(true);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
 
   const [formData, setFormData] = useState<{
-    type: LeaveTypeKey;
+    leaveTypeId: string;
     startDate: string;
     endDate: string;
     reason: string;
     postLeave: boolean;
   }>({
-    type: 'annual',
+    leaveTypeId: '',
     startDate: '',
     endDate: '',
     reason: '',
@@ -72,40 +67,41 @@ export default function EditLeaveRequestPage() {
         leavesService.getLeaveTypes(),
       ]);
 
-      if (!reqRes.data) {
-        setError('Leave request not found.');
+      if (reqRes.error || !reqRes.data) {
+        setError(reqRes.error || 'Leave request not found.');
         return;
       }
 
+      if (typesRes.data && Array.isArray(typesRes.data)) {
+        setLeaveTypes(typesRes.data);
+      }
+
       const req = reqRes.data as BackendLeaveRequest;
+      const status = (req.status || '').toUpperCase();
+      setRequestStatus(status);
 
-      // Map leave type names/codes for keys and for submit
-      if (Array.isArray(typesRes.data)) {
-        const types = typesRes.data as LeaveType[];
-        const map: LeaveTypeMap = {};
+      // Check if request can be edited (only PENDING or RETURNED_FOR_CORRECTION)
+      const editableStatuses = ['PENDING', 'RETURNED_FOR_CORRECTION'];
+      const canBeEdited = editableStatuses.includes(status);
+      setCanEdit(canBeEdited);
 
-        for (const t of types) {
-          const name = (t.name || '').toLowerCase();
-          const code = (t.code || '').toLowerCase();
+      if (!canBeEdited) {
+        setError(`This leave request cannot be edited because it is ${status}. Only pending or returned-for-correction requests can be modified.`);
+      }
 
-          if (!map.annual && (name.includes('annual') || code.includes('annual'))) {
-            map.annual = t.id;
-          } else if (!map.sick && (name.includes('sick') || code.includes('sick'))) {
-            map.sick = t.id;
-          } else if (!map.personal && (name.includes('personal') || code.includes('personal'))) {
-            map.personal = t.id;
-          }
-        }
-
-        setLeaveTypeMap(map);
+      // Resolve leaveTypeId safely
+      let leaveTypeId = '';
+      if (typeof req.leaveTypeId === 'string') {
+        leaveTypeId = req.leaveTypeId;
+      } else if (req.leaveTypeId && typeof req.leaveTypeId === 'object') {
+        leaveTypeId = (req.leaveTypeId as any)._id || '';
       }
 
       const fromDate = toDateOnly(req.dates?.from);
       const toDate = toDateOnly(req.dates?.to);
-      const typeKey = toTypeKey(req.leaveTypeName);
 
       setFormData({
-        type: typeKey,
+        leaveTypeId,
         startDate: fromDate,
         endDate: toDate,
         reason: req.justification || '',
@@ -128,13 +124,6 @@ export default function EditLeaveRequestPage() {
     return value.toISOString().split('T')[0];
   };
 
-  const toTypeKey = (name?: string): LeaveTypeKey => {
-    const n = (name || '').toLowerCase();
-    if (n.includes('sick')) return 'sick';
-    if (n.includes('personal')) return 'personal';
-    return 'annual';
-  };
-
   const calculateDays = () => {
     if (!formData.startDate || !formData.endDate) return 0;
     const start = new Date(formData.startDate);
@@ -146,9 +135,34 @@ export default function EditLeaveRequestPage() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
 
     if (!user || !params?.id) {
       setError('Missing user or request id.');
+      return;
+    }
+
+    if (!canEdit) {
+      setError('This leave request cannot be edited.');
+      return;
+    }
+
+    // Validate form data
+    if (!formData.startDate || !formData.endDate) {
+      setError('Please select both start and end dates.');
+      return;
+    }
+
+    if (!formData.leaveTypeId) {
+      setError('Please select a leave type.');
+      return;
+    }
+
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
+
+    if (start > end) {
+      setError('Start date must be before or equal to end date.');
       return;
     }
 
@@ -158,22 +172,38 @@ export default function EditLeaveRequestPage() {
       return;
     }
 
-    const leaveTypeId = leaveTypeMap[formData.type];
+    if (!formData.reason || formData.reason.trim().length === 0) {
+      setError('Please provide a reason for your leave request.');
+      return;
+    }
 
     try {
       setSaving(true);
 
-      await leavesService.updateRequest(params.id, {
+      const updateData: any = {
+        leaveTypeId: formData.leaveTypeId,
         from: formData.startDate,
         to: formData.endDate,
         durationDays: days,
-        justification: formData.reason,
+        justification: formData.reason.trim(),
         postLeave: formData.postLeave,
-        ...(leaveTypeId ? { leaveTypeId } : {}),
-      });
+      };
 
-      router.push('/portal/my-leaves');
+      const response = await leavesService.updateRequest(params.id, updateData);
+
+      if (response.error) {
+        setError(response.error || 'Failed to update leave request');
+        return;
+      }
+
+      setSuccess('Leave request updated successfully!');
+
+      // Redirect after a short delay to show success message
+      setTimeout(() => {
+        router.push('/portal/my-leaves');
+      }, 1500);
     } catch (err) {
+      console.error('Update error:', err);
       const message = err instanceof Error ? err.message : 'Failed to update leave request';
       setError(message);
     } finally {
@@ -187,18 +217,49 @@ export default function EditLeaveRequestPage() {
       return;
     }
 
-    if (!confirm('Are you sure you want to cancel this leave request?')) return;
+    // Check if request can be cancelled (PENDING or APPROVED)
+    const cancellableStatuses = ['PENDING', 'APPROVED'];
+    if (!cancellableStatuses.includes(requestStatus)) {
+      setError(`This leave request cannot be cancelled because it is ${requestStatus}. Only pending or approved requests can be cancelled.`);
+      return;
+    }
+
+    if (!confirm('Are you sure you want to cancel this leave request? This action cannot be undone.')) return;
 
     try {
       setSaving(true);
-      await leavesService.cancelRequest(params.id, user.id);
-      router.push('/portal/my-leaves');
+      setError(null);
+      setSuccess(null);
+
+      const response = await leavesService.cancelRequest(params.id, user.id);
+
+      if (response.error) {
+        setError(response.error || 'Failed to cancel leave request');
+        return;
+      }
+
+      setSuccess('Leave request cancelled successfully!');
+
+      // Redirect after a short delay to show success message
+      setTimeout(() => {
+        router.push('/portal/my-leaves');
+      }, 1500);
     } catch (err) {
+      console.error('Cancel error:', err);
       const message = err instanceof Error ? err.message : 'Failed to cancel leave request';
       setError(message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const getLeaveTypeColor = (name: string, code: string) => {
+    const n = name.toLowerCase();
+    const c = code.toLowerCase();
+    if (n.includes('annual') || c.includes('annual')) return 'blue';
+    if (n.includes('sick') || c.includes('sick')) return 'red';
+    if (n.includes('unpaid') || c.includes('unpaid')) return 'gray';
+    return 'purple';
   };
 
   if (loading) {
@@ -236,7 +297,42 @@ export default function EditLeaveRequestPage() {
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {error}
+            <div className="flex items-start gap-2">
+              <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="font-medium">Error</p>
+                <p className="text-sm mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+            <div className="flex items-start gap-2">
+              <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="font-medium">Success</p>
+                <p className="text-sm mt-1">{success}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {requestStatus && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg">
+            <p className="text-sm">
+              <span className="font-medium">Status:</span> {requestStatus}
+              {!canEdit && (
+                <span className="ml-2 text-blue-600">
+                  (This request cannot be edited in its current state)
+                </span>
+              )}
+            </p>
           </div>
         )}
 
@@ -248,31 +344,35 @@ export default function EditLeaveRequestPage() {
           {/* Leave Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Leave Type</label>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { value: 'annual', label: 'Annual Leave', color: 'blue' },
-                { value: 'sick', label: 'Sick Leave', color: 'red' },
-                { value: 'personal', label: 'Personal Leave', color: 'purple' },
-              ].map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      type: type.value as LeaveTypeKey,
-                    }))
-                  }
-                  className={`p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
-                    formData.type === type.value
-                      ? `border-${type.color}-500 bg-${type.color}-50 text-${type.color}-700`
-                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {type.label}
-                </button>
-              ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {leaveTypes.map((type) => {
+                const color = getLeaveTypeColor(type.name, type.code || '');
+                const typeId = type.id || (type as any)._id;
+                const isSelected = formData.leaveTypeId === typeId;
+
+                return (
+                  <button
+                    key={typeId}
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        leaveTypeId: typeId,
+                      }))
+                    }
+                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-colors ${isSelected
+                        ? `border-${color}-500 bg-${color}-50 text-${color}-700`
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                      }`}
+                  >
+                    {type.name}
+                  </button>
+                );
+              })}
             </div>
+            {leaveTypes.length === 0 && (
+              <p className="text-sm text-gray-500 italic">No leave types available</p>
+            )}
           </div>
 
           {/* Date Range */}
@@ -361,10 +461,10 @@ export default function EditLeaveRequestPage() {
             <button
               type="button"
               onClick={handleCancelRequest}
-              disabled={saving}
+              disabled={saving || !['PENDING', 'APPROVED'].includes(requestStatus)}
               className="px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Cancel Request
+              {saving ? 'Cancelling...' : 'Cancel Request'}
             </button>
             <div className="flex items-center gap-3">
               <Link
@@ -375,7 +475,7 @@ export default function EditLeaveRequestPage() {
               </Link>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || !canEdit}
                 className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
@@ -387,5 +487,3 @@ export default function EditLeaveRequestPage() {
     </div>
   );
 }
-
-

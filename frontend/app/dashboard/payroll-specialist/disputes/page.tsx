@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { payrollSpecialistService, PayrollDispute, DisputeFilters } from '@/app/services/payroll-specialist';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 export default function DisputesPage() {
   const { user } = useAuth();
@@ -236,11 +236,11 @@ export default function DisputesPage() {
 
   const getStatusColor = (status: PayrollDispute['status']) => {
     switch (status) {
-      case 'under review': return 'bg-blue-100 text-blue-800';
-      case 'pending payroll Manager approval': return 'bg-orange-100 text-orange-800';
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'under review': return 'bg-primary/15 text-primary border border-primary/30';
+      case 'pending payroll Manager approval': return 'bg-warning/15 text-warning border border-warning/30';
+      case 'approved': return 'bg-success/15 text-success border border-success/30';
+      case 'rejected': return 'bg-destructive/15 text-destructive border border-destructive/30';
+      default: return 'bg-muted/50 text-muted-foreground border border-border';
     }
   };
 
@@ -299,7 +299,7 @@ export default function DisputesPage() {
         <div className="flex items-end mt-4">
           <button
             onClick={loadDisputes}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
           >
             Apply Filters
           </button>
@@ -308,56 +308,56 @@ export default function DisputesPage() {
 
       {/* Success/Error Messages */}
       {successMessage && (
-        <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
+        <div className="bg-success/10 border-l-4 border-success text-success p-4">
           <p>{successMessage}</p>
         </div>
       )}
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+        <div className="bg-destructive/10 border-l-4 border-destructive text-destructive p-4">
           <p>{error}</p>
         </div>
       )}
 
       {/* Disputes List */}
-      <div className="bg-white rounded-lg border border-slate-200">
-        <div className="p-6 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">Disputes</h2>
+      <div className="bg-card rounded-lg border border-border">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">Disputes</h2>
         </div>
         {loading ? (
           <div className="p-6 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="text-slate-500 mt-2">Loading disputes...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground mt-2">Loading disputes...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50">
+              <thead className="bg-muted/30">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Dispute ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Pay Period</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Submitted</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Dispute ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Employee</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pay Period</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Submitted</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
+              <tbody className="bg-card divide-y divide-border">
                 {disputes.map((dispute) => (
-                  <tr key={dispute.id} className="hover:bg-slate-50">
+                  <tr key={dispute.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-slate-900">{dispute.disputeId}</span>
+                      <span className="text-sm font-medium text-foreground">{dispute.disputeId}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-slate-900">{dispute.employeeName}</div>
-                        <div className="text-xs text-slate-500">{dispute.employeeNumber}</div>
+                        <div className="text-sm font-medium text-foreground">{dispute.employeeName}</div>
+                        <div className="text-xs text-muted-foreground">{dispute.employeeNumber}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 min-w-[300px]">
-                      <span className="text-sm text-slate-600">{dispute.description}</span>
+                      <span className="text-sm text-foreground">{dispute.description}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                       {dispute.payPeriod || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -365,14 +365,14 @@ export default function DisputesPage() {
                         {dispute.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                       {new Date(dispute.submittedAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex space-x-2">
                         <button
                           onClick={() => setSelectedDispute(dispute)}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-primary hover:text-primary/80"
                         >
                           View
                         </button>
@@ -380,13 +380,13 @@ export default function DisputesPage() {
                           <>
                             <button
                               onClick={() => openReviewModal(dispute, 'approve')}
-                              className="text-green-600 hover:text-green-800"
+                              className="text-success hover:text-success/80"
                             >
                               Approve
                             </button>
                             <button
                               onClick={() => openReviewModal(dispute, 'reject')}
-                              className="text-red-600 hover:text-red-800"
+                              className="text-destructive hover:text-destructive/80"
                             >
                               Reject
                             </button>
@@ -438,8 +438,8 @@ export default function DisputesPage() {
                   <p className="text-sm text-slate-600">{selectedDispute.employeeNumber}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Employee ID</label>
-                  <p className="text-slate-900 text-sm font-mono">{selectedDispute.employeeId}</p>
+                  <label className="text-sm font-medium text-slate-500">Submitted At</label>
+                  <p className="text-slate-900">{new Date(selectedDispute.submittedAt).toLocaleString()}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-500">Pay Period</label>
@@ -447,21 +447,21 @@ export default function DisputesPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-500">Payslip ID</label>
-                  <p className="text-slate-900 text-sm font-mono bg-slate-50 px-2 py-1 rounded inline-block mt-1">{selectedDispute.payslipId || 'N/A'}</p>
+                  <p className="text-foreground text-sm font-mono bg-muted/50 px-2 py-1 rounded inline-block mt-1">{selectedDispute.payslipId || 'N/A'}</p>
                 </div>
                 {(selectedDispute.refundId || selectedDispute.refundStatus) && selectedDispute.refundId !== 'N/A' && (
                   <>
-                    <div className="col-span-2 mt-2 pt-2 border-t">
-                      <h4 className="font-semibold text-slate-900">Refund Information</h4>
+                    <div className="col-span-2 mt-2 pt-2 border-t border-border">
+                      <h4 className="font-semibold text-foreground">Refund Information</h4>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-slate-500">Refund ID</label>
-                      <p className="text-slate-900 text-sm font-mono bg-slate-50 px-2 py-1 rounded inline-block mt-1">{selectedDispute.refundId}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Refund ID</label>
+                      <p className="text-foreground text-sm font-mono bg-muted/50 px-2 py-1 rounded inline-block mt-1">{selectedDispute.refundId}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-slate-500">Refund Status</label>
+                      <label className="text-sm font-medium text-muted-foreground">Refund Status</label>
                       <div className="mt-1">
-                        <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+                        <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-accent/15 text-accent border border-accent/30">
                           {selectedDispute.refundStatus}
                         </span>
                       </div>
@@ -470,23 +470,19 @@ export default function DisputesPage() {
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-500">Description</label>
-                <p className="text-slate-900 mt-1">{selectedDispute.description}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-500">Submitted</label>
-                <p className="text-slate-900">{new Date(selectedDispute.submittedAt).toLocaleString()}</p>
+                <label className="text-sm font-medium text-muted-foreground">Description</label>
+                <p className="text-foreground mt-1">{selectedDispute.description}</p>
               </div>
               {selectedDispute.notes && (
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Resolution Comment</label>
-                  <p className="text-slate-900 mt-1">{selectedDispute.notes}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Resolution Comment</label>
+                  <p className="text-foreground mt-1">{selectedDispute.notes}</p>
                 </div>
               )}
               {selectedDispute.status === 'rejected' && selectedDispute.rejectionRemarks && (
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Rejection Reason</label>
-                  <p className="text-red-600 mt-1">{selectedDispute.rejectionRemarks}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Rejection Reason</label>
+                  <p className="text-destructive mt-1">{selectedDispute.rejectionRemarks}</p>
                 </div>
               )}
             </div>
@@ -494,13 +490,13 @@ export default function DisputesPage() {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => openReviewModal(selectedDispute, 'reject')}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90"
                 >
                   Reject
                 </button>
                 <button
                   onClick={() => openReviewModal(selectedDispute, 'approve')}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  className="px-4 py-2 bg-success text-success-foreground rounded-lg hover:bg-success/90"
                 >
                   Approve
                 </button>
@@ -512,23 +508,23 @@ export default function DisputesPage() {
 
       {/* Review Modal */}
       {showReviewModal && selectedDispute && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg border border-border p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               {reviewAction === 'approve' ? 'Approve Dispute' : 'Reject Dispute'}
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-500">Dispute</label>
-                <p className="text-slate-900">{selectedDispute.description}</p>
-                <p className="text-sm text-slate-600">{selectedDispute.employeeName}</p>
+                <label className="text-sm font-medium text-muted-foreground">Dispute</label>
+                <p className="text-foreground">{selectedDispute.description}</p>
+                <p className="text-sm text-muted-foreground">{selectedDispute.employeeName}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   {reviewAction === 'approve' ? 'Review Notes' : 'Rejection Remarks'}
                 </label>
                 <textarea
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground bg-background"
                   rows={3}
                   placeholder={reviewAction === 'approve' ? "Add your review notes..." : "Provide rejection remarks..."}
                   value={reviewAction === 'approve' ? reviewNotes : rejectionRemarks}
@@ -539,13 +535,13 @@ export default function DisputesPage() {
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setShowReviewModal(false)}
-                className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                className="px-4 py-2 text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReviewDispute}
-                className={`px-4 py-2 text-white rounded-lg hover:opacity-90 ${reviewAction === 'approve' ? 'bg-green-600' : 'bg-red-600'
+                className={`px-4 py-2 text-white rounded-lg hover:opacity-90 ${reviewAction === 'approve' ? 'bg-success' : 'bg-destructive'
                   }`}
               >
                 {reviewAction === 'approve' ? 'Approve' : 'Reject'}

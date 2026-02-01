@@ -1,5 +1,5 @@
-// filepath: d:\WebstormProjects\HR System\Main\frontend\app\services\auth.ts
-import api, { setAccessToken, removeAccessToken } from './api';
+
+import api from './api';
 
 // Types matching backend response
 export interface LoginRequest {
@@ -21,7 +21,7 @@ export interface LoginResponse {
   user: BackendUser;
   userType: 'employee' | 'candidate';
   expiresIn: string;
-  access_token: string;
+  access_token?: string; // Optional now, since it's in a cookie
 }
 
 export interface RegisterCandidateRequest {
@@ -72,17 +72,17 @@ export interface LogoutResponse {
 export const authService = {
   /**
    * Login with email and password
-   * Stores access token in cookie on success
+   * Browser automatically handles the set-cookie header
    */
   async login(credentials: LoginRequest) {
-    const response = await api.post<LoginResponse>('/auth/login', credentials);
+    return await api.post<LoginResponse>('/auth/login', credentials);
+  },
 
-    // Store the access token in cookie if login successful
-    if (response.data?.access_token) {
-      setAccessToken(response.data.access_token);
-    }
-
-    return response;
+  /**
+   * Get current user profile based on HttpOnly cookie
+   */
+  async getMe() {
+    return await api.get<BackendUser>('/auth/me');
   },
 
   /**
@@ -100,15 +100,11 @@ export const authService = {
   },
 
   /**
-   * Logout - clears the JWT cookie
+   * Logout - backend clears the JWT cookie
    */
   async logout() {
-    const response = await api.post<LogoutResponse>('/auth/logout');
-    // Remove the token from cookie
-    removeAccessToken();
-    return response;
+    return await api.post<LogoutResponse>('/auth/logout');
   },
 };
 
 export default authService;
-

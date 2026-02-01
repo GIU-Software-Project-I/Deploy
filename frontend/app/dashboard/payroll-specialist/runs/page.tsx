@@ -1,47 +1,10 @@
 'use client';
 
 import { SetStateAction, useEffect, useState } from 'react';
-import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/app/components/theme-customizer';
+import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/components/theme-customizer';
 import { useSearchParams } from 'next/navigation';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../../../components/ui/tabs";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "../../../components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../../components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../../components/ui/select";
-import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
-import { Badge } from "../../../components/ui/badge";
-import { Separator } from "../../../components/ui/separator";
-import { ScrollArea } from "../../../components/ui/scroll-area";
-import { Alert, AlertDescription, AlertTitle } from "../../../components/ui/alert";
-import { Skeleton } from "../../../components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+
 import {
   Calendar,
   RefreshCw,
@@ -78,6 +41,19 @@ type Tab = 'runs' | 'create' | 'bonuses' | 'termination' | 'payslips' | 'diagnos
 
 // Import the correct service for company-wide settings
 import { payrollConfigurationService } from '../../../services/payroll-configuration';
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // Helper function to format payrollPeriod object to string
 const formatPayrollPeriod = (period: any): string => {
@@ -124,7 +100,7 @@ const formatDateTime = (dateString: string | Date, includeTime: boolean = false)
         minute: '2-digit'
       });
     }
-    
+
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -143,8 +119,8 @@ const StatusBadge = ({ status }: { status: string }) => {
     if (s === 'draft' || s === 'pending' || s === 'pending finance approval' || s === 'under review' || s === 'under_review') return 'secondary';
     if (s === 'rejected') return 'destructive';
     if (s === 'unlocked') return 'outline';
-    if  (s === 'pending') return 'secondary';
-    if  (s === 'paid') return 'default';
+    if (s === 'pending') return 'secondary';
+    if (s === 'paid') return 'default';
     return 'secondary';
   };
 
@@ -163,7 +139,7 @@ export default function PayrollSpecialistRunsPage() {
   // Use companywide currency from CompanyWideSettings API
   const [companyCurrency, setCompanyCurrency] = useState<string>('EGP');
   const [loadingCurrency, setLoadingCurrency] = useState<boolean>(true);
-  
+
   // Helper to format currency with dynamic currency code
   const formatCurrency = (amount: number | undefined | null, currency?: string): string => {
     const curr = currency || companyCurrency || 'EGP';
@@ -182,18 +158,18 @@ export default function PayrollSpecialistRunsPage() {
       try {
         setLoadingCurrency(true);
         const response = await payrollConfigurationService.getCompanyWideSettings() as any;
-        
+
         // Extract currency from the response based on your API structure
         if (response?.data) {
           const settings = response.data;
           // Try different possible property names for currency
-          const currency = 
+          const currency =
             settings.currency ||
             settings.companyCurrency ||
             settings.defaultCurrency ||
             settings.financialSettings?.currency ||
             'EGP';
-          
+
           setCompanyCurrency(currency);
         } else if (response?.currency) {
           // Direct currency property
@@ -217,38 +193,38 @@ export default function PayrollSpecialistRunsPage() {
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
-  
+
   // Runs
   const [runs, setRuns] = useState<any[]>([]);
   const [selectedRun, setSelectedRun] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState('all');
-  
+
   // Departments for dropdown
   const [departments, setDepartments] = useState<any[]>([]);
-  
+
   // Create form
   const [form, setForm] = useState({
     payrollPeriod: '',
     entityId: '',  // department ID
     entity: '',    // department name (auto-filled)
   });
-  
+
   // Payroll period approval state
   const [showInitiationApproval, setShowInitiationApproval] = useState(false);
   const [isPeriodApproved, setIsPeriodApproved] = useState(false);
   const [periodRejected, setPeriodRejected] = useState(false);
-  
+
   // Bonuses & Termination
   const [bonuses, setBonuses] = useState<any[]>([]);
   const [terminations, setTerminations] = useState<any[]>([]);
-  
+
   // Payslips (REQ-PY-8)
   const [payslips, setPayslips] = useState<any[]>([]);
   const [selectedPayslip, setSelectedPayslip] = useState<any>(null);
-    const [payslipDialogLoading, setPayslipDialogLoading] = useState(false);
-    const [payslipDialogError, setPayslipDialogError] = useState('');
+  const [payslipDialogLoading, setPayslipDialogLoading] = useState(false);
+  const [payslipDialogError, setPayslipDialogError] = useState('');
   const [payslipsRunId, setPayslipsRunId] = useState<string>('');
-  
+
   // Edit mode (REQ-PY-26)
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -259,7 +235,7 @@ export default function PayrollSpecialistRunsPage() {
 
   // Diagnostics
   const [diagnostics, setDiagnostics] = useState<any>(null);
-  
+
   // UI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -280,12 +256,12 @@ export default function PayrollSpecialistRunsPage() {
       const params: any = { page: 1, limit: 50 };
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
       const res = await payrollExecutionService.listRuns(params);
-      
+
       if (res?.error) {
         setError(res.error);
         return;
       }
-      
+
       const data = (res?.data || res) as any;
       const items = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
       // Normalize: map _id to id and include all backend fields
@@ -356,12 +332,12 @@ export default function PayrollSpecialistRunsPage() {
     setError('');
     try {
       const res = await payrollExecutionService.listSigningBonuses();
-      
+
       if (res?.error) {
         setError(res.error);
         return;
       }
-      
+
       const data = res?.data || res;
       setBonuses(Array.isArray(data) ? data : []);
     } catch (e: any) {
@@ -376,12 +352,12 @@ export default function PayrollSpecialistRunsPage() {
     setError('');
     try {
       const res = await payrollExecutionService.listTerminationBenefits();
-      
+
       if (res?.error) {
         setError(res.error);
         return;
       }
-      
+
       const data = res?.data || res;
       setTerminations(Array.isArray(data) ? data : []);
     } catch (e: any) {
@@ -400,12 +376,12 @@ export default function PayrollSpecialistRunsPage() {
     setError('');
     try {
       const res = await payrollExecutionService.listPayslipsByRun(runId);
-      
+
       if (res?.error) {
         setError(res.error);
         return;
       }
-      
+
       const data = res?.data || res;
       const normalizePayslip = (p: any) => {
         const earnings = p.earningsDetails || {};
@@ -449,37 +425,37 @@ export default function PayrollSpecialistRunsPage() {
           _id: p._id,
           baseSalary: p.baseSalary ?? earnings.baseSalary ?? 0,
           allowances: Array.isArray(earnings.allowances)
-      ? {
-          total: earnings.allowances.reduce((sum: any, a: { amount: any }) => sum + (a.amount || 0), 0),
-          items: earnings.allowances.map((a: { name: any; type: any; amount: any; description: any; subAllowances: any }) => ({
-            name: a.name,
-            type: a.type,
-            amount: a.amount,
-            description: a.description,
-            subAllowances: a.subAllowances || [],
-          })),
-        }
-      : { total: 0, items: [] },
-    bonuses: Array.isArray(earnings.bonuses)
-      ? {
-          total: earnings.bonuses.reduce((sum: any, b: { amount: any }) => sum + (b.amount || 0), 0),
-          items: earnings.bonuses.map((b: { name: any; type: any; amount: any; description: any; subBonuses: any }) => ({
-            name: b.name,
-            type: b.type,
-            amount: b.amount,
-            description: b.description,
-            subBonuses: b.subBonuses || [],
-          })),
-        }
-      : { total: 0, items: [] },
-    grossPay: p.grossPay ?? p.totalGrossSalary ?? 0,
-    netPay: p.netPay ?? 0,
-    deductions,
-    status:  p.paymentStatus || p.status,
-    employeeName: p.employeeName || p.employee,
-    paymentStatus : p.paymentStatus || 'pending',
-    // Add other fields as needed
-  };
+            ? {
+              total: earnings.allowances.reduce((sum: any, a: { amount: any }) => sum + (a.amount || 0), 0),
+              items: earnings.allowances.map((a: { name: any; type: any; amount: any; description: any; subAllowances: any }) => ({
+                name: a.name,
+                type: a.type,
+                amount: a.amount,
+                description: a.description,
+                subAllowances: a.subAllowances || [],
+              })),
+            }
+            : { total: 0, items: [] },
+          bonuses: Array.isArray(earnings.bonuses)
+            ? {
+              total: earnings.bonuses.reduce((sum: any, b: { amount: any }) => sum + (b.amount || 0), 0),
+              items: earnings.bonuses.map((b: { name: any; type: any; amount: any; description: any; subBonuses: any }) => ({
+                name: b.name,
+                type: b.type,
+                amount: b.amount,
+                description: b.description,
+                subBonuses: b.subBonuses || [],
+              })),
+            }
+            : { total: 0, items: [] },
+          grossPay: p.grossPay ?? p.totalGrossSalary ?? 0,
+          netPay: p.netPay ?? 0,
+          deductions,
+          status: p.paymentStatus || p.status,
+          employeeName: p.employeeName || p.employee,
+          paymentStatus: p.paymentStatus || 'pending',
+          // Add other fields as needed
+        };
       };
       setPayslips(Array.isArray(data) ? data.map(normalizePayslip) : []);
       setPayslipsRunId(runId);
@@ -522,12 +498,12 @@ export default function PayrollSpecialistRunsPage() {
         entity: form.entity,
         entityId: form.entityId,
       });
-      
+
       if (res?.error) {
         setError(res.error);
         return;
       }
-      
+
       setSuccess('Initiation created successfully!');
       setForm({ payrollPeriod: '', entityId: '', entity: '' });
       fetchRuns();
@@ -605,7 +581,7 @@ export default function PayrollSpecialistRunsPage() {
         entity: editForm.entity,
         entityId: editForm.entityId,
       };
-      
+
       const res = await payrollExecutionService.updateInitiation(id, updateData);
       if (res?.error) {
         setError(res.error);
@@ -634,11 +610,11 @@ export default function PayrollSpecialistRunsPage() {
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-6 relative">
       {/* Theme Customizer Trigger */}
       <div className="fixed bottom-6 right-6 z-40">
-        <ThemeCustomizerTrigger 
+        <ThemeCustomizerTrigger
           onClick={() => setShowThemeCustomizer(true)}
         />
       </div>
-      
+
       {/* Theme Customizer Modal */}
       {showThemeCustomizer && (
         <ThemeCustomizer open={showThemeCustomizer} onOpenChange={setShowThemeCustomizer} />
@@ -724,7 +700,7 @@ export default function PayrollSpecialistRunsPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-muted-foreground" />
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
                         <SelectTrigger className="w-[180px]">
                           <SelectValue placeholder="Filter by status" />
                         </SelectTrigger>
@@ -763,11 +739,10 @@ export default function PayrollSpecialistRunsPage() {
                 ) : (
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {runs.map((run) => (
-                      <Card 
-                        key={run._id} 
-                        className={`cursor-pointer transition-all hover:shadow-lg hover:border-primary/50 ${
-                          selectedRun?._id === run._id ? 'border-primary ring-2 ring-primary/20' : ''
-                        }`}
+                      <Card
+                        key={run._id}
+                        className={`cursor-pointer transition-all hover:shadow-lg hover:border-primary/50 ${selectedRun?._id === run._id ? 'border-primary ring-2 ring-primary/20' : ''
+                          }`}
                         onClick={() => setSelectedRun(run)}
                       >
                         <CardHeader className="pb-3">
@@ -978,8 +953,8 @@ export default function PayrollSpecialistRunsPage() {
                                   value={editForm.entityId}
                                   onValueChange={(value: any) => {
                                     const selectedDept = departments.find((d: any) => d._id === value);
-                                    setEditForm({ 
-                                      ...editForm, 
+                                    setEditForm({
+                                      ...editForm,
                                       entityId: value,
                                       entity: selectedDept?.name || ''
                                     });
@@ -999,16 +974,16 @@ export default function PayrollSpecialistRunsPage() {
                               </div>
                             </div>
                             <div className="flex gap-3">
-                              <Button 
-                                onClick={() => handleSaveEdit(selectedRun._id)} 
+                              <Button
+                                onClick={() => handleSaveEdit(selectedRun._id)}
                                 disabled={loading}
                                 className="flex-1"
                               >
                                 <Check className="h-4 w-4 mr-2" />
                                 Save Changes
                               </Button>
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 onClick={handleCancelEdit}
                                 disabled={loading}
                                 className="flex-1"
@@ -1059,8 +1034,8 @@ export default function PayrollSpecialistRunsPage() {
                       value={form.entityId}
                       onValueChange={(value: any) => {
                         const selectedDept = departments.find((d: any) => d._id === value);
-                        setForm({ 
-                          ...form, 
+                        setForm({
+                          ...form,
                           entityId: value,
                           entity: selectedDept?.name || ''
                         });
@@ -1090,16 +1065,16 @@ export default function PayrollSpecialistRunsPage() {
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col gap-3">
-                <Button 
-                  onClick={() => setShowInitiationApproval(true)} 
+                <Button
+                  onClick={() => setShowInitiationApproval(true)}
                   disabled={!form.entityId || !form.payrollPeriod}
                   className="w-full"
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   Review Initiation
                 </Button>
-                <Button 
-                  onClick={handleCreate} 
+                <Button
+                  onClick={handleCreate}
                   disabled={loading || !form.entityId || !form.payrollPeriod || !isPeriodApproved}
                   className="w-full"
                 >
@@ -1207,10 +1182,15 @@ export default function PayrollSpecialistRunsPage() {
                         <CardHeader className="pb-3">
                           <div className="flex justify-between items-start">
                             <CardTitle className="text-base truncate">
-                              {b.employeeName || (typeof b.employeeId === 'string' ? `Employee ${b.employeeId.slice(-6)}` : 'Unknown')}
+                              {b.employeeName || 'Unknown Employee'}
                             </CardTitle>
                             <StatusBadge status={b.status} />
                           </div>
+                          {b.employeeNumber && (
+                            <CardDescription className="text-xs">
+                              #{b.employeeNumber}
+                            </CardDescription>
+                          )}
                         </CardHeader>
                         <CardContent>
                           <div className="flex items-center justify-between">
@@ -1222,9 +1202,9 @@ export default function PayrollSpecialistRunsPage() {
                         </CardContent>
                         {b.status === 'pending' && (
                           <CardFooter className="flex flex-col gap-2 pt-0">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="w-full"
                               onClick={async () => {
                                 const newAmount = prompt('Enter new amount:', String(b.givenAmount || b.amount || 0));
@@ -1247,8 +1227,8 @@ export default function PayrollSpecialistRunsPage() {
                               Edit Amount
                             </Button>
                             <div className="flex gap-2 w-full">
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 className="flex-1"
                                 onClick={async () => {
                                   try {
@@ -1263,9 +1243,9 @@ export default function PayrollSpecialistRunsPage() {
                                 <Check className="h-3 w-3 mr-1" />
                                 Approve
                               </Button>
-                              <Button 
-                                variant="destructive" 
-                                size="sm" 
+                              <Button
+                                variant="destructive"
+                                size="sm"
                                 className="flex-1"
                                 onClick={async () => {
                                   const reason = prompt('Enter rejection reason:');
@@ -1340,10 +1320,15 @@ export default function PayrollSpecialistRunsPage() {
                         <CardHeader className="pb-3">
                           <div className="flex justify-between items-start">
                             <CardTitle className="text-base truncate">
-                              {t.employeeName || (typeof t.employeeId === 'string' ? `Employee ${t.employeeId.slice(-6)}` : 'Unknown')}
+                              {t.employeeName || 'Unknown Employee'}
                             </CardTitle>
                             <StatusBadge status={t.status} />
                           </div>
+                          {t.employeeNumber && (
+                            <CardDescription className="text-xs">
+                              #{t.employeeNumber}
+                            </CardDescription>
+                          )}
                           <CardDescription>
                             {t.benefitType || t.type || 'Termination Benefit'}
                           </CardDescription>
@@ -1358,9 +1343,9 @@ export default function PayrollSpecialistRunsPage() {
                         </CardContent>
                         {t.status === 'pending' && (
                           <CardFooter className="flex flex-col gap-2 pt-0">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="w-full"
                               onClick={async () => {
                                 const newAmount = prompt('Enter new amount:', String(t.givenAmount || t.amount || 0));
@@ -1383,8 +1368,8 @@ export default function PayrollSpecialistRunsPage() {
                               Edit Amount
                             </Button>
                             <div className="flex gap-2 w-full">
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 className="flex-1"
                                 onClick={async () => {
                                   try {
@@ -1399,9 +1384,9 @@ export default function PayrollSpecialistRunsPage() {
                                 <Check className="h-3 w-3 mr-1" />
                                 Approve
                               </Button>
-                              <Button 
-                                variant="destructive" 
-                                size="sm" 
+                              <Button
+                                variant="destructive"
+                                size="sm"
                                 className="flex-1"
                                 onClick={async () => {
                                   const reason = prompt('Enter rejection reason:');
@@ -1476,8 +1461,8 @@ export default function PayrollSpecialistRunsPage() {
                       </Select>
                     </div>
                     <div className="mt-auto">
-                      <Button 
-                        onClick={() => payslipsRunId && fetchPayslips(payslipsRunId)} 
+                      <Button
+                        onClick={() => payslipsRunId && fetchPayslips(payslipsRunId)}
                         disabled={loading || !payslipsRunId}
                       >
                         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -1536,8 +1521,8 @@ export default function PayrollSpecialistRunsPage() {
 
                       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {payslips.map((slip, index) => (
-                          <Card 
-                            key={index} 
+                          <Card
+                            key={index}
                             className="cursor-pointer hover:shadow-md transition-all"
                             onClick={async () => {
                               setPayslipDialogLoading(true);

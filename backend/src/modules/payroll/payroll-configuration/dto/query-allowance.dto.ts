@@ -1,7 +1,7 @@
 // query-allowance.dto.ts
 import { IsOptional, IsEnum, IsString, IsNumber, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ConfigStatus } from '../../payroll-configuration/enums/payroll-configuration-enums';
+import { ConfigStatus } from '../enums/payroll-configuration-enums';
 export class QueryAllowanceDto {
   @IsOptional()
   @IsEnum(ConfigStatus, {

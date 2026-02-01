@@ -2,18 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import { payrollConfigurationService } from '@/app/services/payroll-configuration';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 // Type definitions based on your API response
+interface PopulatedEmployee {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  employeeNumber: string;
+}
+
 interface PayType {
   _id: string;
   type: string;
   amount: number;
   status: 'draft' | 'approved' | 'rejected' | 'pending_approval';
-  createdBy?: string;
+  createdBy?: string | PopulatedEmployee;
   createdAt: string;
   updatedAt: string;
-  approvedBy?: string;
+  approvedBy?: string | PopulatedEmployee;
   approvedAt?: string;
   rejectionReason?: string;
   __v: number;
@@ -58,7 +66,7 @@ export default function PayTypesPage() {
   const [selectedPayType, setSelectedPayType] = useState<PayType | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [calculationResult, setCalculationResult] = useState<any>(null);
-  
+
   // Calculate form state
   const [calculateFormData, setCalculateFormData] = useState({
     hoursPerWeek: '40',
@@ -66,13 +74,13 @@ export default function PayTypesPage() {
     contractDuration: '12',
     roleType: 'full-time',
   });
-  
+
   // Search and filter state
   const [filters, setFilters] = useState({
     search: '',
     status: '',
   });
-  
+
   // Form state - ONLY the fields your backend expects
   const [formData, setFormData] = useState({
     type: '',
@@ -88,24 +96,24 @@ export default function PayTypesPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await payrollConfigurationService.getPayTypes();
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       if (!response.data) {
         console.warn('No data in response');
         setPayTypes([]);
         return;
       }
-      
+
       const apiData = response.data as any;
-      
+
       if (apiData.data && Array.isArray(apiData.data)) {
         setPayTypes(apiData.data);
-      } 
+      }
       else if (Array.isArray(apiData)) {
         setPayTypes(apiData);
       }
@@ -113,7 +121,7 @@ export default function PayTypesPage() {
         console.warn('Unexpected response structure:', apiData);
         setPayTypes([]);
       }
-      
+
     } catch (err: any) {
       setError(err.message || 'Failed to fetch pay types');
       console.error('Error fetching pay types:', err);
@@ -122,112 +130,112 @@ export default function PayTypesPage() {
     }
   };
 
-const handleCreatePayType = async () => {
-  try {
-    // Basic frontend validation - just check for empty fields
-    if (!formData.type || !formData.amount) {
-      setError('Please fill all required fields');
-      return;
-    }
+  const handleCreatePayType = async () => {
+    try {
+      // Basic frontend validation - just check for empty fields
+      if (!formData.type || !formData.amount) {
+        setError('Please fill all required fields');
+        return;
+      }
 
-    // Convert amount to number - backend will validate the minimum value
-    const amountNum = parseFloat(formData.amount);
-    
-    if (isNaN(amountNum)) {
-      setError('Amount must be a valid number');
-      return;
-    }
+      // Convert amount to number - backend will validate the minimum value
+      const amountNum = parseFloat(formData.amount);
 
-    setActionLoading(true);
-    
-    // Get the employee ID - REQUIRED by backend DTO
-    let createdByEmployeeId = user?.id || '';
-    
-    if (!createdByEmployeeId) {
-      setError('Unable to identify user. Please make sure you are logged in.');
+      if (isNaN(amountNum)) {
+        setError('Amount must be a valid number');
+        return;
+      }
+
+      setActionLoading(true);
+
+      // Get the employee ID - REQUIRED by backend DTO
+      let createdByEmployeeId = user?.id || '';
+
+      if (!createdByEmployeeId) {
+        setError('Unable to identify user. Please make sure you are logged in.');
+        setActionLoading(false);
+        return;
+      }
+
+      // Validate that createdByEmployeeId looks like a MongoDB ObjectId
+      // MongoDB ObjectIds are 24-character hex strings
+      const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+      if (!objectIdRegex.test(createdByEmployeeId)) {
+        console.warn('Employee ID does not look like a MongoDB ObjectId:', createdByEmployeeId);
+        // Continue anyway - the backend validation will catch it
+      }
+
+      // Prepare the data exactly as the DTO expects
+      const apiData = {
+        type: formData.type,
+        amount: amountNum,
+        createdByEmployeeId: createdByEmployeeId,
+      };
+
+      console.log('Creating pay type with data:', apiData);
+
+      const response = await payrollConfigurationService.createPayType(apiData);
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      // Check for backend validation errors
+      if (response.data) {
+        const responseData = response.data as any;
+
+        // Handle various error response formats
+        if (responseData.message && responseData.message.includes('already exists')) {
+          throw new Error(responseData.message);
+        }
+        else if (responseData.error) {
+          throw new Error(responseData.error);
+        }
+        else if (responseData.statusCode && responseData.statusCode >= 400) {
+          // Extract validation messages if available
+          const errorMessage = responseData.message ||
+            responseData.error?.message ||
+            'Failed to create pay type';
+          throw new Error(errorMessage);
+        }
+      }
+
+      setSuccess('Pay type created successfully as DRAFT');
+      setShowModal(false);
+      resetForm();
+      fetchPayTypes();
+    } catch (err: any) {
+      console.error('Create error details:', err);
+
+      // Extract error message from various possible formats
+      let errorMessage = 'Failed to create pay type';
+
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error?.message) {
+        errorMessage = err.response.data.error.message;
+      }
+
+      // Format backend validation errors nicely
+      if (errorMessage.includes('minimum')) {
+        errorMessage = errorMessage.replace('amount must not be less than 6000', 'Amount must be at least $6,000 (backed by industry minimum wage standards)');
+      }
+
+      // Special handling for ObjectId conversion errors
+      if (errorMessage.includes('ObjectId') || errorMessage.includes('Cast to ObjectId')) {
+        errorMessage = 'User identification issue. Please try logging out and back in.';
+      }
+
+      setError(errorMessage);
+    } finally {
       setActionLoading(false);
-      return;
     }
-    
-    // Validate that createdByEmployeeId looks like a MongoDB ObjectId
-    // MongoDB ObjectIds are 24-character hex strings
-    const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-    if (!objectIdRegex.test(createdByEmployeeId)) {
-      console.warn('Employee ID does not look like a MongoDB ObjectId:', createdByEmployeeId);
-      // Continue anyway - the backend validation will catch it
-    }
-    
-    // Prepare the data exactly as the DTO expects
-    const apiData = {
-      type: formData.type,
-      amount: amountNum,
-      createdByEmployeeId: createdByEmployeeId,
-    };
-    
-    console.log('Creating pay type with data:', apiData);
-    
-    const response = await payrollConfigurationService.createPayType(apiData);
-    
-    if (response.error) {
-      throw new Error(response.error);
-    }
-    
-    // Check for backend validation errors
-    if (response.data) {
-      const responseData = response.data as any;
-      
-      // Handle various error response formats
-      if (responseData.message && responseData.message.includes('already exists')) {
-        throw new Error(responseData.message);
-      }
-      else if (responseData.error) {
-        throw new Error(responseData.error);
-      }
-      else if (responseData.statusCode && responseData.statusCode >= 400) {
-        // Extract validation messages if available
-        const errorMessage = responseData.message || 
-                            responseData.error?.message || 
-                            'Failed to create pay type';
-        throw new Error(errorMessage);
-      }
-    }
-    
-    setSuccess('Pay type created successfully as DRAFT');
-    setShowModal(false);
-    resetForm();
-    fetchPayTypes();
-  } catch (err: any) {
-    console.error('Create error details:', err);
-    
-    // Extract error message from various possible formats
-    let errorMessage = 'Failed to create pay type';
-    
-    if (err.message) {
-      errorMessage = err.message;
-    } else if (err.response?.data?.message) {
-      errorMessage = err.response.data.message;
-    } else if (err.response?.data?.error?.message) {
-      errorMessage = err.response.data.error.message;
-    }
-    
-    // Format backend validation errors nicely
-    if (errorMessage.includes('minimum')) {
-      errorMessage = errorMessage.replace('amount must not be less than 6000', 'Amount must be at least $6,000 (backed by industry minimum wage standards)');
-    }
-    
-    // Special handling for ObjectId conversion errors
-    if (errorMessage.includes('ObjectId') || errorMessage.includes('Cast to ObjectId')) {
-      errorMessage = 'User identification issue. Please try logging out and back in.';
-    }
-    
-    setError(errorMessage);
-  } finally {
-    setActionLoading(false);
-  }
-};
+  };
   const handleUpdatePayType = async () => {
     if (!selectedPayType) return;
-    
+
     try {
       // Basic frontend validation
       if (!formData.type || !formData.amount) {
@@ -237,54 +245,54 @@ const handleCreatePayType = async () => {
 
       // Convert amount to number - backend will validate
       const amountNum = parseFloat(formData.amount);
-      
+
       if (isNaN(amountNum)) {
         setError('Amount must be a valid number');
         return;
       }
 
       setActionLoading(true);
-      
+
       const updateData = {
         type: formData.type,
         amount: amountNum,
       };
-      
+
       const response = await payrollConfigurationService.updatePayType(
         selectedPayType._id,
         updateData
       );
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       // Check for backend validation errors
       if (response.data) {
         const responseData = response.data as any;
-        
+
         if (responseData.statusCode && responseData.statusCode >= 400) {
           throw new Error(responseData.message || 'Failed to update pay type');
         }
       }
-      
+
       setSuccess('Pay type updated successfully');
       setShowModal(false);
       resetForm();
       fetchPayTypes();
     } catch (err: any) {
       console.error('Update error details:', err);
-      
+
       let errorMessage = 'Failed to update pay type';
       if (err.message) {
         errorMessage = err.message;
       }
-      
+
       // Format backend validation errors
       if (errorMessage.includes('minimum')) {
         errorMessage = errorMessage.replace('amount must not be less than 6000', 'Amount must be at least $6,000');
       }
-      
+
       setError(errorMessage);
     } finally {
       setActionLoading(false);
@@ -297,13 +305,13 @@ const handleCreatePayType = async () => {
       setError('Only DRAFT pay types can be edited. Approved or rejected pay types cannot be modified.');
       return;
     }
-    
+
     setSelectedPayType(payType);
     setFormData({
       type: payType.type,
       amount: payType.amount.toString(),
     });
-    
+
     setShowModal(true);
   };
 
@@ -411,11 +419,17 @@ const handleCreatePayType = async () => {
 
   // Filter pay types based on search and status
   const filteredPayTypes = payTypes.filter(payType => {
-    const matchesSearch = !filters.search || 
+    const matchesSearch = !filters.search ||
       payType.type.toLowerCase().includes(filters.search.toLowerCase());
     const matchesStatus = !filters.status || payType.status === filters.status;
     return matchesSearch && matchesStatus;
   });
+
+  const getEmployeeDisplayName = (emp: string | PopulatedEmployee | undefined) => {
+    if (!emp) return 'N/A';
+    if (typeof emp === 'string') return emp;
+    return `${emp.fullName || `${emp.firstName} ${emp.lastName}`.trim()} (${emp.employeeNumber})`;
+  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -483,7 +497,7 @@ const handleCreatePayType = async () => {
         <div className="bg-success/10 border border-success/20 rounded-lg p-4 flex items-center gap-3">
           <div className="text-success font-bold">Success</div>
           <p className="text-success-foreground font-medium">{success}</p>
-          <button 
+          <button
             onClick={() => setSuccess(null)}
             className="ml-auto text-success hover:text-success/80"
           >
@@ -500,7 +514,7 @@ const handleCreatePayType = async () => {
             <p className="text-destructive/90 font-medium">Validation Error</p>
             <p className="text-destructive-foreground text-sm mt-1">{error}</p>
           </div>
-          <button 
+          <button
             onClick={() => setError(null)}
             className="ml-auto text-destructive hover:text-destructive/80"
           >
@@ -542,12 +556,12 @@ const handleCreatePayType = async () => {
             </select>
           </div>
           <div className="flex items-end">
-              <button
-                onClick={() => setFilters({ search: '', status: '' })}
-                className="px-4 py-2 border border-input text-foreground rounded-lg hover:bg-muted transition-colors font-medium w-full"
-              >
-                Clear Filters
-              </button>
+            <button
+              onClick={() => setFilters({ search: '', status: '' })}
+              className="px-4 py-2 border border-input text-foreground rounded-lg hover:bg-muted transition-colors font-medium w-full"
+            >
+              Clear Filters
+            </button>
           </div>
         </div>
       </div>
@@ -562,7 +576,7 @@ const handleCreatePayType = async () => {
             )}
           </h2>
         </div>
-        
+
         {filteredPayTypes.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-muted-foreground font-medium">
@@ -584,7 +598,7 @@ const handleCreatePayType = async () => {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                  <tr className="border-b border-border bg-muted/50">
+                <tr className="border-b border-border bg-muted/50">
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Pay Type</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Amount</th>
                   <th className="text-left py-4 px-6 font-semibold text-foreground">Status</th>
@@ -606,29 +620,29 @@ const handleCreatePayType = async () => {
                       </span>
                     </td>
                     <td className="py-4 px-6">
-                                   <span className={`
+                      <span className={`
   inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-1
-  ${payType.status === 'approved' 
-    ? 'bg-green-100 text-green-800' 
-    : payType.status === 'draft' 
-    ? 'bg-yellow-100 text-yellow-800'
-    : payType.status === 'rejected' 
-    ? 'bg-red-100 text-red-800'
-    : payType.status === 'pending_approval'
-    ? 'bg-yellow-100 text-yellow-800'
-    : 'bg-muted/20 text-foreground'
-  }
+  ${payType.status === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : payType.status === 'draft'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : payType.status === 'rejected'
+                              ? 'bg-red-100 text-red-800'
+                              : payType.status === 'pending_approval'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-muted/20 text-foreground'
+                        }
 `}>
-  {payType.status === 'approved' 
-    ? 'Approved' 
-    : payType.status === 'draft' 
-    ? 'Draft'
-    : payType.status === 'rejected' 
-    ? 'Rejected'
-    : payType.status === 'pending_approval'
-    ? 'Pending Approval'
-    : payType.status}
-</span>
+                        {payType.status === 'approved'
+                          ? 'Approved'
+                          : payType.status === 'draft'
+                            ? 'Draft'
+                            : payType.status === 'rejected'
+                              ? 'Rejected'
+                              : payType.status === 'pending_approval'
+                                ? 'Pending Approval'
+                                : payType.status}
+                      </span>
                     </td>
                     <td className="py-4 px-6 text-foreground">{formatDate(payType.createdAt)}</td>
                     <td className="py-4 px-6">
@@ -641,7 +655,7 @@ const handleCreatePayType = async () => {
                         >
                           View
                         </button>
-                        
+
                         {/* Edit button - Only show for DRAFT pay types */}
                         {payType.status === 'draft' && (
                           <button
@@ -652,7 +666,7 @@ const handleCreatePayType = async () => {
                             Edit
                           </button>
                         )}
-                        
+
                         {/* Calculate button - Only show for APPROVED pay types */}
                         {payType.status === 'approved' && (
                           <button
@@ -717,7 +731,7 @@ const handleCreatePayType = async () => {
                 </select>
                 <p className="text-xs text-muted-foreground mt-1">Select the pay type for salary calculation</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Amount (USD) *
@@ -744,7 +758,7 @@ const handleCreatePayType = async () => {
                 <div className="mt-2 p-3 border border-border rounded-lg" style={{ background: 'transparent' }}>
                   <p className="font-semibold text-foreground mb-2">Backend Validation Notice</p>
                   <p className="text-muted-foreground text-sm space-y-2">
-                    The backend will validate that the amount meets the minimum requirement of $6,000. 
+                    The backend will validate that the amount meets the minimum requirement of $6,000.
                     If validation fails, an error message will be displayed above.
                   </p>
                 </div>
@@ -782,40 +796,40 @@ const handleCreatePayType = async () => {
                   <h4 className="text-lg font-bold text-foreground mb-2">{selectedPayType.type}</h4>
                   <div className="flex flex-col gap-1">
                     <span className="text-sm text-primary">Status</span>
-<span className={`
-  inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-1
-  ${selectedPayType.status === 'approved' 
-    ? 'bg-green-100 text-green-800' 
-    : selectedPayType.status === 'draft' 
-    ? 'bg-yellow-100 text-yellow-800'
-    : selectedPayType.status === 'rejected' 
-    ? 'bg-red-100 text-red-800'
-    : selectedPayType.status === 'pending_approval'
-    ? 'bg-yellow-100 text-yellow-800'
-    : 'bg-muted/20 text-foreground'
-  }
+                    <span className={`
+  inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-medium mt-1 w-fit
+  ${selectedPayType.status === 'approved'
+                        ? 'bg-green-100 text-green-800'
+                        : selectedPayType.status === 'draft'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : selectedPayType.status === 'rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : selectedPayType.status === 'pending_approval'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-muted/20 text-foreground'
+                      }
 `}>
-  {selectedPayType.status === 'approved' 
-    ? 'Approved' 
-    : selectedPayType.status === 'draft' 
-    ? 'Draft'
-    : selectedPayType.status === 'rejected' 
-    ? 'Rejected'
-    : selectedPayType.status === 'pending_approval'
-    ? 'Pending Approval'
-    : selectedPayType.status}
-</span>
+                      {selectedPayType.status === 'approved'
+                        ? 'Approved'
+                        : selectedPayType.status === 'draft'
+                          ? 'Draft'
+                          : selectedPayType.status === 'rejected'
+                            ? 'Rejected'
+                            : selectedPayType.status === 'pending_approval'
+                              ? 'Pending Approval'
+                              : selectedPayType.status}
+                    </span>
                   </div>
                 </div>
-               
+
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-primary">Amount</p>
                   <p className="font-medium text-foreground text-xl">{formatCurrency(selectedPayType.amount)}</p>
                 </div>
-              
+
                 <div>
                   <p className="text-sm text-primary">Created</p>
                   <p className="font-medium text-foreground">{formatDate(selectedPayType.createdAt)}</p>
@@ -826,7 +840,7 @@ const handleCreatePayType = async () => {
                 </div>
                 <div>
                   <p className="text-sm text-primary">Created By</p>
-                  <p className="font-medium text-foreground">{selectedPayType.createdBy || 'N/A'}</p>
+                  <p className="font-medium text-foreground">{getEmployeeDisplayName(selectedPayType.createdBy)}</p>
                 </div>
                 {/* Approved By/At or Rejected By/At */}
                 {(selectedPayType.status === 'approved' || selectedPayType.status === 'rejected') && (
@@ -835,7 +849,7 @@ const handleCreatePayType = async () => {
                       <p className="text-sm text-muted-foreground">
                         {selectedPayType.status === 'approved' ? 'Approved By' : 'Rejected By'}
                       </p>
-                      <p className="font-medium text-foreground">{selectedPayType.approvedBy || 'N/A'}</p>
+                      <p className="font-medium text-foreground">{getEmployeeDisplayName(selectedPayType.approvedBy)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">
@@ -846,7 +860,7 @@ const handleCreatePayType = async () => {
                   </>
                 )}
               </div>
-              
+
               {selectedPayType.rejectionReason && (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
                   <p className="text-sm font-medium text-destructive mb-1">Rejection Reason</p>
@@ -894,7 +908,7 @@ const handleCreatePayType = async () => {
               {/* Contract Terms */}
               <div className="space-y-4">
                 <h4 className="font-semibold text-foreground">Contract Terms</h4>
-                
+
                 {(selectedPayType.type === 'Hourly') && (
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
@@ -973,11 +987,11 @@ const handleCreatePayType = async () => {
               {calculationResult && (
                 <div className="bg-success/10 border border-border rounded-lg p-4 space-y-3">
                   <h4 className="font-semibold text-success-foreground">Calculation Result</h4>
-                  
+
                   <div className="text-xs text-success-foreground bg-success/20 p-2 rounded font-mono">
                     {calculationResult.calculation}
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-success-foreground">Total Contract Salary</p>
@@ -994,7 +1008,7 @@ const handleCreatePayType = async () => {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="text-xs text-success-foreground pt-2 border-t border-border">
                     <p>Based on {calculationResult.roleType} role for {calculationResult.contractDuration} month(s)</p>
                   </div>

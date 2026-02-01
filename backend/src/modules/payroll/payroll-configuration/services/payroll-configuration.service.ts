@@ -31,12 +31,12 @@ import { CreateAllowanceDto } from '../dto/create-allowance.dto';
 import { QueryAllowanceDto } from '../dto/query-allowance.dto';
 import { CreateTerminationBenefitDto } from '../dto/create-termination-benefit.dto';
 import { QueryTerminationBenefitDto } from '../dto/query-termination-benefit.dto';
-import {UpdatePayrollPolicyDto} from "../dto/update-payroll-policy.dto";
-import {UpdatePayTypeDto} from "../dto/update-pay-type.dto";
-import {UpdateSigningBonusDto} from "../dto/update-signing-bonus.dto";
-import {UpdateTerminationBenefitDto} from "../dto/update-termination-benefit.dto";
-import {CreatePayGradeDto} from "../dto/create-paygrade.dto";
-import {UpdatePayGradeDto} from "../dto/update-paygrade.dto";
+import { UpdatePayrollPolicyDto } from "../dto/update-payroll-policy.dto";
+import { UpdatePayTypeDto } from "../dto/update-pay-type.dto";
+import { UpdateSigningBonusDto } from "../dto/update-signing-bonus.dto";
+import { UpdateTerminationBenefitDto } from "../dto/update-termination-benefit.dto";
+import { CreatePayGradeDto } from "../dto/create-paygrade.dto";
+import { UpdatePayGradeDto } from "../dto/update-paygrade.dto";
 
 @Injectable()
 export class PayrollConfigurationService {
@@ -51,10 +51,7 @@ export class PayrollConfigurationService {
         @InjectModel(terminationAndResignationBenefits.name) private terminationBenefitsModel: Model<terminationAndResignationBenefitsDocument>,
         @InjectModel(CompanyWideSettings.name) private companySettingsModel: Model<CompanyWideSettings>,
         @InjectModel(EmployeeProfile.name) private employeeModel: Model<EmployeeProfile>,
-        // private readonly orgStructureService: OrganizationStructureService,
-        // private readonly contractService: OnBoardingService,
-        // private readonly offboardingService: OffBoardingService,
-    ) {}
+    ) { }
 
     // Ephemeral status for company-wide settings (no schema changes)
     private companySettingsStatus: 'DRAFT' | 'APPROVED' | 'REJECTED' = 'DRAFT';
@@ -84,30 +81,30 @@ export class PayrollConfigurationService {
     }
 
     // ========== LAMA'S TAX RULES METHODS ==========
-async createTaxRule(dto: CreateTaxRuleDto) {
-    const exists = await this.taxRulesModel.findOne({ 
-        name: { $regex: new RegExp(`^${dto.name}$`, 'i') } 
-    }).exec();
-    if (exists) throw new BadRequestException(`Tax rule '${dto.name}' already exists`);
+    async createTaxRule(dto: CreateTaxRuleDto) {
+        const exists = await this.taxRulesModel.findOne({
+            name: { $regex: new RegExp(`^${dto.name}$`, 'i') }
+        }).exec();
+        if (exists) throw new BadRequestException(`Tax rule '${dto.name}' already exists`);
 
-    const taxRule = new this.taxRulesModel({
-        name: dto.name,
-        description: dto.description,
-        rate: dto.rate,
-        createdBy: dto.createdByEmployeeId,
-        status: ConfigStatus.DRAFT
-    });
+        const taxRule = new this.taxRulesModel({
+            name: dto.name,
+            description: dto.description,
+            rate: dto.rate,
+            createdBy: dto.createdByEmployeeId,
+            status: ConfigStatus.DRAFT
+        });
 
-    return await taxRule.save();
-}
+        return await taxRule.save();
+    }
 
 
     async getTaxRules() {
-        return await this.taxRulesModel.find().sort({ createdAt: -1 }).exec();
+        return await this.taxRulesModel.find().populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').sort({ createdAt: -1 }).exec();
     }
 
-    async getTaxRuleById(id: string) {
-        const taxRule = await this.taxRulesModel.findById(id).exec();
+    async getTaxRuleById(id) {
+        const taxRule = await this.taxRulesModel.findById(id).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec();
         if (!taxRule) throw new NotFoundException(`Tax rule with ID ${id} not found`);
         return taxRule;
     }
@@ -132,20 +129,20 @@ async createTaxRule(dto: CreateTaxRuleDto) {
         return await taxRule.save();
     }
 
-// Check this method in payroll-configuration.service.ts
-async updateLegalRule(id: string, dto: UpdateTaxRuleDto) {
-    const rule = await this.taxRulesModel.findById(id).exec();
-    if (!rule) throw new NotFoundException('Tax rule not found');
-    if (rule.status !== ConfigStatus.DRAFT)
-        throw new ForbiddenException('Only DRAFT rules can be edited');
+    // Check this method in payroll-configuration.service.ts
+    async updateLegalRule(id: string, dto: UpdateTaxRuleDto) {
+        const rule = await this.taxRulesModel.findById(id).exec();
+        if (!rule) throw new NotFoundException('Tax rule not found');
+        if (rule.status !== ConfigStatus.DRAFT)
+            throw new ForbiddenException('Only DRAFT rules can be edited');
 
-    // Check what happens with taxComponents here
-    return await this.taxRulesModel.findByIdAndUpdate(
-        id,
-        { $set: dto },
-        { new: true, runValidators: true } // ensure validators run
-    );
-}
+        // Check what happens with taxComponents here
+        return await this.taxRulesModel.findByIdAndUpdate(
+            id,
+            { $set: dto },
+            { new: true, runValidators: true } // ensure validators run
+        );
+    }
 
 
     async deleteTaxRule(id: string) {
@@ -177,78 +174,78 @@ async updateLegalRule(id: string, dto: UpdateTaxRuleDto) {
     }
 
     // ========== LAMA'S INSURANCE BRACKETS METHODS ==========
-async createInsuranceBracket(dto: CreateInsuranceDto) {
-    // Case-insensitive duplicate name check
-    const exists = await this.insuranceModel.findOne({
-        name: { $regex: new RegExp(`^${dto.name}$`, 'i') }
-    }).exec();
+    async createInsuranceBracket(dto: CreateInsuranceDto) {
+        // Case-insensitive duplicate name check
+        const exists = await this.insuranceModel.findOne({
+            name: { $regex: new RegExp(`^${dto.name}$`, 'i') }
+        }).exec();
 
-    if (exists) {
-        throw new BadRequestException(
-            `Insurance bracket '${dto.name}' already exists`
-        );
+        if (exists) {
+            throw new BadRequestException(
+                `Insurance bracket '${dto.name}' already exists`
+            );
+        }
+
+        // Validate salary range
+        if (dto.minSalary >= dto.maxSalary) {
+            throw new BadRequestException(
+                'minSalary must be less than maxSalary'
+            );
+        }
+
+        // Create bracket data
+        const bracketData: any = {
+            name: dto.name,
+            minSalary: dto.minSalary,
+            maxSalary: dto.maxSalary,
+            employeeRate: dto.employeeRate,
+            employerRate: dto.employerRate,
+            status: ConfigStatus.DRAFT,
+        };
+
+        // Add createdBy if provided
+        if (dto.createdByEmployeeId) {
+            bracketData.createdBy = new mongoose.Types.ObjectId(dto.createdByEmployeeId);
+        }
+
+        const bracket = new this.insuranceModel(bracketData);
+        return await bracket.save();
     }
-
-    // Validate salary range
-    if (dto.minSalary >= dto.maxSalary) {
-        throw new BadRequestException(
-            'minSalary must be less than maxSalary'
-        );
-    }
-
-    // Create bracket data
-    const bracketData: any = {
-        name: dto.name,
-        minSalary: dto.minSalary,
-        maxSalary: dto.maxSalary,
-        employeeRate: dto.employeeRate,
-        employerRate: dto.employerRate,
-        status: ConfigStatus.DRAFT,
-    };
-
-    // Add createdBy if provided
-    if (dto.createdByEmployeeId) {
-        bracketData.createdBy = new mongoose.Types.ObjectId(dto.createdByEmployeeId);
-    }
-
-    const bracket = new this.insuranceModel(bracketData);
-    return await bracket.save();
-}
     async getInsuranceBrackets() {
-        return await this.insuranceModel.find().sort({ createdAt: -1 }).exec();
+        return await this.insuranceModel.find().populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').sort({ createdAt: -1 }).exec();
     }
 
-    async getInsuranceBracketById(id: string) {
-        const bracket = await this.insuranceModel.findById(id).exec();
+    async getInsuranceBracketById(id) {
+        const bracket = await this.insuranceModel.findById(id).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec();
         if (!bracket) throw new NotFoundException(`Insurance bracket with ID ${id} not found`);
         return bracket;
     }
 
-async updateInsuranceBracket(id: string, dto: UpdateInsuranceDto) {
-    const bracket = await this.insuranceModel.findById(id).exec();
-    if (!bracket) throw new NotFoundException('Insurance bracket not found');
-    
-    if (bracket.status !== ConfigStatus.DRAFT)
-        throw new ForbiddenException('Only DRAFT brackets can be edited');
+    async updateInsuranceBracket(id: string, dto: UpdateInsuranceDto) {
+        const bracket = await this.insuranceModel.findById(id).exec();
+        if (!bracket) throw new NotFoundException('Insurance bracket not found');
 
-    // Validate salary range if both are being updated
-    if (dto.minSalary !== undefined && dto.maxSalary !== undefined) {
-        if (dto.minSalary >= dto.maxSalary) {
-            throw new BadRequestException('minSalary must be less than maxSalary');
+        if (bracket.status !== ConfigStatus.DRAFT)
+            throw new ForbiddenException('Only DRAFT brackets can be edited');
+
+        // Validate salary range if both are being updated
+        if (dto.minSalary !== undefined && dto.maxSalary !== undefined) {
+            if (dto.minSalary >= dto.maxSalary) {
+                throw new BadRequestException('minSalary must be less than maxSalary');
+            }
+        } else if (dto.minSalary !== undefined && dto.minSalary >= bracket.maxSalary) {
+            throw new BadRequestException('minSalary must be less than current maxSalary');
+        } else if (dto.maxSalary !== undefined && dto.maxSalary <= bracket.minSalary) {
+            throw new BadRequestException('maxSalary must be greater than current minSalary');
         }
-    } else if (dto.minSalary !== undefined && dto.minSalary >= bracket.maxSalary) {
-        throw new BadRequestException('minSalary must be less than current maxSalary');
-    } else if (dto.maxSalary !== undefined && dto.maxSalary <= bracket.minSalary) {
-        throw new BadRequestException('maxSalary must be greater than current minSalary');
-    }
 
-    // Update the bracket
-    return await this.insuranceModel.findByIdAndUpdate(
-        id,
-        { $set: dto },
-        { new: true, runValidators: true }
-    );
-}
+        // Update the bracket
+        return await this.insuranceModel.findByIdAndUpdate(
+            id,
+            { $set: dto },
+            { new: true, runValidators: true }
+        );
+    }
 
     async approveInsuranceBracket(id: string, dto: ApproveInsuranceDto) {
         const bracket = await this.insuranceModel.findById(id).exec();
@@ -301,22 +298,22 @@ async updateInsuranceBracket(id: string, dto: UpdateInsuranceDto) {
     }
 
     // ========== DAREEN'S PAYROLL POLICIES METHODS ==========
-   async create(createDto: CreatePayrollPolicyDto): Promise<payrollPolicies> {
-    const policyData = {
-        policyName: createDto.policyName,
-        policyType: createDto.policyType,
-        description: createDto.description,
-        effectiveDate: new Date(createDto.effectiveDate),
-        ruleDefinition: createDto.ruleDefinition,
-        applicability: createDto.applicability,
-        status: ConfigStatus.DRAFT,
-        createdBy: createDto.createdByEmployeeId 
-            ? new mongoose.Types.ObjectId(createDto.createdByEmployeeId) 
-            : undefined,
-    };
-    const newPolicy = new this.payrollPolicyModel(policyData);
-    return await newPolicy.save();
-}
+    async create(createDto: CreatePayrollPolicyDto): Promise<payrollPolicies> {
+        const policyData = {
+            policyName: createDto.policyName,
+            policyType: createDto.policyType,
+            description: createDto.description,
+            effectiveDate: new Date(createDto.effectiveDate),
+            ruleDefinition: createDto.ruleDefinition,
+            applicability: createDto.applicability,
+            status: ConfigStatus.DRAFT,
+            createdBy: createDto.createdByEmployeeId
+                ? new mongoose.Types.ObjectId(createDto.createdByEmployeeId)
+                : undefined,
+        };
+        const newPolicy = new this.payrollPolicyModel(policyData);
+        return await newPolicy.save();
+    }
 
     async findAll(queryDto: QueryPayrollPolicyDto): Promise<{
         data: payrollPolicies[];
@@ -342,7 +339,7 @@ async updateInsuranceBracket(id: string, dto: UpdateInsuranceDto) {
 
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
-            this.payrollPolicyModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).exec(),
+            this.payrollPolicyModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec(),
             this.payrollPolicyModel.countDocuments(query).exec(),
         ]);
 
@@ -356,7 +353,7 @@ async updateInsuranceBracket(id: string, dto: UpdateInsuranceDto) {
     }
 
     async findOne(id: string): Promise<payrollPolicies> {
-        const policy = await this.payrollPolicyModel.findById(id).exec();
+        const policy = await this.payrollPolicyModel.findById(id).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec();
         if (!policy) {
             throw new NotFoundException(`Payroll policy with ID ${id} not found`);
         }
@@ -481,7 +478,7 @@ async updateInsuranceBracket(id: string, dto: UpdateInsuranceDto) {
 
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
-            this.payTypeModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).exec(),
+            this.payTypeModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec(),
             this.payTypeModel.countDocuments(query).exec(),
         ]);
 
@@ -495,7 +492,7 @@ async updateInsuranceBracket(id: string, dto: UpdateInsuranceDto) {
     }
 
     async findOnePayType(id: string): Promise<payType> {
-        const payType = await this.payTypeModel.findById(id).exec();
+        const payType = await this.payTypeModel.findById(id).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec();
         if (!payType) {
             throw new NotFoundException(`Pay type with ID ${id} not found`);
         }
@@ -582,27 +579,27 @@ async updateInsuranceBracket(id: string, dto: UpdateInsuranceDto) {
     }
 
     // ========== DAREEN'S ALLOWANCE METHODS ==========
-async createAllowance(createDto: CreateAllowanceDto): Promise<allowance> {
-    const existingAllowance = await this.allowanceModel.findOne({
-        name: { $regex: new RegExp(`^${createDto.name}$`, 'i') }
-    }).exec();
+    async createAllowance(createDto: CreateAllowanceDto): Promise<allowance> {
+        const existingAllowance = await this.allowanceModel.findOne({
+            name: { $regex: new RegExp(`^${createDto.name}$`, 'i') }
+        }).exec();
 
-    if (existingAllowance) {
-        throw new BadRequestException(`Allowance '${createDto.name}' already exists`);
+        if (existingAllowance) {
+            throw new BadRequestException(`Allowance '${createDto.name}' already exists`);
+        }
+
+        const allowanceData = {
+            name: createDto.name,
+            amount: createDto.amount,
+            status: ConfigStatus.DRAFT,
+            ...(createDto.createdByEmployeeId && {
+                createdBy: new mongoose.Types.ObjectId(createDto.createdByEmployeeId)
+            })
+        };
+        const newAllowance = new this.allowanceModel(allowanceData);
+
+        return await newAllowance.save();
     }
-
-    const allowanceData = {
-        name: createDto.name,
-        amount: createDto.amount,
-        status: ConfigStatus.DRAFT,
-        ...(createDto.createdByEmployeeId && {
-            createdBy: new mongoose.Types.ObjectId(createDto.createdByEmployeeId)
-        })
-    };
-    const newAllowance = new this.allowanceModel(allowanceData);
-
-    return await newAllowance.save();
-}
 
     async findAllAllowances(queryDto: QueryAllowanceDto): Promise<{
         data: allowance[];
@@ -625,7 +622,7 @@ async createAllowance(createDto: CreateAllowanceDto): Promise<allowance> {
 
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
-            this.allowanceModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).exec(),
+            this.allowanceModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec(),
             this.allowanceModel.countDocuments(query).exec(),
         ]);
 
@@ -639,7 +636,7 @@ async createAllowance(createDto: CreateAllowanceDto): Promise<allowance> {
     }
 
     async findOneAllowance(id: string): Promise<allowance> {
-        const allowance = await this.allowanceModel.findById(id).exec();
+        const allowance = await this.allowanceModel.findById(id).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec();
         if (!allowance) {
             throw new NotFoundException(`Allowance with ID ${id} not found`);
         }
@@ -719,27 +716,27 @@ async createAllowance(createDto: CreateAllowanceDto): Promise<allowance> {
     }
 
     // ========== DAREEN'S SIGNING BONUS METHODS ==========
-  async createSigningBonus(createDto: CreateSigningBonusDto): Promise<signingBonus> {
-    const existingSigningBonus = await this.signingBonusModel.findOne({
-        positionName: { $regex: new RegExp(`^${createDto.positionName}$`, 'i') }
-    }).exec();
+    async createSigningBonus(createDto: CreateSigningBonusDto): Promise<signingBonus> {
+        const existingSigningBonus = await this.signingBonusModel.findOne({
+            positionName: { $regex: new RegExp(`^${createDto.positionName}$`, 'i') }
+        }).exec();
 
-    if (existingSigningBonus) {
-        throw new BadRequestException(`Signing bonus for position '${createDto.positionName}' already exists`);
+        if (existingSigningBonus) {
+            throw new BadRequestException(`Signing bonus for position '${createDto.positionName}' already exists`);
+        }
+
+        const signingBonusData = {
+            positionName: createDto.positionName,
+            amount: createDto.amount,
+            status: ConfigStatus.DRAFT,
+            ...(createDto.createdByEmployeeId && {
+                createdBy: new mongoose.Types.ObjectId(createDto.createdByEmployeeId)
+            })
+        };
+        const newSigningBonus = new this.signingBonusModel(signingBonusData);
+
+        return await newSigningBonus.save();
     }
-
-    const signingBonusData = {
-        positionName: createDto.positionName,
-        amount: createDto.amount,
-        status: ConfigStatus.DRAFT,
-        ...(createDto.createdByEmployeeId && {
-            createdBy: new mongoose.Types.ObjectId(createDto.createdByEmployeeId)
-        })
-    };
-    const newSigningBonus = new this.signingBonusModel(signingBonusData);
-
-    return await newSigningBonus.save();
-}
 
     async findAllSigningBonuses(queryDto: QuerySigningBonusDto): Promise<{
         data: signingBonus[];
@@ -762,7 +759,7 @@ async createAllowance(createDto: CreateAllowanceDto): Promise<allowance> {
 
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
-            this.signingBonusModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).exec(),
+            this.signingBonusModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec(),
             this.signingBonusModel.countDocuments(query).exec(),
         ]);
 
@@ -776,7 +773,7 @@ async createAllowance(createDto: CreateAllowanceDto): Promise<allowance> {
     }
 
     async findOneSigningBonus(id: string): Promise<signingBonus> {
-        const signingBonus = await this.signingBonusModel.findById(id).exec();
+        const signingBonus = await this.signingBonusModel.findById(id).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec();
         if (!signingBonus) {
             throw new NotFoundException(`Signing bonus with ID ${id} not found`);
         }
@@ -865,28 +862,28 @@ async createAllowance(createDto: CreateAllowanceDto): Promise<allowance> {
     }
 
     // ========== DAREEN'S TERMINATION & RESIGNATION BENEFITS METHODS ==========
-async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<terminationAndResignationBenefits> {
-    const existingBenefit = await this.terminationBenefitsModel.findOne({
-        name: { $regex: new RegExp(`^${createDto.name}$`, 'i') }
-    }).exec();
+    async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<terminationAndResignationBenefits> {
+        const existingBenefit = await this.terminationBenefitsModel.findOne({
+            name: { $regex: new RegExp(`^${createDto.name}$`, 'i') }
+        }).exec();
 
-    if (existingBenefit) {
-        throw new BadRequestException(`Termination benefit '${createDto.name}' already exists`);
+        if (existingBenefit) {
+            throw new BadRequestException(`Termination benefit '${createDto.name}' already exists`);
+        }
+
+        const benefitData = {
+            name: createDto.name,
+            amount: createDto.amount,
+            terms: createDto.terms,
+            status: ConfigStatus.DRAFT,
+            ...(createDto.createdByEmployeeId && {
+                createdBy: new mongoose.Types.ObjectId(createDto.createdByEmployeeId)
+            })
+        };
+        const newBenefit = new this.terminationBenefitsModel(benefitData);
+
+        return await newBenefit.save();
     }
-
-    const benefitData = {
-        name: createDto.name,
-        amount: createDto.amount,
-        terms: createDto.terms,
-        status: ConfigStatus.DRAFT,
-        ...(createDto.createdByEmployeeId && {
-            createdBy: new mongoose.Types.ObjectId(createDto.createdByEmployeeId)
-        })
-    };
-    const newBenefit = new this.terminationBenefitsModel(benefitData);
-
-    return await newBenefit.save();
-}
 
     async findAllTerminationBenefits(queryDto: QueryTerminationBenefitDto): Promise<{
         data: terminationAndResignationBenefits[];
@@ -910,7 +907,7 @@ async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<
 
         const skip = (page - 1) * limit;
         const [data, total] = await Promise.all([
-            this.terminationBenefitsModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).exec(),
+            this.terminationBenefitsModel.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec(),
             this.terminationBenefitsModel.countDocuments(query).exec(),
         ]);
 
@@ -924,7 +921,7 @@ async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<
     }
 
     async findOneTerminationBenefit(id: string): Promise<terminationAndResignationBenefits> {
-        const benefit = await this.terminationBenefitsModel.findById(id).exec();
+        const benefit = await this.terminationBenefitsModel.findById(id).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec();
         if (!benefit) {
             throw new NotFoundException(`Termination benefit with ID ${id} not found`);
         }
@@ -1055,11 +1052,11 @@ async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<
 
     async findAllPayGrades(status?: ConfigStatus) {
         const query = status ? { status } : {};
-        return await this.payGradeModel.find(query).sort({ createdAt: -1 }).exec();
+        return await this.payGradeModel.find(query).sort({ createdAt: -1 }).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec();
     }
 
     async findOnePayGrade(id: string) {
-        const payGrade = await this.payGradeModel.findById(id).exec();
+        const payGrade = await this.payGradeModel.findById(id).populate('createdBy', 'firstName lastName employeeNumber fullName').populate('approvedBy', 'firstName lastName employeeNumber fullName').exec();
         if (!payGrade) {
             throw new NotFoundException(`Pay grade with ID ${id} not found`);
         }
@@ -1183,86 +1180,23 @@ async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<
     }
 
 
-    //     // ==================== BACKUP FUNCTIONALITY (REQ-PY-16) ====================
-    /**
-     * Create backup of payroll configuration & tables
-     * Requirement: REQ-PY-16 - System Backup Configuration
-     * This is a simplified backup service that backs up only payroll configuration collections
-     */
-    async createBackup(options: {
-        name?: string;
-        oplog?: boolean;
-        dumpDbUsersAndRoles?: boolean;
-    } = {}): Promise<any> {
-        // Import backup service dynamically to avoid circular dependencies
-        // In production, this should use a proper backup service
-        const {BackupService} = await import('../backup/backup-service.js');
-        const backupService = new BackupService();
-
-        try {
-            return await backupService.createBackup({
-                name: options.name || 'payroll-config-backup',
-                oplog: options.oplog ?? false,
-                dumpDbUsersAndRoles: options.dumpDbUsersAndRoles ?? false,
-            });
-        } catch (error) {
-            // If backup service fails, log and throw
-            throw new BadRequestException(
-                `Backup failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            );
-        }
-    }
-
-    /**
-     * PHASE 3 - REQ-PY-16: System Backup Configuration
-     * List all backups
-     */
-    async listBackups(): Promise<any[]> {
-        const {BackupService} = await import('../backup/backup-service.js');
-        const backupService = new BackupService();
-
-        try {
-            return await backupService.listBackups();
-        } catch (error) {
-            throw new BadRequestException(
-                `Failed to list backups: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            );
-        }
-    }
-
-    /**
-     * PHASE 3 - REQ-PY-16: System Backup Configuration
-     * Delete a backup
-     */
-    async deleteBackup(filename: string): Promise<void> {
-        const {BackupService} = await import('../backup/backup-service.js');
-        const backupService = new BackupService();
-
-        try {
-            return await backupService.deleteBackup(filename);
-        } catch (error) {
-            throw new BadRequestException(
-                `Failed to delete backup: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            );
-        }
-    }
 
     // ========== LAMA'S HELPER METHOD ==========
     calculateContributions(bracket: insuranceBrackets, salary: number) {
-    // Ensure inclusive check
-    const isValid = salary >= bracket.minSalary && salary <= bracket.maxSalary;
+        // Ensure inclusive check
+        const isValid = salary >= bracket.minSalary && salary <= bracket.maxSalary;
 
-    const employeeContribution = (salary * bracket.employeeRate) / 100;
-    const employerContribution = (salary * bracket.employerRate) / 100;
-    const totalContribution = employeeContribution + employerContribution;
+        const employeeContribution = (salary * bracket.employeeRate) / 100;
+        const employerContribution = (salary * bracket.employerRate) / 100;
+        const totalContribution = employeeContribution + employerContribution;
 
-    return {
-        employeeContribution,
-        employerContribution,
-        totalContribution,
-        isValid,
-    };
-}
+        return {
+            employeeContribution,
+            employerContribution,
+            totalContribution,
+            isValid,
+        };
+    }
 
 
     // ========== DAREEN'S CALCULATION METHOD ==========
@@ -1271,15 +1205,15 @@ async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<
      * Business Rules Applied:
      * - BR29: Termination benefits calculated based on reason (resignation vs termination)
      * - BR56: All calculations use approved benefit configurations only
-     * 
+     *
      * Calculation Formulas:
      * - Gratuity: Last Salary × 0.5 × Years of Service
      * - Severance: Last Salary × Years of Service (max 12 months)
      * - All Other Benefits: Base Amount × Years of Service
-     * 
+     *
      * Note: Actual unused leave days should be fetched from Leave Management module separately.
      * This calculator uses configured benefit amounts only.
-     * 
+     *
      * @param employeeData.benefitIds - Optional array of benefit IDs to include. If empty/undefined, all approved benefits are used.
      */
     async calculateTerminationEntitlements(employeeData: any): Promise<any> {
@@ -1291,7 +1225,7 @@ async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<
         if (benefitIds && Array.isArray(benefitIds) && benefitIds.length > 0) {
             query._id = { $in: benefitIds.map((id: string) => new Types.ObjectId(id)) };
         }
-        
+
         const approvedBenefits = await this.terminationBenefitsModel
             .find(query)
             .exec();
@@ -1359,9 +1293,9 @@ async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<
         if (payGrade.status !== ConfigStatus.DRAFT) {
             throw new BadRequestException('Only DRAFT configurations can be approved');
         }
-        
+
         await this.validateApprover(approveDto.approvedBy, payGrade.createdBy);
-        
+
         payGrade.status = ConfigStatus.APPROVED;
         payGrade.approvedBy = new Types.ObjectId(approveDto.approvedBy);
         payGrade.approvedAt = new Date();
@@ -1374,9 +1308,9 @@ async createTerminationBenefit(createDto: CreateTerminationBenefitDto): Promise<
         if (payGrade.status !== ConfigStatus.DRAFT) {
             throw new BadRequestException('Only DRAFT configurations can be rejected');
         }
-        
+
         await this.validateApprover(approveDto.approvedBy, payGrade.createdBy);
-        
+
         payGrade.status = ConfigStatus.REJECTED;
         payGrade.approvedBy = new Types.ObjectId(approveDto.approvedBy);
         payGrade.approvedAt = new Date();

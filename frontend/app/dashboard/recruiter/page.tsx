@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { GlassCard } from '@/app/components/ui/glass-card';
+import { GlassCard } from '@/components/ui/glass-card';
 import { Briefcase, Users, Calendar, FileCheck, PlusCircle } from 'lucide-react';
-import { Button } from '@/app/components/ui/button';
+import { Button } from '@/components/ui/button';
 
 export default function RecruiterPage() {
   return (

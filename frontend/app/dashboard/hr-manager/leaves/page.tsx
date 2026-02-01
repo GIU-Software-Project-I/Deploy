@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { leavesService } from '@/app/services/leaves';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/app/services/api';
-import type { LeaveBalanceSummary } from '@/app/types/leaves';
+import type { LeaveBalanceSummary } from '@/types/leaves';
 
 interface LeaveRequest {
   _id: string;
@@ -3556,11 +3556,11 @@ export default function HRManagerLeavesPage() {
                       } else if (isStaticPath) {
                         // Static file path - construct static file URL
                         const staticPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-                        downloadUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://main-production-ab7f.up.railway.app'}${staticPath}`;
+                        downloadUrl = `${API_BASE_URL}${staticPath}`;
                         showWarning = true; // Show warning that file might not be available
                       } else {
                         // Use download endpoint - it will handle the file appropriately
-                        downloadUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://main-production-ab7f.up.railway.app'}/leaves/attachments/${selectedMedicalAttachment.attachmentId}/download`;
+                        downloadUrl = `${API_BASE_URL}/leaves/attachments/${selectedMedicalAttachment.attachmentId}/download`;
                       }
 
                       return (
@@ -3628,9 +3628,9 @@ export default function HRManagerLeavesPage() {
                       previewUrl = filePath;
                     } else if (isStaticPath) {
                       const staticPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-                      previewUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://main-production-ab7f.up.railway.app'}${staticPath}`;
+                      previewUrl = `${API_BASE_URL}${staticPath}`;
                     } else {
-                      previewUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://main-production-ab7f.up.railway.app'}/leaves/attachments/${selectedMedicalAttachment?.attachmentId}/download`;
+                      previewUrl = `${API_BASE_URL}/leaves/attachments/${selectedMedicalAttachment?.attachmentId}/download`;
                     }
 
                     return (

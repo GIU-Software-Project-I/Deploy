@@ -25,9 +25,9 @@ import { CreateLeaveRequestDto } from '../dto/create-leave-request.dto';
 import { CreateLeavePolicyDto } from '../dto/create-leave-policy.dto';
 import { AccrualMethod } from '../enums/accrual-method.enum';
 import { RoundingRule } from '../enums/rounding-rule.enum';
-import { AuthenticationGuard } from '../../auth/guards/authentication-guard';
-import { AuthorizationGuard } from '../../auth/guards/authorization-guard';
-import { Roles } from '../../auth/decorators/roles-decorator';
+import { AuthenticationGuard } from '../../common/guards/authentication-guard';
+import { AuthorizationGuard } from '../../common/guards/authorization-guard';
+import { Roles } from '../../common/decorators/roles-decorator';
 import { SystemRole } from '../../employee/enums/employee-profile.enums';
 
 @Controller('leaves')
@@ -373,12 +373,14 @@ export class UnifiedLeaveController {
   @Roles(SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async flagIrregular(
     @Param('requestId') requestId: string,
-    @Body() body: { flag: boolean; reason?: string },
+    @Body() body: { flag: boolean; reason?: string; managerId?: string },
+    @Query('managerId') managerId?: string,
   ) {
     return this.service.flagIrregular(
       requestId,
       body.flag ?? true,
       body.reason,
+      body.managerId || managerId,
     );
   }
 
@@ -580,7 +582,7 @@ async resetLeaveYear(@Body() body: {
   }
 
   // -------------------------
-  // Payroll Integration (REQ-042)
+  // Payroll integration (REQ-042)
   // -------------------------
   @Post('payroll/sync-balance')
   @Roles(SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN, SystemRole.PAYROLL_MANAGER, SystemRole.PAYROLL_SPECIALIST)
@@ -691,6 +693,96 @@ async resetLeaveYear(@Body() body: {
   @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
   async deletePolicy(@Param('id') id: string) {
     return this.service.deletePolicy(id);
+  }
+
+  // -------------------------
+  // Approval Workflow Configuration (REQ-009)
+  // -------------------------
+  @Post('policies/:id/workflow')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async configureApprovalWorkflow(
+    @Param('id') id: string,
+    @Body() workflowConfig: {
+      defaultWorkflow?: Array<{ role: string; order: number; positionId?: string; positionCode?: string }>;
+      positionWorkflows?: Array<{
+        positionId: string;
+        positionCode?: string;
+        workflow: Array<{ role: string; order: number; positionId?: string; positionCode?: string }>;
+      }>;
+    },
+  ) {
+    return this.service.configureApprovalWorkflow(id, workflowConfig);
+  }
+
+  @Get('policies/:id/workflow')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async getApprovalWorkflow(
+    @Param('id') id: string,
+    @Query('positionId') positionId?: string,
+  ) {
+    return this.service.getApprovalWorkflow(id, positionId);
+  }
+
+  @Get('workflow/positions')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async getPositionsForWorkflow() {
+    return this.service.getPositionsForWorkflow();
+  }
+
+  // -------------------------
+  // Special Absence/Mission Types Configuration (REQ-011)
+  // -------------------------
+  @Post('types/:id/special-absence-config')
+  @Roles(SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async configureSpecialAbsenceType(
+    @Param('id') id: string,
+    @Body() config: {
+      isSpecialAbsence?: boolean;
+      isMissionType?: boolean;
+      trackSickLeaveCycle?: boolean;
+      sickLeaveMaxDays?: number;
+      sickLeaveCycleYears?: number;
+      trackMaternityCount?: boolean;
+      maxMaternityCount?: number;
+      requiresSpecialApproval?: boolean;
+      specialRules?: Record<string, any>;
+    },
+  ) {
+    return this.service.configureSpecialAbsenceType(id, config);
+  }
+
+  @Get('types/:id/special-absence-config')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async getSpecialAbsenceConfig(@Param('id') id: string) {
+    return this.service.getSpecialAbsenceConfig(id);
+  }
+
+  @Get('sick-leave-usage/:employeeId/:leaveTypeId')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async getSickLeaveUsage(
+    @Param('employeeId') employeeId: string,
+    @Param('leaveTypeId') leaveTypeId: string,
+  ) {
+    return this.service.getSickLeaveUsage(employeeId, leaveTypeId);
+  }
+
+  @Get('maternity-leave-count/:employeeId/:leaveTypeId')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async getMaternityLeaveCount(
+    @Param('employeeId') employeeId: string,
+    @Param('leaveTypeId') leaveTypeId: string,
+  ) {
+    return this.service.getMaternityLeaveCount(employeeId, leaveTypeId);
+  }
+
+  @Post('validate-special-absence/:employeeId/:leaveTypeId')
+  @Roles(SystemRole.HR_EMPLOYEE, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
+  async validateSpecialAbsenceRules(
+    @Param('employeeId') employeeId: string,
+    @Param('leaveTypeId') leaveTypeId: string,
+    @Body() body: { durationDays: number },
+  ) {
+    return this.service.validateSpecialAbsenceRules(employeeId, leaveTypeId, body.durationDays);
   }
 
   // -------------------------

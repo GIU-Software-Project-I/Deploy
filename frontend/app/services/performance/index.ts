@@ -162,6 +162,14 @@ export const performanceService = {
     return apiService.post(`/performance/cycles/${id}/archive`, {});
   },
 
+  /**
+   * Send reminders for ACTIVE cycle
+   * POST /performance/cycles/:id/remind
+   */
+  sendReminders: async (id: string) => {
+    return apiService.post(`/performance/cycles/${id}/remind`, {});
+  },
+
   // =============================================
   // Assignments
   // =============================================

@@ -28,7 +28,26 @@ const convertApiNotificationToUI = (apiNotif: any): Notification => {
     let actionUrl: string | undefined;
     let actionLabel: string | undefined;
 
-    if (apiType.includes('SHIFT_')) {
+    // Handle lateness/threshold notifications first
+    if (apiType.includes('LATENESS_THRESHOLD') || apiType.includes('REPEATED_LATENESS') || apiType === 'EMPLOYEE_LATENESS_THRESHOLD') {
+        category = 'attendance';
+        type = 'warning';
+        title = 'Lateness Alert';
+        actionUrl = '/portal/my-attendance';
+        actionLabel = 'View Attendance';
+    } else if (apiType === 'LATE') {
+        category = 'attendance';
+        type = 'warning';
+        title = 'Late Arrival';
+        actionUrl = '/portal/my-attendance';
+        actionLabel = 'View Attendance';
+    } else if (apiType === 'MISSED_PUNCH') {
+        category = 'attendance';
+        type = 'warning';
+        title = 'Missed Punch Alert';
+        actionUrl = '/portal/my-attendance';
+        actionLabel = 'View Attendance';
+    } else if (apiType.includes('SHIFT_')) {
         category = 'shift';
         if (apiType.includes('EXPIRED')) {
             type = 'error';
@@ -72,6 +91,9 @@ const convertApiNotificationToUI = (apiNotif: any): Notification => {
         title = 'Performance Update';
         actionUrl = '/portal/my-performance';
         actionLabel = 'View Performance';
+    } else if (apiType) {
+        // Fallback for unknown notification types - convert to readable title
+        title = apiType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
     }
 
     return {
@@ -173,15 +195,15 @@ export default function MyNotificationsPage() {
     const getTypeStyles = (type: Notification['type']) => {
         switch (type) {
             case 'success':
-                return { bg: 'bg-green-50', border: 'border-green-200', icon: 'text-green-500', iconBg: 'bg-green-100' };
+                return { bg: 'bg-success/10', border: 'border-success/20', icon: 'text-success', iconBg: 'bg-success/20' };
             case 'warning':
-                return { bg: 'bg-amber-50', border: 'border-amber-200', icon: 'text-amber-500', iconBg: 'bg-amber-100' };
+                return { bg: 'bg-warning/10', border: 'border-warning/20', icon: 'text-warning', iconBg: 'bg-warning/20' };
             case 'error':
-                return { bg: 'bg-red-50', border: 'border-red-200', icon: 'text-red-500', iconBg: 'bg-red-100' };
+                return { bg: 'bg-destructive/10', border: 'border-destructive/20', icon: 'text-destructive', iconBg: 'bg-destructive/20' };
             case 'action':
-                return { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'text-blue-500', iconBg: 'bg-blue-100' };
+                return { bg: 'bg-primary/10', border: 'border-primary/20', icon: 'text-primary', iconBg: 'bg-primary/20' };
             default:
-                return { bg: 'bg-gray-50', border: 'border-gray-200', icon: 'text-gray-500', iconBg: 'bg-gray-100' };
+                return { bg: 'bg-muted/50', border: 'border-border', icon: 'text-muted-foreground', iconBg: 'bg-muted' };
         }
     };
 
@@ -281,15 +303,15 @@ export default function MyNotificationsPage() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl lg:text-3xl font-semibold text-gray-900">Notifications</h1>
-                        <p className="text-gray-500 mt-1">
+                        <h1 className="text-2xl lg:text-3xl font-black text-foreground">Notifications</h1>
+                        <p className="text-muted-foreground mt-1">
                             {unreadCount > 0 ? `You have ${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up'}
                         </p>
                     </div>
                     {unreadCount > 0 && (
                         <button
                             onClick={markAllAsRead}
-                            className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="px-4 py-2 text-sm font-medium text-primary hover:text-primary/70 hover:bg-primary/5 rounded-lg transition-colors"
                         >
                             Mark all as read
                         </button>
@@ -297,32 +319,32 @@ export default function MyNotificationsPage() {
                 </div>
 
                 {/* Filters */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="bg-card rounded-xl shadow-sm border border-border p-4">
                     <div className="flex flex-col sm:flex-row gap-4">
                         {/* Read/Unread Filter */}
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setFilter('all')}
                                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${filter === 'all'
-                                    ? 'bg-gray-900 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
+                                    ? 'bg-foreground text-background'
+                                    : 'bg-muted text-foreground hover:bg-muted/80'
+                                    }`}
                             >
                                 All
                             </button>
                             <button
                                 onClick={() => setFilter('unread')}
                                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${filter === 'unread'
-                                    ? 'bg-gray-900 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
+                                    ? 'bg-foreground text-background'
+                                    : 'bg-muted text-foreground hover:bg-muted/80'
+                                    }`}
                             >
                                 Unread
                                 {unreadCount > 0 && (
-                                    <span className={`px-2 py-0.5 text-xs rounded-full ${filter === 'unread' ? 'bg-white text-gray-900' : 'bg-blue-600 text-white'
-                                    }`}>
-                    {unreadCount}
-                  </span>
+                                    <span className={`px-2 py-0.5 text-xs rounded-full ${filter === 'unread' ? 'bg-background text-foreground' : 'bg-primary text-primary-foreground'
+                                        }`}>
+                                        {unreadCount}
+                                    </span>
                                 )}
                             </button>
                         </div>
@@ -332,7 +354,7 @@ export default function MyNotificationsPage() {
                             <select
                                 value={categoryFilter}
                                 onChange={(e) => setCategoryFilter(e.target.value)}
-                                className="w-full sm:w-auto px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full sm:w-auto px-4 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             >
                                 <option value="all">All Categories</option>
                                 {categories.filter(c => c !== 'all').map(cat => (
@@ -346,11 +368,11 @@ export default function MyNotificationsPage() {
                 {/* Notifications List */}
                 <div className="space-y-3">
                     {filteredNotifications.length === 0 ? (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-                            <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="bg-card rounded-xl shadow-sm border border-border p-8 text-center">
+                            <svg className="w-12 h-12 text-muted-foreground opacity-20 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                             </svg>
-                            <p className="text-gray-500">No notifications to display</p>
+                            <p className="text-muted-foreground">No notifications to display</p>
                         </div>
                     ) : (
                         filteredNotifications.map((notification) => {
@@ -358,8 +380,8 @@ export default function MyNotificationsPage() {
                             return (
                                 <div
                                     key={notification._id}
-                                    className={`bg-white rounded-xl shadow-sm border overflow-hidden transition-all ${!notification.read ? `${styles.border} border-l-4` : 'border-gray-100'
-                                    }`}
+                                    className={`bg-card rounded-xl shadow-sm border overflow-hidden transition-all ${!notification.read ? `${styles.border} border-l-4` : 'border-border'
+                                        }`}
                                 >
                                     <div className="p-4">
                                         <div className="flex gap-4">
@@ -373,30 +395,30 @@ export default function MyNotificationsPage() {
                                                 <div className="flex items-start justify-between gap-4">
                                                     <div>
                                                         <div className="flex items-center gap-2">
-                                                            <h3 className={`font-medium ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
+                                                            <h3 className={`font-black uppercase tracking-tight ${!notification.read ? 'text-foreground' : 'text-muted-foreground'}`}>
                                                                 {notification.title}
                                                             </h3>
                                                             {!notification.read && (
-                                                                <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                                                                <span className="w-2 h-2 bg-primary rounded-full"></span>
                                                             )}
                                                         </div>
-                                                        <p className="text-sm text-gray-500 mt-1">{notification.message}</p>
+                                                        <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
                                                     </div>
-                                                    <span className="text-xs text-gray-400 whitespace-nowrap">
-                            {formatTime(notification.createdAt)}
-                          </span>
+                                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                        {formatTime(notification.createdAt)}
+                                                    </span>
                                                 </div>
 
                                                 {/* Footer */}
                                                 <div className="flex items-center justify-between mt-3">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles.bg} ${styles.icon}`}>
-                            {getCategoryLabel(notification.category)}
-                          </span>
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles.bg} ${styles.icon}`}>
+                                                        {getCategoryLabel(notification.category)}
+                                                    </span>
                                                     <div className="flex items-center gap-3">
                                                         {!notification.read && (
                                                             <button
                                                                 onClick={() => markAsRead(notification._id)}
-                                                                className="text-xs text-gray-500 hover:text-gray-700"
+                                                                className="text-xs text-muted-foreground hover:text-foreground"
                                                             >
                                                                 Mark as read
                                                             </button>
@@ -404,7 +426,7 @@ export default function MyNotificationsPage() {
                                                         {notification.actionUrl && (
                                                             <Link
                                                                 href={notification.actionUrl}
-                                                                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                                                                className="text-sm font-bold uppercase tracking-widest text-primary hover:opacity-80"
                                                             >
                                                                 {notification.actionLabel || 'View'}
                                                             </Link>
@@ -423,7 +445,7 @@ export default function MyNotificationsPage() {
                 {/* Load More */}
                 {filteredNotifications.length > 0 && (
                     <div className="text-center">
-                        <button className="px-6 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                        <button className="px-6 py-2 text-sm font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors">
                             Load more notifications
                         </button>
                     </div>

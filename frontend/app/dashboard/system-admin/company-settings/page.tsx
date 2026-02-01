@@ -124,13 +124,13 @@ export default function CompanySettingsPage() {
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'DRAFT':
-        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">DRAFT</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-warning/15 text-warning border border-warning/30">DRAFT</span>;
       case 'APPROVED':
-        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">APPROVED</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-success/15 text-success border border-success/30">APPROVED</span>;
       case 'REJECTED':
-        return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">REJECTED</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-destructive/15 text-destructive border border-destructive/30">REJECTED</span>;
       default:
-        return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{status}</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-muted/50 text-muted-foreground border border-border">{status}</span>;
     }
   };
 
@@ -143,48 +143,44 @@ export default function CompanySettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Company-Wide Settings Configuration</h1>
-        <p className="text-slate-600 mt-2">Configure global company settings including currency, timezone, and payroll date</p>
+        <h1 className="text-3xl font-bold text-foreground">Company-Wide Settings Configuration</h1>
+        <p className="text-muted-foreground mt-2">Configure global company settings including currency, timezone, and payroll date</p>
       </div>
 
       {/* Main Settings Card */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-    
-
-  
-
+      <div className="bg-card rounded-xl border border-border shadow-sm">
         {/* Settings Form */}
         <div className="p-6">
           {errorSettings && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-              ❌ {errorSettings}
+            <div className="mb-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
+              ✕ {errorSettings}
             </div>
           )}
           {successSettings && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+            <div className="mb-4 p-4 bg-success/10 border border-success/30 rounded-lg text-sm text-success">
               ✓ {successSettings}
             </div>
           )}
 
           {loadingSettings ? (
-            <p className="text-slate-600">Loading settings...</p>
+            <p className="text-muted-foreground">Loading settings...</p>
           ) : (
             <div className="space-y-4">
               {/* Status Badge */}
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-700">Status:</span>
+                <span className="text-sm font-medium text-foreground">Status:</span>
                 {getStatusBadge(form.status || 'DRAFT')}
               </div>
               {/* Step guidance */}
-              <div className="text-xs text-slate-600">
+              <div className="text-xs text-muted-foreground">
                 <span className="font-medium">Step 1:</span> Save changes to create a draft. <span className="font-medium">Step 2:</span> Approve the draft to finalize.
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Currency</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Currency</label>
                   <select
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     value={form.currency}
                     onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
                   >
@@ -200,9 +196,9 @@ export default function CompanySettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Timezone</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Timezone</label>
                   <select
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     value={form.timeZone}
                     onChange={(e) => setForm((f) => ({ ...f, timeZone: e.target.value }))}
                   >
@@ -219,28 +215,28 @@ export default function CompanySettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Payroll Date</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Payroll Date</label>
                   <input
                     type="date"
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     value={form.payDate}
                     onChange={(e) => setForm((f) => ({ ...f, payDate: e.target.value }))}
                   />
-                  <p className="text-xs text-slate-500 mt-1">Date for payroll execution</p>
+                  <p className="text-xs text-muted-foreground mt-1">Date for payroll execution</p>
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-4 border-t border-slate-100">
+              <div className="flex gap-2 pt-4 border-t border-border">
                 <button
                   onClick={saveSettings}
                   disabled={savingSettings}
-                  className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 text-sm font-medium"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm font-medium"
                 >
                   {savingSettings ? "Saving..." : "Save Settings"}
                 </button>
                 <button
                   onClick={loadSettings}
-                  className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-medium"
+                  className="px-4 py-2 border border-border rounded-lg hover:bg-muted text-sm font-medium text-foreground"
                 >
                   Reset
                 </button>
@@ -251,14 +247,14 @@ export default function CompanySettingsPage() {
                     <button
                       onClick={handleApprove}
                       disabled={approving || !isFormEqualToLastSaved()}
-                      className="ml-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+                      className="ml-auto px-4 py-2 bg-success text-success-foreground rounded-lg hover:bg-success/90 disabled:opacity-50 text-sm font-medium"
                     >
                       {approving ? "Processing..." : (isFormEqualToLastSaved() ? "Approve" : "Save first to approve")}
                     </button>
                     <button
                       onClick={handleReject}
                       disabled={approving}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+                      className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 disabled:opacity-50 text-sm font-medium"
                     >
                       {approving ? "Processing..." : "Reject"}
                     </button>
@@ -271,12 +267,12 @@ export default function CompanySettingsPage() {
       </div>
 
       {/* Guidelines */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Guidelines & Business Rules</h3>
+      <div className="bg-muted/30 border border-border rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Guidelines & Business Rules</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p className="font-medium text-slate-900 mb-2">⚙️ Configuration Impact</p>
-            <ul className="list-disc ml-5 space-y-1 text-sm text-slate-700">
+            <p className="font-medium text-foreground mb-2"> Configuration Impact</p>
+            <ul className="list-disc ml-5 space-y-1 text-sm text-muted-foreground">
               <li>Payroll date controls when payroll execution occurs</li>
               <li>Currency setting is used in all calculations and reports globally</li>
               <li>Timezone affects scheduled payroll tasks and audit log timestamps</li>
@@ -284,8 +280,8 @@ export default function CompanySettingsPage() {
             </ul>
           </div>
           <div>
-            <p className="font-medium text-slate-900 mb-2">📋 Business Rules (BR 3)</p>
-            <ul className="list-disc ml-5 space-y-1 text-sm text-slate-700">
+            <p className="font-medium text-foreground mb-2">Business Rules (BR 3)</p>
+            <ul className="list-disc ml-5 space-y-1 text-sm text-muted-foreground">
               <li>Payroll must be processed within defined cycles per region</li>
               <li>Default values: Currency=EGP, Timezone=Africa/Cairo</li>
               <li>Settings persist globally across all departments and positions</li>

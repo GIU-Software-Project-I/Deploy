@@ -108,6 +108,7 @@ export const leavesService: Record<string, any> = {
       justification: string;
       attachmentId: string;
       postLeave: boolean;
+      leaveTypeId: string;
     }>,
   ) => {
     return apiService.patch(`/leaves/requests/${id}`, data);
@@ -233,10 +234,11 @@ export const leavesService: Record<string, any> = {
   },
 
   // Flag a leave request as irregular
-  flagIrregular: async (requestId: string, flag: boolean, reason?: string) => {
+  flagIrregular: async (requestId: string, flag: boolean, reason?: string, managerId?: string) => {
     return apiService.post(`/leaves/manager/flag-irregular/${requestId}`, {
       flag,
       reason,
+      managerId,
     });
   },
 
@@ -553,6 +555,58 @@ getAdjustmentHistory: async (employeeId: string, leaveTypeId?: string) => {
 
   deletePolicy: async (id: string) => {
     return apiService.delete(`/leaves/policies/${id}`);
+  },
+
+  // Approval Workflow Configuration (REQ-009)
+  configureApprovalWorkflow: async (policyId: string, workflowConfig: {
+    defaultWorkflow?: Array<{ role: string; order: number; positionId?: string; positionCode?: string }>;
+    positionWorkflows?: Array<{
+      positionId: string;
+      positionCode?: string;
+      workflow: Array<{ role: string; order: number; positionId?: string; positionCode?: string }>;
+    }>;
+  }) => {
+    return apiService.post(`/leaves/policies/${policyId}/workflow`, workflowConfig);
+  },
+
+  getApprovalWorkflow: async (policyId: string, positionId?: string) => {
+    const query = positionId ? `?positionId=${positionId}` : '';
+    return apiService.get(`/leaves/policies/${policyId}/workflow${query}`);
+  },
+
+  getPositionsForWorkflow: async () => {
+    return apiService.get('/leaves/workflow/positions');
+  },
+
+  // Special Absence/Mission Types Configuration (REQ-011)
+  configureSpecialAbsenceType: async (leaveTypeId: string, config: {
+    isSpecialAbsence?: boolean;
+    isMissionType?: boolean;
+    trackSickLeaveCycle?: boolean;
+    sickLeaveMaxDays?: number;
+    sickLeaveCycleYears?: number;
+    trackMaternityCount?: boolean;
+    maxMaternityCount?: number;
+    requiresSpecialApproval?: boolean;
+    specialRules?: Record<string, any>;
+  }) => {
+    return apiService.post(`/leaves/types/${leaveTypeId}/special-absence-config`, config);
+  },
+
+  getSpecialAbsenceConfig: async (leaveTypeId: string) => {
+    return apiService.get(`/leaves/types/${leaveTypeId}/special-absence-config`);
+  },
+
+  getSickLeaveUsage: async (employeeId: string, leaveTypeId: string) => {
+    return apiService.get(`/leaves/sick-leave-usage/${employeeId}/${leaveTypeId}`);
+  },
+
+  getMaternityLeaveCount: async (employeeId: string, leaveTypeId: string) => {
+    return apiService.get(`/leaves/maternity-leave-count/${employeeId}/${leaveTypeId}`);
+  },
+
+  validateSpecialAbsenceRules: async (employeeId: string, leaveTypeId: string, durationDays: number) => {
+    return apiService.post(`/leaves/validate-special-absence/${employeeId}/${leaveTypeId}`, { durationDays });
   },
 
   // Calendar & Holidays

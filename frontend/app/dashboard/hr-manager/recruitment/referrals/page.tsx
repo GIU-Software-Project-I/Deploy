@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   getReferrals,
   createReferral,
@@ -9,7 +9,7 @@ import {
   getJobs,
   getEmployees,
 } from '@/app/services/recruitment';
-import { Application, JobRequisition } from '@/app/types/recruitment';
+import { Application, JobRequisition } from '@/types/recruitment';
 
 // REC-030: Tag candidates as referrals for preferential filtering
 // Employees can refer candidates, giving them higher priority

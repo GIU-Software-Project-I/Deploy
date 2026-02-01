@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { payrollSpecialistService, DepartmentalReport, ReportFilters, PayrollSummaryReport, type Department } from '@/app/services/payroll-specialist';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 type ReportType = 'summary' | 'tax' | 'payslip';
 type PeriodType = 'monthly' | 'quarterly' | 'yearly';
@@ -542,7 +542,7 @@ export default function DepartmentalReportsPage() {
   if (!hasAccess) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-slate-500">Access denied. Payroll Specialist role required.</p>
+        <p className="text-muted-foreground">Access denied. Payroll Specialist role required.</p>
       </div>
     );
   }
@@ -550,22 +550,22 @@ export default function DepartmentalReportsPage() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-white">Payroll Reports</h1>
+        <h1 className="text-2xl font-bold text-foreground">Payroll Reports</h1>
         <button
           onClick={() => setShowGenerateModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
         >
           Generate Report
         </button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4 mb-6">
+      <div className="bg-card rounded-lg border border-border p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Report Type</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Report Type</label>
             <select
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground bg-background"
               value={filters.reportType || 'all'}
               onChange={(e) => {
                 const val = e.target.value === 'all' ? undefined : e.target.value;
@@ -585,9 +585,9 @@ export default function DepartmentalReportsPage() {
           </div>
           {filters.reportType === 'departmental' && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Department</label>
               <select
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground bg-background"
                 value={filters.departmentId || ''}
                 onChange={(e) => setFilters(prev => ({ ...prev, departmentId: e.target.value }))}
               >
@@ -603,7 +603,7 @@ export default function DepartmentalReportsPage() {
           <div className="flex items-end">
             <button
               onClick={loadReports}
-              className="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+              className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
             >
               Apply Filters
             </button>
@@ -613,22 +613,22 @@ export default function DepartmentalReportsPage() {
 
       {/* Generated Reports - Card Grid Layout */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Generated Reports</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Generated Reports</h2>
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="text-slate-500 ml-3">Loading reports...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground ml-3">Loading reports...</p>
           </div>
         ) : displayedReports.length === 0 ? (
-          <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
-            <svg className="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-card rounded-lg border border-border p-12 text-center">
+            <svg className="mx-auto h-12 w-12 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <h3 className="mt-4 text-lg font-medium text-slate-900">No reports found</h3>
-            <p className="mt-2 text-sm text-slate-500">Get started by generating a new report.</p>
+            <h3 className="mt-4 text-lg font-medium text-foreground">No reports found</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Get started by generating a new report.</p>
             <button
               onClick={() => setShowGenerateModal(true)}
-              className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              className="mt-4 inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
             >
               Generate Report
             </button>
@@ -641,15 +641,15 @@ export default function DepartmentalReportsPage() {
                 const reportType = (report as any).reportType || 'departmental';
                 switch (reportType) {
                   case 'tax':
-                    return { label: 'Tax', bgColor: 'bg-purple-100', textColor: 'text-purple-700', borderColor: 'border-purple-200' };
+                    return { label: 'Tax', bgColor: 'bg-accent/15', textColor: 'text-accent', borderColor: 'border-accent/30' };
                   case 'payslip':
                   case 'payslip-history':
-                    return { label: 'Payslip', bgColor: 'bg-blue-100', textColor: 'text-blue-700', borderColor: 'border-blue-200' };
+                    return { label: 'Payslip', bgColor: 'bg-primary/15', textColor: 'text-primary', borderColor: 'border-primary/30' };
                   case 'summary':
                   case 'payslip-summary':
-                    return { label: 'Summary', bgColor: 'bg-indigo-100', textColor: 'text-indigo-700', borderColor: 'border-indigo-200' };
+                    return { label: 'Summary', bgColor: 'bg-info/15', textColor: 'text-info', borderColor: 'border-info/30' };
                   default:
-                    return { label: 'Departmental', bgColor: 'bg-emerald-100', textColor: 'text-emerald-700', borderColor: 'border-emerald-200' };
+                    return { label: 'Departmental', bgColor: 'bg-success/15', textColor: 'text-success', borderColor: 'border-success/30' };
                 }
               };
 
@@ -1064,10 +1064,10 @@ export default function DepartmentalReportsPage() {
 
                   {payslipSummaryType === 'monthly' && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Month</label>
+                      <label className="block text-sm font-medium text-foreground mb-1">Month</label>
                       <input
                         type="month"
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+                        className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground bg-background"
                         value={generateForm.startDate}
                         onChange={(e) => setGenerateForm(prev => ({ ...prev, startDate: e.target.value }))}
                       />
@@ -1082,7 +1082,7 @@ export default function DepartmentalReportsPage() {
                   setShowGenerateModal(false);
                   resetGenerateForm();
                 }}
-                className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                className="px-4 py-2 text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </button>
@@ -1093,7 +1093,7 @@ export default function DepartmentalReportsPage() {
                   (generateForm.reportType === 'payslip-summary' && payslipSummaryType === 'monthly' && !generateForm.startDate)
                 }
                 onClick={handleGenerateReport}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Generate
               </button>
@@ -1147,37 +1147,37 @@ export default function DepartmentalReportsPage() {
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="text-sm font-semibold text-slate-900 mb-3">Financial Summary</h4>
+                <h4 className="text-sm font-semibold text-foreground mb-3">Financial Summary</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-slate-500">Total Gross Pay</label>
-                    <p className="text-lg font-semibold text-slate-900">${(selectedReport.totalGrossPay || 0).toLocaleString()}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Total Gross Pay</label>
+                    <p className="text-lg font-semibold text-foreground">${(selectedReport.totalGrossPay || 0).toLocaleString()}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-500">Total Net Pay</label>
-                    <p className="text-lg font-semibold text-slate-900">${(selectedReport.totalNetPay || 0).toLocaleString()}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Total Net Pay</label>
+                    <p className="text-lg font-semibold text-foreground">${(selectedReport.totalNetPay || 0).toLocaleString()}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-500">Total Deductions</label>
-                    <p className="text-lg font-semibold text-red-600">${(selectedReport.totalDeductions || 0).toLocaleString()}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Total Deductions</label>
+                    <p className="text-lg font-semibold text-destructive">${(selectedReport.totalDeductions || 0).toLocaleString()}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-slate-500">Average Salary</label>
-                    <p className="text-lg font-semibold text-slate-900">${(selectedReport.averageSalary || 0).toLocaleString()}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Average Salary</label>
+                    <p className="text-lg font-semibold text-foreground">${(selectedReport.averageSalary || 0).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="border-t pt-4">
-                <label className="text-sm font-medium text-slate-500">Generated At</label>
-                <p className="text-base text-slate-900">{new Date(selectedReport.generatedAt).toLocaleString()}</p>
+              <div className="border-t border-border pt-4">
+                <label className="text-sm font-medium text-muted-foreground">Generated At</label>
+                <p className="text-base text-foreground">{new Date(selectedReport.generatedAt).toLocaleString()}</p>
               </div>
             </div>
 
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setSelectedReport(null)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"
+                className="px-4 py-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80"
               >
                 Close
               </button>

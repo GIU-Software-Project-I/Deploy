@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { performanceService } from '@/app/services/performance';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Badge } from '@/app/components/ui/badge';
-import { Progress } from '@/app/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
     Dialog,
     DialogContent,
@@ -14,16 +14,16 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/app/components/ui/dialog';
+} from '@/components/ui/dialog';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@/app/components/ui/select';
-import { Label } from '@/app/components/ui/label';
-import { Textarea } from '@/app/components/ui/textarea';
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Cycle {
     _id: string;
@@ -59,10 +59,10 @@ const cycleTypes = [
 ];
 
 const statusColors: Record<string, string> = {
-    PLANNED: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    ACTIVE: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
-    CLOSED: 'bg-muted text-muted-foreground border-border',
-    ARCHIVED: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+    PLANNED: 'bg-muted text-muted-foreground border-border',
+    ACTIVE: 'bg-foreground text-background border-foreground',
+    CLOSED: 'bg-muted-foreground text-background border-muted-foreground',
+    ARCHIVED: 'bg-muted text-muted-foreground border-border opacity-50',
 };
 
 const getStatusIcon = (status: string) => {
@@ -306,58 +306,26 @@ export default function PerformanceCyclesPage() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                            <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-                            <p className="text-sm text-muted-foreground">Total Cycles</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                            <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.active}</p>
-                            <p className="text-sm text-muted-foreground">Active</p>
+                {[
+                    { label: 'Total Cycles', value: stats.total, icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', color: 'text-foreground', bg: 'bg-muted' },
+                    { label: 'Active', value: stats.active, icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', color: 'text-green-600', bg: 'bg-green-500/10' },
+                    { label: 'Planned', value: stats.planned, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', color: 'text-amber-600', bg: 'bg-amber-500/10' },
+                    { label: 'Closed', value: stats.closed, icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-foreground', bg: 'bg-muted' },
+                ].map((stat, i) => (
+                    <div key={i} className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
+                                <svg className={`w-5 h-5 ${stat.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
+                                </svg>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
+                                <p className="text-2xl font-black text-foreground">{stat.value}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-                            <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.planned}</p>
-                            <p className="text-sm text-muted-foreground">Planned</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                            <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-foreground">{stats.closed}</p>
-                            <p className="text-sm text-muted-foreground">Closed</p>
-                        </div>
-                    </div>
-                </div>
+                ))}
             </div>
 
             {/* Search and Filters */}
@@ -387,96 +355,87 @@ export default function PerformanceCyclesPage() {
                 </Select>
             </div>
 
-            {/* Cycles List */}
-            <div className="space-y-4">
+            {/* Cycles Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredCycles.map((cycle) => {
                     const progress = getProgress(cycle);
-                    const daysRemaining = getDaysRemaining(cycle.endDate);
 
                     return (
                         <div
                             key={cycle._id}
-                            className="bg-card border border-border rounded-xl p-6 hover:shadow-lg hover:border-primary/50 transition-all group"
+                            className="bg-card border border-border rounded-xl p-6 hover:shadow-lg hover:border-primary/50 transition-all group flex flex-col justify-between"
                         >
-                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="text-muted-foreground group-hover:text-primary transition-colors">{getStatusIcon(cycle.status)}</div>
-                                        <div>
-                                            <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors">{cycle.name}</h3>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Badge variant="outline" className={statusColors[cycle.status]}>
-                                                    {cycle.status}
-                                                </Badge>
-                                                <Badge variant="outline">{cycle.cycleType.replace('_', ' ')}</Badge>
-                                                {cycle.templateId && (
-                                                    <Badge variant="secondary" className="text-xs bg-primary/5 text-primary border-primary/10">
-                                                        {cycle.templateId.name}
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </div>
+                            <div>
+                                <div className="flex items-start justify-between mb-4 text-sm">
+                                    <div className="flex flex-col gap-1">
+                                        <h3 className="font-bold text-foreground text-base group-hover:text-primary transition-colors">
+                                            {cycle.name}
+                                        </h3>
+                                        <Badge variant="outline" className={`w-fit text-[10px] h-5 ${statusColors[cycle.status]}`}>
+                                            {cycle.status}
+                                        </Badge>
                                     </div>
-
-                                    {cycle.description && (
-                                        <p className="text-sm text-muted-foreground mb-3 ml-11 line-clamp-2">{cycle.description}</p>
-                                    )}
-
-                                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground ml-11">
-                                        <span className="flex items-center gap-1">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            {formatDate(cycle.startDate)} - {formatDate(cycle.endDate)}
-                                        </span>
-                                        {cycle.status === 'ACTIVE' && (
-                                            <span className={`flex items-center gap-1 ${daysRemaining < 7 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                {daysRemaining > 0 ? `${daysRemaining} days left` : 'Overdue'}
-                                            </span>
-                                        )}
+                                    <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center text-foreground">
+                                        {getStatusIcon(cycle.status)}
                                     </div>
                                 </div>
 
-                                {/* Progress Section */}
-                                {cycle.status === 'ACTIVE' && cycle.totalAssignments && cycle.totalAssignments > 0 && (
-                                    <div className="lg:w-64">
-                                        <div className="flex items-center justify-between text-sm mb-2">
-                                            <span className="text-muted-foreground">Completion</span>
-                                            <span className="font-medium text-foreground">{progress}%</span>
-                                        </div>
-                                        <Progress value={progress} className="h-2" />
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            {cycle.completedAssignments || 0} of {cycle.totalAssignments} completed
-                                        </p>
-                                    </div>
-                                )}
+                                <p className="text-sm text-muted-foreground mb-6 line-clamp-2">
+                                    {cycle.description || 'Appraisal cycle for organizational performance evaluation.'}
+                                </p>
 
-                                {/* Actions */}
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => openViewDialog(cycle)}>
-                                        View
+                                <div className="space-y-3 mb-6">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-muted-foreground flex items-center gap-2">
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            Timeline
+                                        </span>
+                                        <span className="font-bold text-foreground">
+                                            {formatDate(cycle.startDate)} - {formatDate(cycle.endDate)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-muted-foreground flex items-center gap-2">
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                            </svg>
+                                            Template
+                                        </span>
+                                        <span className="font-bold text-foreground">{cycle.templateId?.name || 'Standard'}</span>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                            <span className="text-muted-foreground">Progression</span>
+                                            <span className="text-foreground">{progress}%</span>
+                                        </div>
+                                        <Progress value={progress} className="h-1.5" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-border mt-auto">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => openViewDialog(cycle)} className="font-bold uppercase tracking-widest text-[10px]">
+                                        Details
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => openEditDialog(cycle)} className="font-bold uppercase tracking-widest text-[10px]">
+                                        Configure
                                     </Button>
                                     {cycle.status === 'PLANNED' && (
-                                        <>
-                                            <Button variant="outline" size="sm" onClick={() => openEditDialog(cycle)}>
-                                                Edit
-                                            </Button>
-                                            <Button size="sm" onClick={() => handleStatusChange(cycle, 'activate')}>
-                                                Activate
-                                            </Button>
-                                        </>
+                                        <Button size="sm" onClick={() => handleStatusChange(cycle, 'activate')} className="col-span-2 font-bold uppercase tracking-widest text-[10px] bg-foreground text-background hover:bg-foreground/90">
+                                            Activate Cycle
+                                        </Button>
                                     )}
                                     {cycle.status === 'ACTIVE' && (
-                                        <Button variant="destructive" size="sm" onClick={() => handleStatusChange(cycle, 'close')}>
-                                            Close
+                                        <Button size="sm" onClick={() => handleStatusChange(cycle, 'close')} className="col-span-2 font-bold uppercase tracking-widest text-[10px] bg-muted-foreground text-background hover:bg-muted-foreground/90">
+                                            Close entries
                                         </Button>
                                     )}
                                     {cycle.status === 'CLOSED' && (
-                                        <Button variant="secondary" size="sm" onClick={() => handleStatusChange(cycle, 'archive')}>
-                                            Archive
+                                        <Button size="sm" onClick={() => handleStatusChange(cycle, 'archive')} className="col-span-2 font-bold uppercase tracking-widest text-[10px] bg-muted text-foreground hover:bg-muted/90">
+                                            Archive Results
                                         </Button>
                                     )}
                                 </div>
@@ -527,7 +486,7 @@ export default function PerformanceCyclesPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label htmlFor="cycleType">Cycle Type</Label>
-                                <Select value={formData.cycleType} onValueChange={(value: Cycle['cycleType']) => setFormData(prev => ({ ...prev, cycleType: value }))}>
+                                <Select value={formData.cycleType} onValueChange={(value: any) => setFormData(prev => ({ ...prev, cycleType: value }))}>
                                     <SelectTrigger className="mt-1">
                                         <SelectValue />
                                     </SelectTrigger>

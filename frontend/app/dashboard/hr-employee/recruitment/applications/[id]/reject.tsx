@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/app/components/ui/button';
-import { Card } from '@/app/components/ui/card';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { getApplicationById, rejectApplication, sendRejectionNotification, getEmailTemplates } from '@/app/services/recruitment';
 
 // =====================================================

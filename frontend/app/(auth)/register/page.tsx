@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/app/context/AuthContext';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { DotPattern } from '@/app/components/dot-pattern';
+import { useAuth } from '@/context/AuthContext';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { DotPattern } from '@/components/dot-pattern';
 import { User, Mail, Lock, Phone, CreditCard, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 
 // Password strength indicator component

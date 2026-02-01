@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { payrollTrackingService } from '@/app/services/payroll-tracking';
 
 /**
@@ -120,13 +120,13 @@ export default function MisconductDeductionsPage() {
   };
 
   const getDeductionTypeIcon = (type?: string) => {
-    if (!type) return '';
+    if (!type) return '⚠️';
     const lowerType = type.toLowerCase();
-    if (lowerType.includes('absent') || lowerType.includes('missing')) return '';
-    if (lowerType.includes('late') || lowerType.includes('tardiness')) return '';
-    if (lowerType.includes('misconduct') || lowerType.includes('violation')) return '';
-    if (lowerType.includes('unauthorized')) return '';
-    return '';
+    if (lowerType.includes('absent') || lowerType.includes('missing')) return '🚫';
+    if (lowerType.includes('late') || lowerType.includes('tardiness')) return '⏰';
+    if (lowerType.includes('misconduct') || lowerType.includes('violation')) return '❌';
+    if (lowerType.includes('unauthorized')) return '🔒';
+    return '⚠️';
   };
 
   const getDeductionTypeColor = (type?: string) => {
@@ -196,7 +196,7 @@ export default function MisconductDeductionsPage() {
               From payslips and attendance records
             </p>
           </div>
-          <div className="text-6xl"></div>
+          <div className="text-6xl">⚠️</div>
         </div>
       </div>
 
@@ -415,4 +415,3 @@ export default function MisconductDeductionsPage() {
     </div>
   );
 }
-

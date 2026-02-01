@@ -3,25 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { employeeProfileService } from '@/app/services/employee-profile';
-import { Button } from '@/app/components/ui/button';
-import { GlassCard } from '@/app/components/ui/glass-card';
-import { Badge } from '@/app/components/ui/badge';
-import {
-    User,
-    MapPin,
-    Mail,
-    Phone,
-    Calendar,
-    Briefcase,
-    GraduationCap,
-    Edit,
-    FileText,
-    AlertCircle,
-    Hash,
-    Clock,
-    Building
-} from 'lucide-react';
-import { DotPattern } from '@/app/components/dot-pattern';
+import { Button } from '@/components/ui/button';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Mail, Phone, Calendar, User, Building, MapPin, GraduationCap, Briefcase, History } from 'lucide-react';
+import { JourneyTimeline, TimelineEvent } from '@/components/ui/journey-timeline';
 
 export default function EmployeeProfilePage() {
     const [profile, setProfile] = useState<any>(null);
@@ -47,9 +34,9 @@ export default function EmployeeProfilePage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-                    <p className="text-muted-foreground animate-pulse font-medium">Loading your profile...</p>
+                <div className="text-center space-y-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <p className="text-muted-foreground font-medium animate-pulse">Loading profile...</p>
                 </div>
             </div>
         );
@@ -57,14 +44,11 @@ export default function EmployeeProfilePage() {
 
     if (error) {
         return (
-            <div className="p-6 flex justify-center">
-                <GlassCard className="max-w-md w-full p-6 border-destructive/20 bg-destructive/5 text-center">
-                    <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <AlertCircle className="w-6 h-6 text-destructive" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">Failed to load profile</h3>
-                    <p className="text-muted-foreground mb-4">{error}</p>
-                    <Button onClick={() => window.location.reload()}>Try Again</Button>
+            <div className="p-6">
+                <GlassCard className="border-destructive/20 bg-destructive/5 p-6">
+                    <p className="text-destructive font-medium flex items-center gap-2">
+                        <span className="text-xl">⚠️</span> {error}
+                    </p>
                 </GlassCard>
             </div>
         );
@@ -72,48 +56,53 @@ export default function EmployeeProfilePage() {
 
     if (!profile) return null;
 
+    // Generate Journey Events
+    const journeyEvents: TimelineEvent[] = [
+        {
+            id: 'hiring',
+            date: new Date(profile.dateOfHire),
+            title: 'Joined the Company',
+            description: `Started as ${profile.primaryPositionId?.title || 'a new member'}`,
+            type: 'hiring'
+        },
+        // If they have been here for a while, add current status
+        {
+            id: 'current',
+            date: new Date(),
+            title: 'Today',
+            description: `Current: ${profile.primaryPositionId?.title || 'Employee'} in ${profile.primaryDepartmentId?.name || 'Department'}`,
+            type: 'current'
+        }
+    ];
+
     return (
-        <div className="relative min-h-screen pb-10">
-            {/* Background Decorations - Subtler */}
-            <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-primary/5 to-transparent -z-10" />
-            <div className="absolute top-20 right-20 w-64 h-64 bg-primary/5 rounded-full blur-[100px] -z-10" />
-            <div className="absolute top-40 left-10 w-40 h-40 bg-blue-500/10 rounded-full blur-[60px] -z-10" />
-
-            {/* Header / Hero Section */}
-            <div className="space-y-5 max-w-6xl mx-auto px-4 sm:px-6 py-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                            My Profile
-                        </h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">Manage your personal information and employment details</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <Link href="/dashboard/department-employee/employee-profile/correction-requests">
-                            <Button variant="outline" size="sm" className="gap-2 bg-background/50 backdrop-blur-sm h-9">
-                                <FileText className="w-3.5 h-3.5" />
-                                Correction Requests
-                            </Button>
-                        </Link>
-                        <Link href="/dashboard/department-employee/employee-profile/edit">
-                            <Button size="sm" className="gap-2 shadow-sm shadow-primary/20 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 border-0 h-9">
-                                <Edit className="w-3.5 h-3.5" />
-                                Update Profile
-                            </Button>
-                        </Link>
-                    </div>
+        <div className="space-y-6 lg:space-y-8">
+            {/* Header with Edit Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-black tracking-tighter text-foreground">My Profile</h1>
+                    <p className="text-muted-foreground mt-1">View and manage your personal information</p>
                 </div>
+                <div className="flex flex-wrap gap-3">
+                    <Link href="/dashboard/department-employee/employee-profile/correction-requests">
+                        <Button variant="outline" className="rounded-xl">
+                            Correction Requests
+                        </Button>
+                    </Link>
+                    <Link href="/dashboard/department-employee/employee-profile/edit">
+                        <Button className="rounded-xl">
+                            Update Profile
+                        </Button>
+                    </Link>
+                </div>
+            </div>
 
-                {/* Profile Overview Card - Compact */}
-                <GlassCard className="p-0 overflow-hidden relative group">
-                    <div className="h-24 bg-gradient-to-r from-slate-900 to-slate-800 relative overflow-hidden">
-                        <DotPattern className="opacity-10 text-white" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                    </div>
-
-                    <div className="px-5 pb-5 md:px-6 md:pb-6 flex flex-col md:flex-row gap-5 relative">
-                        <div className="-mt-10 flex-shrink-0 relative">
-                            <div className="w-24 h-24 rounded-full border-[3px] border-background bg-muted flex items-center justify-center shadow-md ring-2 ring-background/50 overflow-hidden">
+            {/* Main Profile Card */}
+            <GlassCard className="overflow-hidden">
+                <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8 items-start">
+                    <div className="flex-shrink-0 mx-auto md:mx-0">
+                        <div className="relative group">
+                            <div className="w-32 h-32 rounded-full border-4 border-background shadow-xl overflow-hidden bg-muted flex items-center justify-center">
                                 {profile.profilePictureUrl ? (
                                     <img
                                         src={profile.profilePictureUrl}
@@ -121,247 +110,235 @@ export default function EmployeeProfilePage() {
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
-                                    <User className="w-10 h-10 text-muted-foreground/50" />
+                                    <User className="w-12 h-12 text-muted-foreground" />
                                 )}
                             </div>
-                            <div className={`absolute bottom-1 right-1 w-5 h-5 border-[3px] border-background rounded-full ${profile.status === 'ACTIVE' ? 'bg-green-500' : 'bg-slate-400'
-                                }`} title={profile.status}></div>
-                        </div>
-
-                        <div className="pt-1 flex-grow">
-                            <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-                                <div>
-                                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                                        {profile.firstName} {profile.lastName}
-                                        <Badge variant="outline" className="ml-1 bg-primary/5 border-primary/10 text-primary text-[10px] px-1.5 py-0 h-5">
-                                            {profile.status}
-                                        </Badge>
-                                    </h2>
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground mt-1 text-sm">
-                                        <div className="flex items-center gap-1.5">
-                                            <Briefcase className="w-3.5 h-3.5 text-primary/70" />
-                                            <span className="font-medium text-foreground/80">{profile.primaryPositionId?.title || 'No Position'}</span>
-                                        </div>
-                                        <div className="hidden sm:block w-1 h-1 rounded-full bg-border" />
-                                        <div className="flex items-center gap-1.5">
-                                            <Building className="w-3.5 h-3.5 text-primary/70" />
-                                            <span>{profile.primaryDepartmentId?.name || 'No Department'}</span>
-                                        </div>
-                                        <div className="hidden sm:block w-1 h-1 rounded-full bg-border" />
-                                        <div className="flex items-center gap-1.5">
-                                            <Hash className="w-3.5 h-3.5 text-primary/70" />
-                                            <span className="text-xs">ID: <span className="font-mono">{profile.employeeNumber}</span></span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col items-start md:items-end gap-1.5 text-xs text-muted-foreground bg-muted/40 p-2.5 rounded-lg border border-border/40">
-                                    <div className="flex items-center gap-2">
-                                        <Mail className="w-3 h-3" />
-                                        {profile.workEmail}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Calendar className="w-3 h-3" />
-                                        Hired: {new Date(profile.dateOfHire).toLocaleDateString()}
-                                    </div>
-                                </div>
-                            </div>
+                            <div className="absolute inset-0 rounded-full ring-1 ring-inset ring-black/10"></div>
                         </div>
                     </div>
-                </GlassCard>
 
-                {/* Content Grid - Denser */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    {/* Main Content Column */}
-                    <div className="lg:col-span-2 space-y-5">
-
-                        {/* Biography */}
-                        <GlassCard className="p-5">
-                            <div className="flex items-center gap-2.5 mb-3 border-b border-border/50 pb-2.5">
-                                <div className="p-1.5 bg-blue-500/10 rounded-md">
-                                    <User className="w-4 h-4 text-blue-500" />
+                    <div className="flex-1 w-full text-center md:text-left">
+                        <div className="flex flex-col md:flex-row justify-between items-center md:items-start gap-4">
+                            <div>
+                                <h2 className="text-2xl font-bold text-foreground">
+                                    {profile.firstName} {profile.lastName}
+                                </h2>
+                                <div className="flex flex-wrap justify-center md:justify-start gap-3 text-sm mt-2">
+                                    <span className="inline-flex items-center gap-1.5 text-primary font-medium bg-primary/10 px-2.5 py-1 rounded-full">
+                                        <Briefcase className="w-3.5 h-3.5" />
+                                        {profile.primaryPositionId?.title || 'No Position'}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1.5 text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full border border-border">
+                                        <Building className="w-3.5 h-3.5" />
+                                        {profile.primaryDepartmentId?.name || 'No Department'}
+                                    </span>
                                 </div>
-                                <h3 className="font-semibold text-base">Biography</h3>
                             </div>
-                            <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground leading-relaxed text-sm">
-                                {profile.biography ? (
-                                    <p>{profile.biography}</p>
-                                ) : (
-                                    <p className="italic text-muted-foreground/60">No biography details provided yet.</p>
-                                )}
-                            </div>
-                        </GlassCard>
+                            <Badge variant={profile.status === 'ACTIVE' ? 'default' : 'secondary'} className="px-3 py-1">
+                                {profile.status}
+                            </Badge>
+                        </div>
 
-                        {/* Employment Details */}
-                        <GlassCard className="p-5">
-                            <div className="flex items-center gap-2.5 mb-4 border-b border-border/50 pb-2.5">
-                                <div className="p-1.5 bg-purple-500/10 rounded-md">
-                                    <Briefcase className="w-4 h-4 text-purple-500" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-8 border-t border-border">
+                            <div className="flex items-center justify-center md:justify-start gap-3 text-sm group">
+                                <div className="p-2 rounded-lg bg-primary/5 text-primary group-hover:bg-primary/10 transition-colors">
+                                    <Mail className="w-4 h-4" />
                                 </div>
-                                <h3 className="font-semibold text-base">Employment Details</h3>
+                                <div className="flex flex-col items-start">
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Email</span>
+                                    <span className="text-foreground truncate max-w-[150px]" title={profile.workEmail}>{profile.workEmail}</span>
+                                </div>
                             </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6">
-                                <div className="space-y-0.5">
-                                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Contract Type</p>
-                                    <p className="text-sm font-medium text-foreground">{profile.contractType || '-'}</p>
+                            <div className="flex items-center justify-center md:justify-start gap-3 text-sm group">
+                                <div className="p-2 rounded-lg bg-primary/5 text-primary group-hover:bg-primary/10 transition-colors">
+                                    <User className="w-4 h-4" />
                                 </div>
-                                <div className="space-y-0.5">
-                                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Work Type</p>
-                                    <p className="text-sm font-medium text-foreground">{profile.workType || '-'}</p>
+                                <div className="flex flex-col items-start">
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Employee ID</span>
+                                    <span className="text-foreground font-mono">{profile.employeeNumber}</span>
                                 </div>
-                                <div className="space-y-0.5">
-                                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Contract Start</p>
-                                    <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                                        <Clock className="w-3 h-3 text-muted-foreground" />
-                                        {profile.contractStartDate ? new Date(profile.contractStartDate).toLocaleDateString() : '-'}
+                            </div>
+                            <div className="flex items-center justify-center md:justify-start gap-3 text-sm group">
+                                <div className="p-2 rounded-lg bg-primary/5 text-primary group-hover:bg-primary/10 transition-colors">
+                                    <Calendar className="w-4 h-4" />
+                                </div>
+                                <div className="flex flex-col items-start">
+                                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Joined</span>
+                                    <span className="text-foreground">{new Date(profile.dateOfHire).toLocaleDateString()}</span>
+                                </div>
+                            </div>
+                            {profile.mobilePhone && (
+                                <div className="flex items-center justify-center md:justify-start gap-3 text-sm group">
+                                    <div className="p-2 rounded-lg bg-primary/5 text-primary group-hover:bg-primary/10 transition-colors">
+                                        <Phone className="w-4 h-4" />
                                     </div>
-                                </div>
-                                <div className="space-y-0.5">
-                                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Contract End</p>
-                                    <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                                        <Clock className="w-3 h-3 text-muted-foreground" />
-                                        {profile.contractEndDate ? new Date(profile.contractEndDate).toLocaleDateString() : 'Indefinite'}
+                                    <div className="flex flex-col items-start">
+                                        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Mobile</span>
+                                        <span className="text-foreground">{profile.mobilePhone}</span>
                                     </div>
-                                </div>
-                            </div>
-                        </GlassCard>
-
-                        {/* Education */}
-                        <GlassCard className="p-5">
-                            <div className="flex items-center gap-2.5 mb-4 border-b border-border/50 pb-2.5">
-                                <div className="p-1.5 bg-green-500/10 rounded-md">
-                                    <GraduationCap className="w-4 h-4 text-green-500" />
-                                </div>
-                                <h3 className="font-semibold text-base">Education History</h3>
-                            </div>
-
-                            {profile.education && profile.education.length > 0 ? (
-                                <div className="space-y-4 relative">
-                                    {/* Vertical Timeline Line */}
-                                    <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border/50"></div>
-
-                                    {profile.education.map((edu: any, i: number) => (
-                                        <div key={i} className="relative pl-9 group">
-                                            <div className="absolute left-[11px] top-1.5 w-2.5 h-2.5 bg-background border border-primary rounded-full group-hover:bg-primary group-hover:scale-110 transition-all z-10"></div>
-                                            <div className="bg-muted/20 rounded-lg p-2.5 border border-border/40 hover:border-border transition-colors">
-                                                <h4 className="font-medium text-sm text-foreground">{edu.establishmentName}</h4>
-                                                <p className="text-xs text-muted-foreground mt-0.5">{edu.graduationType}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-6">
-                                    <GraduationCap className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-                                    <p className="text-xs text-muted-foreground italic">No education details added.</p>
                                 </div>
                             )}
-                        </GlassCard>
+                        </div>
                     </div>
+                </div>
+            </GlassCard>
 
-                    {/* Sidebar Column */}
-                    <div className="space-y-5">
-                        {/* Personal Info */}
-                        <GlassCard className="p-5">
-                            <div className="flex items-center gap-2.5 mb-4 border-b border-border/50 pb-2.5">
-                                <div className="p-1.5 bg-amber-500/10 rounded-md">
-                                    <User className="w-4 h-4 text-amber-500" />
-                                </div>
-                                <h3 className="font-semibold text-base">Personal Info</h3>
+            {/* Journey Timeline Section */}
+            <GlassCard className="p-6 md:p-8 bg-gradient-to-br from-background to-muted/20 border-primary/10 shadow-inner">
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-primary/10 text-primary shadow-sm">
+                            <History className="w-5 h-5 animate-in spin-in-90 duration-700" />
+                        </div>
+                        <div>
+                            <h3 className="font-black text-xl text-foreground tracking-tight">Your Journey</h3>
+                            <p className="text-xs text-muted-foreground font-medium">Visualizing your career milestones and growth</p>
+                        </div>
+                    </div>
+                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-bold">
+                        {Math.floor((new Date().getTime() - new Date(profile.dateOfHire).getTime()) / (1000 * 60 * 60 * 24 * 365))} Years with us
+                    </Badge>
+                </div>
+
+                <JourneyTimeline events={journeyEvents} />
+            </GlassCard>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                {/* Left Column */}
+                <div className="lg:col-span-2 space-y-6 lg:space-y-8">
+
+                    {/* Biography */}
+                    <GlassCard className="p-6 md:p-8">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+                                <User className="w-5 h-5" />
                             </div>
+                            <h3 className="font-bold text-lg text-foreground">Biography</h3>
+                        </div>
+                        <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                            {profile.biography || 'No biography details provided.'}
+                        </p>
+                    </GlassCard>
 
-                            <dl className="space-y-3">
-                                <div>
-                                    <dt className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1.5 mb-1">
-                                        <Mail className="w-2.5 h-2.5" /> Personal Email
-                                    </dt>
-                                    <dd className="text-xs font-medium text-foreground break-all bg-muted/30 px-2 py-1.5 rounded border border-border/30">
-                                        {profile.personalEmail || '-'}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1.5 mb-1">
-                                        <Phone className="w-2.5 h-2.5" /> Home Phone
-                                    </dt>
-                                    <dd className="text-xs font-medium text-foreground bg-muted/30 px-2 py-1.5 rounded border border-border/30">
-                                        {profile.homePhone || '-'}
-                                    </dd>
-                                </div>
-                                {profile.mobilePhone && (
-                                    <div>
-                                        <dt className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1.5 mb-1">
-                                            <Phone className="w-2.5 h-2.5" /> Mobile Phone
-                                        </dt>
-                                        <dd className="text-xs font-medium text-foreground bg-muted/30 px-2 py-1.5 rounded border border-border/30">
-                                            {profile.mobilePhone}
-                                        </dd>
-                                    </div>
-                                )}
-                                <div>
-                                    <dt className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1.5 mb-1">
-                                        <Calendar className="w-2.5 h-2.5" /> Date of Birth
-                                    </dt>
-                                    <dd className="text-xs font-medium text-foreground bg-muted/30 px-2 py-1.5 rounded border border-border/30">
-                                        {profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString() : '-'}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt className="text-[10px] text-muted-foreground uppercase font-semibold flex items-center gap-1.5 mb-1">
-                                        <MapPin className="w-2.5 h-2.5" /> Address
-                                    </dt>
-                                    <dd className="text-xs font-medium text-foreground bg-muted/30 px-2 py-1.5 rounded border border-border/30 leading-relaxed">
-                                        {profile.address ? (
-                                            <>
-                                                {profile.address.streetAddress}<br />
-                                                {profile.address.city}, {profile.address.country}
-                                            </>
-                                        ) : '-'}
-                                    </dd>
-                                </div>
-                            </dl>
-                        </GlassCard>
-
-                        {/* Emergency Contacts */}
-                        <GlassCard className="p-5">
-                            <div className="flex items-center gap-2.5 mb-4 border-b border-border/50 pb-2.5">
-                                <div className="p-1.5 bg-rose-500/10 rounded-md">
-                                    <AlertCircle className="w-4 h-4 text-rose-500" />
-                                </div>
-                                <h3 className="font-semibold text-base">Emergency Contacts</h3>
+                    {/* Employment Details */}
+                    <GlassCard className="p-6 md:p-8">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
+                                <Briefcase className="w-5 h-5" />
                             </div>
+                            <h3 className="font-bold text-lg text-foreground">Employment Details</h3>
+                        </div>
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+                            {[
+                                { label: 'Contract Type', value: profile.contractType },
+                                { label: 'Work Type', value: profile.workType },
+                                { label: 'Contract Start', value: profile.contractStartDate ? new Date(profile.contractStartDate).toLocaleDateString() : '-' },
+                                { label: 'Contract End', value: profile.contractEndDate ? new Date(profile.contractEndDate).toLocaleDateString() : '-' },
+                            ].map((item, i) => (
+                                <div key={i} className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                                    <dt className="text-xs text-muted-foreground uppercase font-semibold mb-1">{item.label}</dt>
+                                    <dd className="text-sm font-medium text-foreground">{item.value || '-'}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </GlassCard>
 
-                            {profile.emergencyContacts && profile.emergencyContacts.length > 0 ? (
-                                <div className="space-y-2.5">
-                                    {profile.emergencyContacts.map((contact: any, i: number) => (
-                                        <div key={i} className={`p-2.5 rounded-lg border transition-all ${contact.isPrimary
-                                                ? 'bg-rose-500/5 border-rose-500/20 shadow-sm'
-                                                : 'bg-accent/10 border-border/40 hover:bg-accent/30'
-                                            }`}>
-                                            <div className="flex justify-between items-start mb-0.5">
-                                                <div className="font-medium text-sm text-foreground">{contact.name}</div>
-                                                {contact.isPrimary && (
-                                                    <span className="text-[9px] uppercase font-bold text-rose-500 bg-rose-500/10 px-1 py-px rounded-sm">Primary</span>
-                                                )}
-                                            </div>
-                                            <div className="text-[11px] text-muted-foreground mb-1">{contact.relationship}</div>
-                                            <div className="flex items-center gap-1 text-[11px] text-foreground/80">
-                                                <Phone className="w-2.5 h-2.5 text-rose-500" />
-                                                {contact.phone}
-                                            </div>
+                    {/* Education */}
+                    <GlassCard className="p-6 md:p-8">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
+                                <GraduationCap className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-bold text-lg text-foreground">Education</h3>
+                        </div>
+                        {profile.education && profile.education.length > 0 ? (
+                            <div className="space-y-4">
+                                {profile.education.map((edu: any, i: number) => (
+                                    <div key={i} className="flex items-start gap-4 p-4 rounded-xl border border-border bg-card hover:bg-muted/30 transition-colors">
+                                        <div className="p-2 rounded-full bg-primary/10 text-primary mt-0.5">
+                                            <GraduationCap className="w-4 h-4" />
                                         </div>
-                                    ))}
+                                        <div>
+                                            <div className="font-semibold text-foreground">{edu.establishmentName}</div>
+                                            <div className="text-sm text-muted-foreground">{edu.graduationType}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-muted-foreground italic pl-1">No education details added.</p>
+                        )}
+                    </GlassCard>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-6 lg:space-y-8">
+                    {/* Personal Info */}
+                    <GlassCard className="p-6 md:p-8">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                                <User className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-bold text-lg text-foreground">Personal Info</h3>
+                        </div>
+                        <div className="space-y-4">
+                            {[
+                                { label: 'Personal Email', value: profile.personalEmail, icon: <Mail className="w-4 h-4" /> },
+                                { label: 'Home Phone', value: profile.homePhone, icon: <Phone className="w-4 h-4" /> },
+                                { label: 'Date of Birth', value: profile.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString() : '-', icon: <Calendar className="w-4 h-4" /> },
+                                {
+                                    label: 'Address',
+                                    value: profile.address ? (
+                                        <>
+                                            {profile.address.streetAddress}<br />
+                                            {profile.address.city}, {profile.address.country}
+                                        </>
+                                    ) : '-',
+                                    icon: <MapPin className="w-4 h-4" />
+                                },
+                            ].map((item, i) => (
+                                <div key={i} className="flex gap-3 text-sm">
+                                    <div className="mt-0.5 text-muted-foreground">{item.icon}</div>
+                                    <div className="flex-1 min-w-0">
+                                        <dt className="text-xs text-muted-foreground uppercase font-semibold mb-0.5">{item.label}</dt>
+                                        <dd className="font-medium text-foreground break-words">{item.value}</dd>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="text-center py-5">
-                                    <p className="text-xs text-muted-foreground italic mb-2">No contacts added.</p>
-                                    <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                                        <Link href="/dashboard/department-employee/employee-profile/edit">Add Contact</Link>
-                                    </Button>
-                                </div>
-                            )}
-                        </GlassCard>
-                    </div>
+                            ))}
+                        </div>
+                    </GlassCard>
+
+                    {/* Emergency Contacts */}
+                    <GlassCard className="p-6 md:p-8">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-lg bg-destructive/10 text-destructive">
+                                <Phone className="w-5 h-5" />
+                            </div>
+                            <h3 className="font-bold text-lg text-foreground">Emergency Contacts</h3>
+                        </div>
+                        {profile.emergencyContacts && profile.emergencyContacts.length > 0 ? (
+                            <div className="space-y-3">
+                                {profile.emergencyContacts.map((contact: any, i: number) => (
+                                    <div key={i} className={`p-4 rounded-xl border ${contact.isPrimary
+                                        ? 'border-primary/20 bg-primary/5'
+                                        : 'border-border bg-card'
+                                        }`}>
+                                        <div className="flex justify-between items-start">
+                                            <div className="font-semibold text-sm text-foreground">{contact.name}</div>
+                                            {contact.isPrimary && <Badge variant="secondary" className="text-[10px] h-5">Primary</Badge>}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground mt-0.5 font-medium uppercase tracking-wide">{contact.relationship}</div>
+                                        <div className="text-sm text-foreground mt-2 flex items-center gap-2">
+                                            <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                                            {contact.phone}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-muted-foreground italic pl-1">No contacts added.</p>
+                        )}
+                    </GlassCard>
                 </div>
             </div>
         </div>

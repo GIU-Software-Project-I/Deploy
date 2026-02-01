@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { payrollManagerService, ClaimConfirmation } from '@/app/services/payroll-manager';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 export default function PayrollManagerClaimsPage() {
   const { user } = useAuth();

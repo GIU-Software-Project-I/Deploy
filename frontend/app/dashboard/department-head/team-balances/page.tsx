@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { leavesService } from '@/app/services/leaves';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 // Types
 interface LeaveBalance {
@@ -211,7 +211,6 @@ export default function TeamBalancesPage() {
 
   const getEmployeeDisplayName = (employeeName?: string, employeeId?: string) => {
     if (employeeName && employeeName.trim()) return employeeName;
-    if (employeeId) return `Employee ${employeeId.slice(-6)}`;
     return 'Unknown Employee';
   };
 
@@ -417,21 +416,19 @@ export default function TeamBalancesPage() {
             <div className="flex bg-muted rounded-lg p-1">
               <button
                 onClick={() => setViewMode('balances')}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  viewMode === 'balances'
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${viewMode === 'balances'
                     ? 'bg-card text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Leave Balances
               </button>
               <button
                 onClick={() => setViewMode('upcoming')}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  viewMode === 'upcoming'
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${viewMode === 'upcoming'
                     ? 'bg-card text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Upcoming Leaves
               </button>

@@ -1,25 +1,10 @@
 'use client';
 
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
-// Map system roles to URL-safe dashboard paths
-const ROLE_TO_PATH: Record<string, string> = {
-  'department employee': 'department-employee',
-  'department head': 'department-head',
-  'HR Manager': 'hr-manager',
-  'HR Employee': 'hr-employee',
-  'Payroll Specialist': 'payroll-specialist',
-  'Payroll Manager': 'payroll-manager',
-  'System Admin': 'system-admin',
-  'Legal & Policy Admin': 'legal-policy-admin',
-  'Recruiter': 'recruiter',
-  'Finance Staff': 'finance-staff',
-  'Job Candidate': 'job-candidate',
-  'HR Admin': 'hr-admin',
-};
 
 export default function DashboardPage() {
   const { user, getDashboardRoute, isLoading } = useAuth();

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, JSX } from 'react';
-import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/app/components/theme-customizer';
+import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/components/theme-customizer';
 import { Snackbar } from './snackbar';
 import Link from 'next/link';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
@@ -12,14 +12,14 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "../../../components/ui/card";
-import { Button } from "../../../components/ui/button";
-import { Badge } from "../../../components/ui/badge";
-import { Skeleton } from "../../../components/ui/skeleton";
-import { 
-  AlertTriangle, 
-  CheckCircle, 
-  XCircle, 
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
   Eye,
   Filter,
   Clock,
@@ -39,7 +39,7 @@ import {
   Users,
   Calendar
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Irregularity {
   _id: string;

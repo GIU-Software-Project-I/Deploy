@@ -2,19 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { payrollConfigurationService } from '@/app/services/payroll-configuration';
-import { useAuth } from '@/app/context/AuthContext';
-import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/app/components/theme-customizer';
+import { useAuth } from '@/context/AuthContext';
+import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/components/theme-customizer';
 import { X, Eye, Calculator, Edit } from 'lucide-react';
 
 // Type definitions
+interface PopulatedEmployee {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  employeeNumber: string;
+}
+
 interface InsuranceBracket {
   _id: string;
   name: string;
   status: 'draft' | 'approved' | 'rejected';
-  createdBy?: string;
+  createdBy?: string | PopulatedEmployee;
   createdAt: string;
   updatedAt: string;
-  approvedBy?: string;
+  approvedBy?: string | PopulatedEmployee;
   approvedAt?: string;
   minSalary: number;
   maxSalary: number;
@@ -67,7 +75,7 @@ export default function InsuranceBracketsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [calculationResult, setCalculationResult] = useState<ContributionCalculation | null>(null);
   const [showThemeCustomizer, setShowThemeCustomizer] = useState(false);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -101,24 +109,24 @@ export default function InsuranceBracketsPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await payrollConfigurationService.getInsuranceBrackets();
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       if (!response.data) {
         console.warn('No data in response');
         setBrackets([]);
         return;
       }
-      
+
       const apiData = response.data as any;
-      
+
       if (apiData.data && Array.isArray(apiData.data)) {
         setBrackets(apiData.data);
-      } 
+      }
       else if (Array.isArray(apiData)) {
         setBrackets(apiData);
       }
@@ -126,7 +134,7 @@ export default function InsuranceBracketsPage() {
         console.warn('Unexpected response structure:', apiData);
         setBrackets([]);
       }
-      
+
     } catch (err: any) {
       setError(err.message || 'Failed to fetch insurance brackets');
       console.error('Error fetching insurance brackets:', err);
@@ -151,7 +159,7 @@ export default function InsuranceBracketsPage() {
 
       // Check for duplicate name only when creating new
       if (finalName) {
-        const isDuplicate = brackets.some(bracket => 
+        const isDuplicate = brackets.some(bracket =>
           bracket.name.toLowerCase() === finalName.toLowerCase()
         );
         if (isDuplicate) {
@@ -205,7 +213,7 @@ export default function InsuranceBracketsPage() {
       console.log('User object:', user);
 
       setActionLoading(true);
-      
+
       const apiData = {
         name: finalName,
         minSalary: parseFloat(formData.minSalary),
@@ -214,19 +222,19 @@ export default function InsuranceBracketsPage() {
         employerRate: parseFloat(formData.employerRate),
         createdByEmployeeId: user.id,
       };
-      
+
       console.log('Sending API data:', apiData);
-      
+
       const response = await payrollConfigurationService.createInsuranceBracket(apiData);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       // Check for backend validation errors
       if (response.data) {
         const responseData = response.data as any;
-        
+
         if (responseData.message && responseData.message.includes('already exists')) {
           throw new Error(responseData.message);
         }
@@ -234,27 +242,27 @@ export default function InsuranceBracketsPage() {
           throw new Error(responseData.error);
         }
         else if (responseData.statusCode && responseData.statusCode >= 400) {
-          const errorMessage = responseData.message || 
-                              responseData.error?.message || 
-                              'Failed to create insurance bracket';
+          const errorMessage = responseData.message ||
+            responseData.error?.message ||
+            'Failed to create insurance bracket';
           throw new Error(errorMessage);
         }
       }
-      
+
       setSuccess('Insurance bracket created successfully as DRAFT');
       setShowModal(false);
       resetForm();
       fetchInsuranceBrackets();
     } catch (err: any) {
       console.error('Create error details:', err);
-      
+
       let errorMessage = 'Failed to create insurance bracket';
       if (err.message) {
         errorMessage = err.message;
       } else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       }
-      
+
       setError(errorMessage);
     } finally {
       setActionLoading(false);
@@ -290,7 +298,7 @@ export default function InsuranceBracketsPage() {
         selectedBracket._id,
         updateData
       );
-      
+
       if (response.error) {
         setError(response.error);
         return;
@@ -316,11 +324,11 @@ export default function InsuranceBracketsPage() {
     try {
       setActionLoading(true);
       const response = await payrollConfigurationService.deleteInsuranceBracket(id);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       setSuccess('Insurance bracket deleted successfully');
       fetchInsuranceBrackets();
     } catch (err: any) {
@@ -378,7 +386,7 @@ export default function InsuranceBracketsPage() {
       setError('Only DRAFT insurance brackets can be edited. Approved or rejected brackets cannot be modified.');
       return;
     }
-    
+
     setSelectedBracket(bracket);
     setFormData({
       name: '',
@@ -388,7 +396,7 @@ export default function InsuranceBracketsPage() {
       employeeRate: bracket.employeeRate.toString(),
       employerRate: bracket.employerRate.toString(),
     });
-    
+
     setShowModal(true);
   };
 
@@ -461,6 +469,12 @@ export default function InsuranceBracketsPage() {
     }));
   };
 
+  const getEmployeeDisplayName = (emp: string | PopulatedEmployee | undefined) => {
+    if (!emp) return 'N/A';
+    if (typeof emp === 'string') return emp;
+    return `${emp.fullName || `${emp.firstName} ${emp.lastName}`.trim()} (${emp.employeeNumber})`;
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString('en-US', {
@@ -490,31 +504,31 @@ export default function InsuranceBracketsPage() {
 
   const getDuplicateError = () => {
     if (!formData.name || formData.name === 'custom') return null;
-    
+
     const finalName = formData.name === 'custom' ? formData.customName : formData.name;
     if (!finalName) return null;
-    
-    const isDuplicate = brackets.some(bracket => 
+
+    const isDuplicate = brackets.some(bracket =>
       bracket.name.toLowerCase() === finalName.toLowerCase()
     );
-    
+
     return isDuplicate ? `Insurance name "${finalName}" already exists. Please use a different name.` : null;
   };
 
   // Filter insurance brackets based on search and filters
   const filteredBrackets = brackets.filter(bracket => {
-    const matchesSearch = !filters.search || 
+    const matchesSearch = !filters.search ||
       bracket.name.toLowerCase().includes(filters.search.toLowerCase());
-    
+
     const matchesStatus = !filters.status || bracket.status === filters.status;
-    
-    const matchesInsuranceType = !filters.insuranceType || 
+
+    const matchesInsuranceType = !filters.insuranceType ||
       bracket.name.toLowerCase().includes(filters.insuranceType.toLowerCase());
-    
+
     const minSalaryFilter = parseFloat(filters.minSalaryRange) || 0;
     const maxSalaryFilter = parseFloat(filters.maxSalaryRange) || Number.MAX_SAFE_INTEGER;
     const matchesSalaryRange = bracket.minSalary >= minSalaryFilter && bracket.maxSalary <= maxSalaryFilter;
-    
+
     return matchesSearch && matchesStatus && matchesInsuranceType && matchesSalaryRange;
   });
 
@@ -538,15 +552,15 @@ export default function InsuranceBracketsPage() {
     <div className="space-y-6 relative">
       {/* Theme Customizer */}
       <div className="fixed bottom-6 right-6 z-40">
-        <ThemeCustomizerTrigger 
+        <ThemeCustomizerTrigger
           onClick={() => setShowThemeCustomizer(true)}
         />
       </div>
-      
+
       {showThemeCustomizer && (
         <ThemeCustomizer open={showThemeCustomizer} onOpenChange={setShowThemeCustomizer} />
       )}
-      
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -713,18 +727,18 @@ export default function InsuranceBracketsPage() {
             )}
           </h2>
         </div>
-        
+
         {filteredBrackets.length === 0 ? (
           <div className="p-12 text-center">
             <div className="text-muted-foreground text-4xl mb-4">🛡️</div>
             <p className="text-foreground font-medium">
-              {(filters.search || filters.status || filters.insuranceType || filters.minSalaryRange || filters.maxSalaryRange) 
-                ? 'No insurance brackets match your filters' 
+              {(filters.search || filters.status || filters.insuranceType || filters.minSalaryRange || filters.maxSalaryRange)
+                ? 'No insurance brackets match your filters'
                 : 'No insurance brackets found'}
             </p>
             <p className="text-muted-foreground text-sm mt-1">
-              {(filters.search || filters.status || filters.insuranceType || filters.minSalaryRange || filters.maxSalaryRange) 
-                ? 'Try adjusting your search criteria' 
+              {(filters.search || filters.status || filters.insuranceType || filters.minSalaryRange || filters.maxSalaryRange)
+                ? 'Try adjusting your search criteria'
                 : 'Create your first insurance bracket to get started'}
             </p>
             {!(filters.search || filters.status || filters.insuranceType || filters.minSalaryRange || filters.maxSalaryRange) && (
@@ -795,7 +809,7 @@ export default function InsuranceBracketsPage() {
                           <Eye className="w-3.5 h-3.5" />
                           View
                         </button>
-                        
+
                         {/* Calculate button */}
                         <button
                           onClick={() => handleCalculateClick(bracket)}
@@ -805,18 +819,18 @@ export default function InsuranceBracketsPage() {
                           <Calculator className="w-3.5 h-3.5" />
                           Calculate
                         </button>
-                        
+
                         {/* Edit button - Only show for DRAFT brackets */}
-                     {bracket.status === 'draft' && (
-  <button
-    onClick={() => handleEditClick(bracket)}
-    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-input bg-background text-foreground rounded-lg hover:bg-muted transition-all duration-200"
-    title="Edit"
-  >
-    <Edit className="w-3.5 h-3.5" />
-    Edit
-  </button>
-)}
+                        {bracket.status === 'draft' && (
+                          <button
+                            onClick={() => handleEditClick(bracket)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-input bg-background text-foreground rounded-lg hover:bg-muted transition-all duration-200"
+                            title="Edit"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -877,7 +891,7 @@ export default function InsuranceBracketsPage() {
                   </div>
                 </div>
               )}
-              
+
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-2">
                   Insurance Type {selectedBracket && <span className="text-muted-foreground">(Cannot be changed)</span>}
@@ -903,14 +917,14 @@ export default function InsuranceBracketsPage() {
                       ))}
                     </select>
                     <p className="text-xs text-muted-foreground mt-2">
-                      {formData.name === 'custom' 
-                        ? 'Enter a custom insurance name below' 
+                      {formData.name === 'custom'
+                        ? 'Enter a custom insurance name below'
                         : 'Select a predefined insurance type or choose "Custom Insurance Type"'}
                     </p>
                   </>
                 )}
               </div>
-              
+
               {formData.name === 'custom' && !selectedBracket && (
                 <div className="animate-fadeIn">
                   <label className="block text-sm font-medium text-muted-foreground mb-2">
@@ -921,17 +935,16 @@ export default function InsuranceBracketsPage() {
                     name="customName"
                     value={formData.customName}
                     onChange={handleChange}
-                    className={`w-full px-4 py-2.5 border rounded-lg font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 ${
-                      getDuplicateError() && formData.customName.trim() 
-                        ? 'border-destructive focus:ring-destructive' 
-                        : 'border-input'
-                    }`}
+                    className={`w-full px-4 py-2.5 border rounded-lg font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 ${getDuplicateError() && formData.customName.trim()
+                      ? 'border-destructive focus:ring-destructive'
+                      : 'border-input'
+                      }`}
                     required={formData.name === 'custom'}
                     placeholder="e.g., Vision Insurance, Dental Insurance, etc."
                     maxLength={100}
                   />
                   <p className="text-xs text-muted-foreground mt-2">
-                    Enter a unique name for your custom insurance type. 
+                    Enter a unique name for your custom insurance type.
                     {formData.customName && (
                       <span className="ml-1">
                         {getDuplicateError() ? (
@@ -944,7 +957,7 @@ export default function InsuranceBracketsPage() {
                   </p>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-2">
@@ -968,7 +981,7 @@ export default function InsuranceBracketsPage() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">Minimum salary for this bracket</p>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-2">
                     Maximum Salary *
@@ -992,7 +1005,7 @@ export default function InsuranceBracketsPage() {
                   <p className="text-xs text-muted-foreground mt-2">Maximum salary for this bracket</p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-2">
@@ -1017,7 +1030,7 @@ export default function InsuranceBracketsPage() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">Employee's contribution percentage</p>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-2">
                     Employer Contribution Rate (%) *
@@ -1042,7 +1055,7 @@ export default function InsuranceBracketsPage() {
                   <p className="text-xs text-muted-foreground mt-2">Employer's contribution percentage</p>
                 </div>
               </div>
-              
+
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <p className="text-sm font-medium text-amber-800 mb-2">Important Notes</p>
                 <ul className="text-xs text-amber-700 space-y-1">
@@ -1085,9 +1098,6 @@ export default function InsuranceBracketsPage() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-foreground mb-2">Insurance Bracket Details</h3>
-                  <div className="text-muted-foreground text-sm">
-                    ID: {selectedBracket._id.substring(0, 8)}...
-                  </div>
                 </div>
                 <button
                   onClick={() => setShowViewModal(false)}
@@ -1104,7 +1114,7 @@ export default function InsuranceBracketsPage() {
                   {statusLabels[selectedBracket.status]}
                 </span>
               </div>
-             
+
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Salary Range</p>
                 <p className="font-medium text-foreground text-3xl">
@@ -1128,7 +1138,7 @@ export default function InsuranceBracketsPage() {
                   Total: {formatPercentage(selectedBracket.employeeRate + selectedBracket.employerRate)}
                 </p>
               </div>
-             
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
@@ -1142,16 +1152,12 @@ export default function InsuranceBracketsPage() {
                   <p className="text-sm text-muted-foreground">Last Modified</p>
                   <p className="font-medium text-foreground">{formatDate(selectedBracket.updatedAt)}</p>
                 </div>
-                {selectedBracket.createdBy && (
-                  <div className="col-span-2">
-                    <p className="text-sm text-muted-foreground">Created By</p>
-                    <p className="font-medium text-foreground truncate" title={selectedBracket.createdBy}>
-                      {selectedBracket.createdBy}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-sm text-muted-foreground">Created By</p>
+                  <p className="font-medium text-foreground">{getEmployeeDisplayName(selectedBracket.createdBy)}</p>
+                </div>
               </div>
-             
+
               {selectedBracket.approvedBy && (
                 <div className={`${selectedBracket.status === 'rejected' ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} border rounded-lg p-4 mt-4`}>
                   <div className="space-y-4">
@@ -1159,9 +1165,8 @@ export default function InsuranceBracketsPage() {
                       <p className={`text-sm ${selectedBracket.status === 'rejected' ? 'text-red-600' : 'text-green-600'} mb-1`}>
                         {selectedBracket.status === 'rejected' ? 'Rejected By' : 'Approved By'}
                       </p>
-                      <p className={`font-medium ${selectedBracket.status === 'rejected' ? 'text-red-800' : 'text-green-800'} truncate`} 
-                         title={selectedBracket.approvedBy}>
-                        {selectedBracket.approvedBy}
+                      <p className={`font-medium ${selectedBracket.status === 'rejected' ? 'text-red-800' : 'text-green-800'} truncate`}>
+                        {getEmployeeDisplayName(selectedBracket.approvedBy)}
                       </p>
                     </div>
                     {selectedBracket.approvedAt && (
@@ -1231,7 +1236,7 @@ export default function InsuranceBracketsPage() {
                   Enter the employee's gross salary to calculate insurance contributions
                 </p>
               </div>
-              
+
               <div className="bg-muted/10 border border-border rounded-lg p-4">
                 <p className="text-sm font-medium text-foreground mb-2">Bracket Information:</p>
                 <div className="text-sm text-foreground space-y-1">
@@ -1240,11 +1245,11 @@ export default function InsuranceBracketsPage() {
                   <p>• Employer Rate: {formatPercentage(selectedBracket.employerRate)}</p>
                 </div>
               </div>
-              
+
               {calculationResult && (
                 <div className={`border rounded-lg p-4 ${calculationResult.isValid ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'}`}>
                   <h4 className="font-semibold text-foreground mb-3">Calculation Results</h4>
-                  
+
                   {calculationResult.isValid ? (
                     <>
                       <div className="space-y-3">

@@ -10,8 +10,9 @@ import {
   DepartmentalReport,
 } from '@/app/services/finance-staff';
 import { payrollExecutionService } from '@/app/services/payroll-execution';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
+import { Plus, Eye, Download, Trash2, X, FileText, Loader2 } from 'lucide-react';
 
 /* ================= TYPES ================= */
 
@@ -69,7 +70,7 @@ export default function TaxInsuranceBenefitsPage() {
       user.role as SystemRole
     )
   ) {
-    return <p className="text-center text-slate-500">Access denied</p>;
+    return <p className="text-center text-muted-foreground p-12">Access denied</p>;
   }
 
   /* ================= LOAD DATA ================= */
@@ -116,7 +117,7 @@ export default function TaxInsuranceBenefitsPage() {
       // This fulfills: "ONLY THE USER A PERSON GENERATE THE REPORT"
       setStandardReports(savedLocalReports);
 
-      // Update individual tab states 
+      // Update individual tab states
       setTaxReports(savedLocalReports.filter((r: any) => (r.reportType === 'tax' || 'totalTaxWithheld' in r)));
       setInsuranceReports(savedLocalReports.filter((r: any) => (r.reportType === 'insurance' || 'totalContributions' in r)));
       setBenefitsReports(savedLocalReports.filter((r: any) => (r.reportType === 'benefits' || 'totalBenefits' in r)));
@@ -321,7 +322,7 @@ export default function TaxInsuranceBenefitsPage() {
           break;
         }
       }
-      setSuccessMessage('Report generated successfully and saved locally');
+      setSuccessMessage('Report generated successfully');
       setShowGenerateModal(false);
       resetModal();
       // Do not reload reports immediately as backend might not persist them instantly
@@ -452,33 +453,31 @@ export default function TaxInsuranceBenefitsPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Reports</h1>
-      {successMessage && <div className="bg-green-100 p-3 rounded-lg text-green-800 mb-4">{successMessage}</div>}
-      {error && <div className="bg-red-100 p-3 rounded-lg text-red-800 mb-4">{error}</div>}
+    <div className="min-h-screen bg-background text-foreground space-y-6 p-6">
+      <h1 className="text-2xl font-semibold text-foreground">Reports</h1>
+      {successMessage && <div className="bg-success/10 border border-success/30 rounded-xl p-4 text-success font-medium mb-4">{successMessage}</div>}
+      {error && <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 text-destructive font-medium mb-4">{error}</div>}
 
       <div className="flex justify-between items-center mb-6">
-        <p className="text-white">Generate and manage compliance reports</p>
+        <p className="text-muted-foreground">Generate and manage compliance reports</p>
         <button
           onClick={() => setShowGenerateModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
+          <Plus className="w-5 h-5" />
           Generate Report
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/10 mb-6 overflow-x-auto no-scrollbar">
+      <div className="flex border-b border-border mb-6 overflow-x-auto no-scrollbar">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${activeTab === tab.id
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             {tab.label}
@@ -489,8 +488,9 @@ export default function TaxInsuranceBenefitsPage() {
       {/* Reports Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
         {filteredReports.length === 0 ? (
-          <div className="col-span-full text-center py-20 bg-white/5 rounded-xl border-2 border-dashed border-white/10 text-white/50">
-            No reports found for this category.
+          <div className="col-span-full text-center py-20 bg-card rounded-xl border-2 border-dashed border-border">
+            <FileText className="w-12 h-12 mx-auto text-muted-foreground opacity-30 mb-4" />
+            <p className="text-muted-foreground">No reports found for this category.</p>
           </div>
         ) : (
           filteredReports.map((report, idx) => {
@@ -502,23 +502,23 @@ export default function TaxInsuranceBenefitsPage() {
             const isDept = (report as any).reportType === 'departmental' || (!isTax && !isInsurance && !isBenefits && !isPayslip);
 
             let typeLabel = 'Report';
-            let badgeClass = 'bg-gray-100 text-gray-800 border-gray-200';
+            let badgeClass = 'bg-muted text-muted-foreground border-border';
 
             if (isTax) {
               typeLabel = 'Tax';
-              badgeClass = 'bg-purple-100 text-purple-700 border-purple-200';
+              badgeClass = 'bg-purple-500/10 text-purple-600 border-purple-500/30';
             } else if (isInsurance) {
               typeLabel = 'Insurance';
-              badgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
+              badgeClass = 'bg-info/10 text-info border-info/30';
             } else if (isBenefits) {
               typeLabel = 'Benefits';
-              badgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+              badgeClass = 'bg-success/10 text-success border-success/30';
             } else if (isPayslip) {
               typeLabel = 'Payslip';
-              badgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
+              badgeClass = 'bg-primary/10 text-primary border-primary/30';
             } else if (isDept) {
               typeLabel = 'Departmental';
-              badgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+              badgeClass = 'bg-warning/10 text-warning border-warning/30';
             }
 
             // Format period
@@ -563,7 +563,7 @@ export default function TaxInsuranceBenefitsPage() {
             return (
               <div
                 key={`${typeKey}-${report.id}-${idx}`}
-                className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow relative"
+                className="bg-card rounded-xl border border-border p-5 flex flex-col justify-between shadow-sm hover:shadow-md hover:border-primary/30 transition-all relative"
               >
                 {/* Delete Button */}
                 <button
@@ -571,38 +571,36 @@ export default function TaxInsuranceBenefitsPage() {
                     e.stopPropagation();
                     handleDeleteReport(report.id, typeKey as any);
                   }}
-                  className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                  className="absolute top-4 right-4 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors"
                   title="Delete Report"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+                  <Trash2 className="w-5 h-5" />
                 </button>
 
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-3 pr-8">
-                    <span className="font-bold text-lg text-slate-900">{periodDisplay}</span>
+                    <span className="font-semibold text-lg text-foreground">{periodDisplay}</span>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Entity:</span>
-                      <span className="font-medium text-slate-900">{entityName}</span>
+                      <span className="text-muted-foreground">Entity:</span>
+                      <span className="font-medium text-foreground">{entityName}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Employees:</span>
-                      <span className="font-medium text-slate-900">{employeeCount}</span>
+                      <span className="text-muted-foreground">Employees:</span>
+                      <span className="font-medium text-foreground">{employeeCount}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-500">Total Amount:</span>
-                      <span className="font-bold text-slate-900">${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span className="text-muted-foreground">Total Amount:</span>
+                      <span className="font-semibold text-foreground">${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
                   <div className="flex gap-2">
-                    <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${badgeClass}`}>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${badgeClass}`}>
                       {typeLabel}
                     </span>
                   </div>
@@ -610,22 +608,17 @@ export default function TaxInsuranceBenefitsPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleViewReport(report, typeKey as any)}
-                      className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                       title="View Details"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
+                      <Eye className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => handleDownload(report, typeKey)}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      className="p-1.5 text-muted-foreground hover:text-info hover:bg-info/10 rounded-lg transition-colors"
                       title="Download CSV"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                      <Download className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
@@ -639,31 +632,39 @@ export default function TaxInsuranceBenefitsPage() {
       {/* ================= MODAL ================= */}
 
       {showGenerateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900">Generate Report</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-xl border border-border p-6 w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold text-foreground">Generate Report</h3>
+              <button onClick={() => { setShowGenerateModal(false); resetModal(); }} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
             {/* Report Type */}
-            <select
-              className="w-full border p-2 rounded text-slate-900 bg-white"
-              value={generateReportType}
-              onChange={(e) =>
-                setGenerateReportType(e.target.value as GenerateReportType)
-              }
-            >
-              <option value="departmental">Departmental</option>
-              <option value="tax">Tax Report</option>
-              <option value="payslip-history">Payslip History</option>
-              <option value="insurance">Insurance</option>
-              <option value="benefits">Benefits</option>
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Report Type</label>
+              <select
+                className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                value={generateReportType}
+                onChange={(e) =>
+                  setGenerateReportType(e.target.value as GenerateReportType)
+                }
+              >
+                <option value="departmental">Departmental</option>
+                <option value="tax">Tax Report</option>
+                <option value="payslip-history">Payslip History</option>
+                <option value="insurance">Insurance</option>
+                <option value="benefits">Benefits</option>
+              </select>
+            </div>
 
             {/* Departmental */}
             {generateReportType === 'departmental' && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Department</label>
                 <select
-                  className="w-full border p-2 rounded text-slate-900 bg-white"
+                  className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   value={selectedDepartment}
                   onChange={(e) => setSelectedDepartment(e.target.value)}
                 >
@@ -691,13 +692,13 @@ export default function TaxInsuranceBenefitsPage() {
                 />
               )}
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 pt-4">
               <button
                 onClick={() => {
                   setShowGenerateModal(false);
                   resetModal();
                 }}
-                className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
@@ -708,7 +709,7 @@ export default function TaxInsuranceBenefitsPage() {
                   ((generateReportType === 'insurance' || generateReportType === 'benefits') && !startDate)
                 }
                 onClick={handleGenerateReport}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Generate
               </button>
@@ -720,24 +721,22 @@ export default function TaxInsuranceBenefitsPage() {
       {/* ================= VIEW REPORT MODAL ================= */}
 
       {selectedReport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">Report Details</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-xl border border-border p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-foreground">Report Details</h3>
               <div className="flex gap-2 items-center">
                 <button
                   onClick={() => handleDeleteReport(selectedReport.report.id, selectedReport.type)}
-                  className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+                  className="px-3 py-1.5 bg-destructive text-white text-sm rounded-lg hover:bg-destructive/90"
                 >
                   Delete
                 </button>
                 <button
                   onClick={() => setSelectedReport(null)}
-                  className="text-slate-400 hover:text-slate-600"
+                  className="text-muted-foreground hover:text-foreground"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-6 h-6" />
                 </button>
               </div>
             </div>
@@ -745,8 +744,8 @@ export default function TaxInsuranceBenefitsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="text-sm font-medium text-slate-500">Period</label>
-                  <p className="text-base text-slate-900">
+                  <label className="text-sm font-medium text-muted-foreground">Period</label>
+                  <p className="text-foreground mt-1">
                     {(() => {
                       let period = selectedReport.report.period || '-';
                       if (period.includes('_')) {
@@ -763,12 +762,12 @@ export default function TaxInsuranceBenefitsPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Employees</label>
-                  <p className="text-base text-slate-900">{selectedReport.report.employeeCount || 0}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Employees</label>
+                  <p className="text-foreground mt-1">{selectedReport.report.employeeCount || 0}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Generated At</label>
-                  <p className="text-base text-slate-900">
+                  <label className="text-sm font-medium text-muted-foreground">Generated At</label>
+                  <p className="text-foreground mt-1">
                     {(() => {
                       const d = selectedReport.report.generatedAt;
                       if (!d) return 'N/A';
@@ -780,60 +779,60 @@ export default function TaxInsuranceBenefitsPage() {
               </div>
 
               {selectedReport.type === 'tax' && (
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold text-slate-900 mb-3">Tax Summary</h4>
+                <div className="border-t border-border pt-4">
+                  <h4 className="text-sm font-semibold text-foreground mb-3">Tax Summary</h4>
                   <div>
-                    <label className="text-sm font-medium text-slate-500">Total Tax Withheld</label>
-                    <p className="text-lg font-semibold text-slate-900">${((selectedReport.report as TaxReport).totalTaxWithheld || 0).toLocaleString()}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Total Tax Withheld</label>
+                    <p className="text-2xl font-semibold text-foreground">${((selectedReport.report as TaxReport).totalTaxWithheld || 0).toLocaleString()}</p>
                   </div>
                 </div>
               )}
 
               {selectedReport.type === 'insurance' && (
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold text-slate-900 mb-3">Insurance Summary</h4>
+                <div className="border-t border-border pt-4">
+                  <h4 className="text-sm font-semibold text-foreground mb-3">Insurance Summary</h4>
                   <div>
-                    <label className="text-sm font-medium text-slate-500">Total Contributions</label>
-                    <p className="text-lg font-semibold text-slate-900">${((selectedReport.report as InsuranceReport).totalContributions || 0).toLocaleString()}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Total Contributions</label>
+                    <p className="text-2xl font-semibold text-foreground">${((selectedReport.report as InsuranceReport).totalContributions || 0).toLocaleString()}</p>
                   </div>
                 </div>
               )}
 
               {selectedReport.type === 'benefits' && (
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold text-slate-900 mb-3">Benefits Summary</h4>
+                <div className="border-t border-border pt-4">
+                  <h4 className="text-sm font-semibold text-foreground mb-3">Benefits Summary</h4>
                   <div>
-                    <label className="text-sm font-medium text-slate-500">Total Benefits</label>
-                    <p className="text-lg font-semibold text-slate-900">${((selectedReport.report as BenefitsReport).totalBenefits || 0).toLocaleString()}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Total Benefits</label>
+                    <p className="text-2xl font-semibold text-foreground">${((selectedReport.report as BenefitsReport).totalBenefits || 0).toLocaleString()}</p>
                   </div>
                 </div>
               )}
 
               {selectedReport.type === 'payslip-history' && (
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold text-slate-900 mb-3">Payslip Summary</h4>
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="border-t border-border pt-4">
+                  <h4 className="text-sm font-semibold text-foreground mb-3">Payslip Summary</h4>
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-slate-500">Total Payslips</label>
-                      <p className="text-lg font-semibold text-slate-900">{((selectedReport.report as PayslipHistoryReport).totalPayslips || 0).toLocaleString()}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Total Payslips</label>
+                      <p className="text-lg font-semibold text-foreground">{((selectedReport.report as PayslipHistoryReport).totalPayslips || 0).toLocaleString()}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-slate-500">Total Gross Pay</label>
-                      <p className="text-lg font-semibold text-slate-900">${((selectedReport.report as PayslipHistoryReport).totalGrossPay || 0).toLocaleString()}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Total Gross Pay</label>
+                      <p className="text-lg font-semibold text-foreground">${((selectedReport.report as PayslipHistoryReport).totalGrossPay || 0).toLocaleString()}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-slate-500">Total Net Pay</label>
-                      <p className="text-lg font-semibold text-slate-900">${((selectedReport.report as PayslipHistoryReport).totalNetPay || 0).toLocaleString()}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Total Net Pay</label>
+                      <p className="text-lg font-semibold text-foreground">${((selectedReport.report as PayslipHistoryReport).totalNetPay || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end mt-6">
+            <div className="flex justify-end mt-6 pt-4 border-t border-border">
               <button
                 onClick={() => setSelectedReport(null)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"
+                className="px-4 py-2 bg-muted text-foreground rounded-xl hover:bg-muted/80 transition-colors"
               >
                 Close
               </button>
@@ -859,21 +858,21 @@ function DateRange({
   setEndDate: (v: string) => void;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+        <label className="block text-sm font-medium text-foreground mb-2">Start Date</label>
         <input
           type="date"
-          className="w-full border p-2 rounded text-slate-900 bg-white"
+          className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+        <label className="block text-sm font-medium text-foreground mb-2">End Date</label>
         <input
           type="date"
-          className="w-full border p-2 rounded text-slate-900 bg-white"
+          className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
         />

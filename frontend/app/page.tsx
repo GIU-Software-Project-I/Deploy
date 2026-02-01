@@ -1,12 +1,11 @@
 'use client'
-
-import { LandingNavbar } from '@/app/components/landing/navbar'
-import { HeroSection } from '@/app/components/landing/hero-section'
-import { StatsSection } from '@/app/components/landing/stats-section'
-import { FeaturesSection } from '@/app/components/landing/features-section'
-import { JobsSection } from '@/app/components/landing/jobs-section'
-import { CTASection } from '@/app/components/landing/cta-section'
-import { LandingFooter } from '@/app/components/landing/footer'
+import {HeroSection} from "@/components/landing/hero-section";
+import {StatsSection} from "@/components/landing/stats-section";
+import {FeaturesSection} from "@/components/landing/features-section";
+import {JobsSection} from "@/components/landing/jobs-section";
+import {CTASection} from "@/components/landing/cta-section";
+import {LandingFooter} from "@/components/landing/footer";
+import {LandingNavbar} from "@/components/landing/navbar";
 
 export default function HomePage() {
   return (

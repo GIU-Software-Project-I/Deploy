@@ -9,6 +9,8 @@ import {
   TerminationInitiation,
   EmployeePerformanceForTermination,
 } from '@/app/services/offboarding';
+import { employeeProfileService } from '@/app/services/employee-profile';
+import { Search, UserPlus, Info } from 'lucide-react';
 
 type FormStep = 'select' | 'review' | 'confirm';
 
@@ -28,16 +30,70 @@ export default function TerminationReviewsPage() {
 
   const [formData, setFormData] = useState({
     employeeId: '',
-    contractId: '',
     reason: '',
     hrComments: '',
     terminationDate: '',
+    contractId: '',
     initiator: TerminationInitiation.HR as TerminationInitiation,
   });
+
+  // Employee directory state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [allEmployees, setAllEmployees] = useState<any[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, [statusFilter]);
+
+  // Load all active employees when showing form
+  useEffect(() => {
+    if (showForm && allEmployees.length === 0) {
+      fetchAllEmployees();
+    }
+  }, [showForm]);
+
+  const fetchAllEmployees = async () => {
+    try {
+      setLoadingEmployees(true);
+      // Fetch a large number of employees to avoid pagination complexity for now
+      // Removing 'ACTIVE' filter to ensure we get all employees regardless of status casing or value
+      const response = await employeeProfileService.getAllEmployees(1, 1000) as any;
+
+      let employeesList: any[] = [];
+
+      // Safely extract array from various possible response structures
+      if (Array.isArray(response)) {
+        employeesList = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        employeesList = response.data;
+      } else if (response?.data?.data && Array.isArray(response.data.data)) {
+        employeesList = response.data.data;
+      } else if (response?.data?.employees && Array.isArray(response.data.employees)) {
+        employeesList = response.data.employees;
+      }
+
+      setAllEmployees(employeesList);
+    } catch (err) {
+      console.error('Fetch employees error:', err);
+      setError('Failed to load employee list');
+      setAllEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  // Filter employees locally
+  const filteredEmployees = Array.isArray(allEmployees) ? allEmployees.filter(emp => {
+    const query = searchQuery.toLowerCase();
+    const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
+    const employeeNumber = (emp.employeeNumber || '').toLowerCase();
+    const position = (emp.position || '').toLowerCase();
+
+    return fullName.includes(query) ||
+      employeeNumber.includes(query) ||
+      position.includes(query);
+  }) : [];
 
   const fetchData = async () => {
     try {
@@ -64,17 +120,27 @@ export default function TerminationReviewsPage() {
     }
   };
 
-  const handleReviewPerformance = async () => {
-    if (!formData.employeeId.trim()) {
-      setError('Please enter an Employee ID');
-      return;
-    }
-
+  const handleReviewPerformance = async (employeeId: string) => {
     try {
       setLoadingPerformance(true);
       setError(null);
-      const data = await offboardingService.getEmployeePerformanceForTermination(formData.employeeId);
-      setPerformanceData(data);
+
+      // Fetch performance data and employee profile to get contract ID
+      const [perfData, profileRes] = await Promise.all([
+        offboardingService.getEmployeePerformanceForTermination(employeeId),
+        employeeProfileService.getEmployeeProfile(employeeId),
+      ]);
+
+      const profile = (profileRes as any).data || profileRes;
+      // Try to find contract ID from various possible fields
+      const contractId = profile.contractId || profile.activeContractId || profile.currentContractId || undefined;
+
+      setFormData(prev => ({
+        ...prev,
+        employeeId,
+        contractId: contractId || ''
+      }));
+      setPerformanceData(perfData);
       setFormStep('review');
     } catch (err: any) {
       setError(err.message || 'Failed to fetch employee performance data');
@@ -86,7 +152,7 @@ export default function TerminationReviewsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.employeeId || !formData.contractId || !formData.reason) {
+    if (!formData.employeeId || !formData.reason) {
       setError('Please fill in all required fields');
       return;
     }
@@ -102,11 +168,11 @@ export default function TerminationReviewsPage() {
 
       await offboardingService.createTerminationRequest({
         employeeId: formData.employeeId,
-        contractId: formData.contractId,
         initiator: formData.initiator,
         reason: formData.reason,
         hrComments: formData.hrComments || undefined,
         terminationDate: formData.terminationDate || undefined,
+        contractId: formData.contractId || undefined,
       });
 
       setSuccessMsg('Termination request created successfully');
@@ -127,12 +193,13 @@ export default function TerminationReviewsPage() {
     setPerformanceData(null);
     setFormData({
       employeeId: '',
-      contractId: '',
       reason: '',
       hrComments: '',
       terminationDate: '',
+      contractId: '',
       initiator: TerminationInitiation.HR,
     });
+    setSearchQuery('');
   };
 
   const getStatusBadge = (status: TerminationStatus) => {
@@ -178,12 +245,14 @@ export default function TerminationReviewsPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowForm(!showForm)}
-            className={`px-4 py-2.5 font-medium rounded-lg transition-colors ${
-              showForm
-                ? 'bg-muted text-muted-foreground hover:bg-muted/80'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            }`}
+            onClick={() => {
+              if (showForm) resetForm();
+              else setShowForm(true);
+            }}
+            className={`px-4 py-2.5 font-medium rounded-lg transition-colors ${showForm
+              ? 'bg-muted text-muted-foreground hover:bg-muted/80'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}
           >
             {showForm ? 'Cancel' : 'Initiate Termination'}
           </button>
@@ -222,11 +291,10 @@ export default function TerminationReviewsPage() {
 
                   return (
                     <div key={step} className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                        isActive ? 'bg-primary text-primary-foreground' :
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${isActive ? 'bg-primary text-primary-foreground' :
                         isComplete ? 'bg-green-600 text-white' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
+                          'bg-muted text-muted-foreground'
+                        }`}>
                         {isComplete ? (
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -246,51 +314,100 @@ export default function TerminationReviewsPage() {
             <div className="p-6">
               {/* Step 1: Select Employee */}
               {formStep === 'select' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1">
-                      Employee ID <span className="text-destructive">*</span>
-                    </label>
+                <div className="space-y-6">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
-                      value={formData.employeeId}
-                      onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                      className="w-full max-w-md px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-ring text-foreground"
-                      placeholder="Enter employee ID to review"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-ring text-foreground"
+                      placeholder="Search employee by name, number or position..."
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enter the employee ID to review their performance data before initiating termination
-                    </p>
                   </div>
-                  <button
-                    onClick={handleReviewPerformance}
-                    disabled={loadingPerformance || !formData.employeeId.trim()}
-                    className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {loadingPerformance ? 'Loading...' : 'Review Performance Data'}
-                  </button>
+
+                  {loadingEmployees ? (
+                    <div className="flex flex-col items-center justify-center p-12 text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+                      <p className="text-muted-foreground">Loading employee directory...</p>
+                    </div>
+                  ) : filteredEmployees.length > 0 ? (
+                    <div className="border border-border rounded-lg overflow-hidden max-h-[400px] overflow-y-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-muted/50 sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-3 font-medium text-foreground">Employee</th>
+                            <th className="px-4 py-3 font-medium text-foreground">Number</th>
+                            <th className="px-4 py-3 font-medium text-foreground">Position</th>
+                            <th className="px-4 py-3 text-right text-foreground">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {filteredEmployees.map((emp) => (
+                            <tr key={emp._id} className="hover:bg-muted/50 transition-colors">
+                              <td className="px-4 py-3">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-foreground">
+                                    {emp.firstName} {emp.lastName}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {emp.workEmail || emp.personalEmail}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground font-mono">
+                                {emp.employeeNumber}
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground">
+                                {emp.position || 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button
+                                  onClick={() => handleReviewPerformance(emp._id)}
+                                  disabled={loadingPerformance}
+                                  className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-md text-xs font-medium transition-all disabled:opacity-50"
+                                >
+                                  {loadingPerformance && formData.employeeId === emp._id ? 'Loading...' : 'Select & Review'}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="border border-dashed border-border rounded-lg p-12 text-center">
+                      <p className="text-muted-foreground">
+                        {searchQuery ? `No employees found matching "${searchQuery}"` : 'No active employees found'}
+                      </p>
+                    </div>
+                  )}
+
+                  {!loadingEmployees && allEmployees.length > 0 && searchQuery === '' && (
+                    <div className="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-4 flex gap-3 text-sm text-blue-700 dark:text-blue-400">
+                      <Info className="w-5 h-5 flex-shrink-0" />
+                      <p>Select an employee from the table above or use the search box to find someone specific. Performance data will be retrieved upon selection.</p>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Step 2: Review Performance */}
               {formStep === 'review' && performanceData && (
                 <div className="space-y-6">
-                  {/* Employee Info */}
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-foreground">{performanceData.employeeName}</h3>
                       <p className="text-sm text-muted-foreground">Status: {performanceData.employeeStatus}</p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      performanceData.terminationJustification.isJustified
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                    }`}>
-                      {performanceData.terminationJustification.isJustified ? 'May Be Justified' : 'Review Carefully'}
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${performanceData.terminationJustification.isJustified
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                      }`}>
+                      {performanceData.terminationJustification.isJustified ? 'Termination Justified' : 'Review Carefully'}
                     </span>
                   </div>
 
-                  {/* Performance Summary */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-muted/50 rounded-lg p-4">
                       <p className="text-sm text-muted-foreground">Total Appraisals</p>
@@ -306,30 +423,25 @@ export default function TerminationReviewsPage() {
                     </div>
                     <div className="bg-muted/50 rounded-lg p-4">
                       <p className="text-sm text-muted-foreground">Low Scores</p>
-                      <p className={`text-2xl font-semibold mt-1 ${
-                        performanceData.performanceData.lowScoreCount > 0 ? 'text-destructive' : 'text-foreground'
-                      }`}>
+                      <p className={`text-2xl font-semibold mt-1 ${performanceData.performanceData.lowScoreCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
                         {performanceData.performanceData.lowScoreCount}
                       </p>
                     </div>
                     <div className="bg-muted/50 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground">Appraisals Found</p>
+                      <p className="text-sm text-muted-foreground">Warnings</p>
                       <p className="text-2xl font-semibold text-foreground mt-1">
-                        {performanceData.performanceData.hasPublishedAppraisals ? 'Yes' : 'No'}
+                        {performanceData.terminationJustification.warnings.length || 0}
                       </p>
                     </div>
                   </div>
 
-                  {/* Warnings */}
                   {performanceData.terminationJustification.warnings.length > 0 && (
                     <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                      <h4 className="font-medium text-amber-800 dark:text-amber-300 mb-2">Warnings</h4>
+                      <h4 className="font-medium text-amber-800 dark:text-amber-300 mb-2">Findings</h4>
                       <ul className="space-y-1">
                         {performanceData.terminationJustification.warnings.map((warning, i) => (
                           <li key={i} className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-2">
-                            <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
+                            <span className="mt-1">•</span>
                             {warning}
                           </li>
                         ))}
@@ -337,7 +449,6 @@ export default function TerminationReviewsPage() {
                     </div>
                   )}
 
-                  {/* Recommendation */}
                   <div className="bg-muted/30 rounded-lg p-4">
                     <h4 className="font-medium text-foreground mb-1">Recommendation</h4>
                     <p className="text-sm text-muted-foreground">{performanceData.recommendation}</p>
@@ -348,13 +459,13 @@ export default function TerminationReviewsPage() {
                       onClick={() => setFormStep('select')}
                       className="px-4 py-2 border border-input text-foreground font-medium rounded-lg hover:bg-accent transition-colors"
                     >
-                      Back
+                      Back to Selection
                     </button>
                     <button
                       onClick={() => setFormStep('confirm')}
                       className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors"
                     >
-                      Proceed with Termination
+                      Proceed to Application
                     </button>
                   </div>
                 </div>
@@ -364,19 +475,6 @@ export default function TerminationReviewsPage() {
               {formStep === 'confirm' && (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Contract ID <span className="text-destructive">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.contractId}
-                        onChange={(e) => setFormData({ ...formData, contractId: e.target.value })}
-                        className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-ring text-foreground"
-                        placeholder="Enter contract ID"
-                        required
-                      />
-                    </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1">
                         Initiated By <span className="text-destructive">*</span>
@@ -470,11 +568,10 @@ export default function TerminationReviewsPage() {
             <button
               key={filter.value}
               onClick={() => setStatusFilter(filter.value as any)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                statusFilter === filter.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-card border border-border text-foreground hover:bg-accent'
-              }`}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${statusFilter === filter.value
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card border border-border text-foreground hover:bg-accent'
+                }`}
             >
               {filter.label}
             </button>
@@ -514,9 +611,9 @@ export default function TerminationReviewsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-1">
                         <span className="font-medium text-foreground">
-                          {typeof request.employeeId === 'object'
-                            ? (request.employeeId as any).firstName + ' ' + (request.employeeId as any).lastName
-                            : `Employee ${request.employeeId.slice(-6)}`}
+                          {typeof request.employeeId === 'object' && request.employeeId
+                            ? `${(request.employeeId as any).firstName || ''} ${(request.employeeId as any).lastName || ''}`.trim() || (request.employeeId as any).employeeNumber || 'Unknown Employee'
+                            : 'Unknown Employee'}
                         </span>
                         <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusBadge(request.status)}`}>
                           {request.status.replace('_', ' ')}
@@ -528,11 +625,6 @@ export default function TerminationReviewsPage() {
                       <p className="text-sm text-muted-foreground truncate">
                         {request.reason}
                       </p>
-                      {request.performanceWarnings && request.performanceWarnings.length > 0 && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          {request.performanceWarnings.length} warning(s) noted
-                        </p>
-                      )}
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-sm text-muted-foreground">
@@ -554,4 +646,3 @@ export default function TerminationReviewsPage() {
     </div>
   );
 }
-

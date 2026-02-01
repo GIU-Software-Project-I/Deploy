@@ -10,7 +10,7 @@ import {
   TerminationInitiation,
   ClearanceChecklist,
 } from '@/app/services/offboarding';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ResignationDetailPage() {
   const { user } = useAuth();

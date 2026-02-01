@@ -1,9 +1,9 @@
 'use client';
 
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { SystemRole } from '@/app/types';
+import { SystemRole } from '@/types';
 
 export default function JobCandidateLayout({
   children,
@@ -21,13 +21,13 @@ export default function JobCandidateLayout({
       router.push('/login');
       return;
     }
-    
+
     // If user is not a candidate, redirect them to their own dashboard
     if (user && user.role !== SystemRole.JOB_CANDIDATE) {
       router.replace(getDashboardRoute());
       return;
     }
-    
+
     if (!hasAccess) {
       router.replace('/login');
       return;

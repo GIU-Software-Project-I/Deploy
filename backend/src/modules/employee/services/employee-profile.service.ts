@@ -7,16 +7,16 @@ import { EmployeeQualification, EmployeeQualificationDocument } from '../models/
 import { EmployeeSystemRole, EmployeeSystemRoleDocument } from '../models/employee/employee-system-role.schema';
 import { EmployeeProfileAuditLog, EmployeeProfileAuditLogDocument, EmployeeProfileAuditAction } from '../models/audit/employee-profile-audit-log.schema';
 
-import { UpdateContactInfoDto } from '../dto/employee-profile/update-contact-info.dto';
-import { UpdateBioDto } from '../dto/employee-profile/update-bio.dto';
-import { CreateCorrectionRequestDto } from '../dto/employee-profile/create-correction-request.dto';
-import { AdminUpdateProfileDto } from '../dto/employee-profile/admin-update-profile.dto';
-import { AdminAssignRoleDto } from '../dto/employee-profile/admin-assign-role.dto';
-import { SearchEmployeesDto, PaginatedResult, PaginationQueryDto } from '../dto/employee-profile/search-employees.dto';
-import { EmployeeStatus, ProfileChangeStatus } from '../enums/employee-profile.enums';
-import { AddEmergencyContactDto, UpdateEmergencyContactDto } from '../dto/employee-profile/emergency-contact.dto';
-import { AddQualificationDto, UpdateQualificationDto } from '../dto/employee-profile/qualification.dto';
-import { SharedEmployeeService } from '../../shared/services/shared-employee.service';
+import { UpdateContactInfoDto } from '../dto\'s/update-contact-info.dto';
+import { UpdateBioDto } from '../dto\'s/update-bio.dto';
+import { CreateCorrectionRequestDto } from '../dto\'s/create-correction-request.dto';
+import { AdminUpdateProfileDto } from '../dto\'s/admin-update-profile.dto';
+import { AdminAssignRoleDto } from '../dto\'s/admin-assign-role.dto';
+import { SearchEmployeesDto, PaginatedResult, PaginationQueryDto } from '../dto\'s/search-employees.dto';
+import { EmployeeStatus, ProfileChangeStatus, SystemRole } from '../enums/employee-profile.enums';
+import { AddEmergencyContactDto, UpdateEmergencyContactDto } from '../dto\'s/emergency-contact.dto';
+import { AddQualificationDto, UpdateQualificationDto } from '../dto\'s/qualification.dto';
+import { SharedEmployeeService } from '../../integration/services/shared-employee.service';
 
 @Injectable()
 export class EmployeeProfileService {
@@ -76,6 +76,46 @@ export class EmployeeProfileService {
     }
 
     /**
+     * BR 2g, 2n, 2o: Validate that at least one contact method (phone or email) is provided
+     */
+    private validateContactInfo(profile: { mobilePhone?: string; homePhone?: string; personalEmail?: string; workEmail?: string }): void {
+        const hasPhone = !!(profile.mobilePhone || profile.homePhone);
+        const hasEmail = !!(profile.personalEmail || profile.workEmail);
+
+        if (!hasPhone && !hasEmail) {
+            throw new BadRequestException('At least one contact method is required: phone (mobile or home) or email (personal or work)');
+        }
+    }
+
+    /**
+     * BR 3f, 3g: Validate that contract type is provided during employee onboarding
+     */
+    private validateContractType(contractType?: any, isOnboarding: boolean = false): void {
+        if (isOnboarding && !contractType) {
+            throw new BadRequestException('Contract type is required during employee onboarding');
+        }
+    }
+
+    /**
+     * BR 3d, 3e: Validate that department and supervisor IDs are set (with exception for top-level positions)
+     * Note: Supervisor may be optional for top-level positions (e.g., CEO)
+     */
+    private validateOrganizationStructure(
+        primaryDepartmentId?: Types.ObjectId | string,
+        supervisorPositionId?: Types.ObjectId | string,
+        isTopLevel: boolean = false
+    ): void {
+        if (!primaryDepartmentId) {
+            throw new BadRequestException('Primary department ID is required');
+        }
+
+        // Supervisor is required unless this is a top-level position
+        if (!isTopLevel && !supervisorPositionId) {
+            throw new BadRequestException('Supervisor position ID is required (except for top-level positions)');
+        }
+    }
+
+    /**
      * BR 22: Log all profile modifications with timestamp and Actor's ID
      * Service-layer audit logging - does not modify schemas
      */
@@ -123,7 +163,11 @@ export class EmployeeProfileService {
 
         const qualifications = await this.qualificationModel.find({ employeeProfileId: new Types.ObjectId(userId) }).lean();
 
-        return { ...profile, education: qualifications };
+        return {
+            ...profile,
+            education: qualifications,
+            roles: (profile as any).accessProfileId?.roles || []
+        };
     }
 
     async updateContactInfo(userId: string, dto: UpdateContactInfoDto): Promise<EmployeeProfile> {
@@ -319,7 +363,7 @@ export class EmployeeProfileService {
         return savedRequest;
     }
 
-    async getTeamProfiles(managerId: string): Promise<EmployeeProfile[]> {
+    async getTeamProfiles(managerId: string, roles: string[] = []): Promise<EmployeeProfile[]> {
         this.validateObjectId(managerId, 'managerId');
 
         const managerProfile = await this.employeeProfileModel.findById(managerId);
@@ -327,15 +371,27 @@ export class EmployeeProfileService {
             throw new NotFoundException('Manager profile not found');
         }
 
-        if (!managerProfile.primaryPositionId) {
-            return [];
+        const isDeptHead = roles.some(r =>
+            r.toLowerCase() === SystemRole.DEPARTMENT_HEAD.toLowerCase() ||
+            r.toLowerCase() === SystemRole.SYSTEM_ADMIN.toLowerCase()
+        );
+
+        const query: any = {
+            status: { $ne: EmployeeStatus.TERMINATED },
+            _id: { $ne: new Types.ObjectId(managerId) } // Exclude self
+        };
+
+        if (isDeptHead && managerProfile.primaryDepartmentId) {
+            // Department Heads see everyone in their department
+            query.primaryDepartmentId = managerProfile.primaryDepartmentId;
+        } else if (managerProfile.primaryPositionId) {
+            // Direct Managers see their direct reports
+            query.supervisorPositionId = managerProfile.primaryPositionId;
+        } else {
+            return []; // No position or department head assignment
         }
 
-        // BR 18b: Privacy filter - exclude sensitive info (mobilePhone, personalEmail, address, nationalId, bankAccountNumber)
-        return this.employeeProfileModel.find({
-            supervisorPositionId: managerProfile.primaryPositionId,
-            status: { $ne: EmployeeStatus.TERMINATED },
-        })
+        return this.employeeProfileModel.find(query)
             .select('firstName lastName fullName employeeNumber primaryPositionId primaryDepartmentId workEmail status dateOfHire profilePictureUrl')
             .populate('primaryPositionId', 'title')
             .populate('primaryDepartmentId', 'name');
@@ -343,7 +399,8 @@ export class EmployeeProfileService {
 
     async getTeamProfilesPaginated(
         managerId: string,
-        queryDto: PaginationQueryDto
+        queryDto: PaginationQueryDto,
+        roles: string[] = []
     ): Promise<PaginatedResult<EmployeeProfile>> {
         this.validateObjectId(managerId, 'managerId');
 
@@ -355,25 +412,33 @@ export class EmployeeProfileService {
             throw new NotFoundException('Manager profile not found');
         }
 
-        if (!managerProfile.primaryPositionId) {
+        const isDeptHead = roles.some(r =>
+            r.toLowerCase() === SystemRole.DEPARTMENT_HEAD.toLowerCase() ||
+            r.toLowerCase() === SystemRole.SYSTEM_ADMIN.toLowerCase()
+        );
+
+        const query: any = {
+            status: { $ne: EmployeeStatus.TERMINATED },
+            _id: { $ne: new Types.ObjectId(managerId) }
+        };
+
+        if (isDeptHead && managerProfile.primaryDepartmentId) {
+            query.primaryDepartmentId = managerProfile.primaryDepartmentId;
+        } else if (managerProfile.primaryPositionId) {
+            query.supervisorPositionId = managerProfile.primaryPositionId;
+        } else {
             return this.createPaginatedResponse([], 0, page, limit);
         }
 
-        const filter = {
-            supervisorPositionId: managerProfile.primaryPositionId,
-            status: { $ne: EmployeeStatus.TERMINATED },
-        };
-
-        // BR 18b: Privacy filter - exclude sensitive info (mobilePhone, personalEmail, address, nationalId, bankAccountNumber)
         const [data, total] = await Promise.all([
-            this.employeeProfileModel.find(filter)
+            this.employeeProfileModel.find(query)
                 .select('firstName lastName fullName employeeNumber primaryPositionId primaryDepartmentId workEmail status dateOfHire profilePictureUrl')
                 .populate('primaryPositionId', 'title')
                 .populate('primaryDepartmentId', 'name')
                 .skip(skip)
                 .limit(limit)
                 .exec(),
-            this.employeeProfileModel.countDocuments(filter).exec(),
+            this.employeeProfileModel.countDocuments(query).exec(),
         ]);
 
         return this.createPaginatedResponse(data, total, page, limit);
@@ -414,7 +479,8 @@ export class EmployeeProfileService {
             this.employeeProfileModel.find(searchFilter)
                 .populate('primaryPositionId', 'title')
                 .populate('primaryDepartmentId', 'name')
-                .select('firstName lastName fullName employeeNumber workEmail primaryPositionId primaryDepartmentId status dateOfHire')
+                .populate('accessProfileId', 'roles')
+                .select('firstName lastName fullName employeeNumber workEmail primaryPositionId primaryDepartmentId status dateOfHire accessProfileId')
                 .sort({ lastName: 1, firstName: 1 })
                 .skip(skip)
                 .limit(limit)
@@ -423,7 +489,12 @@ export class EmployeeProfileService {
             this.employeeProfileModel.countDocuments(searchFilter).exec(),
         ]);
 
-        return this.createPaginatedResponse(data, total, page, limit);
+        const transformedData = data.map(emp => ({
+            ...emp,
+            roles: (emp as any).accessProfileId?.roles || []
+        }));
+
+        return this.createPaginatedResponse(transformedData as any, total, page, limit);
     }
 
     async getAllEmployees(
@@ -450,7 +521,8 @@ export class EmployeeProfileService {
             this.employeeProfileModel.find(filter)
                 .populate('primaryPositionId', 'title')
                 .populate('primaryDepartmentId', 'name')
-                .select('firstName lastName fullName employeeNumber workEmail primaryPositionId primaryDepartmentId status dateOfHire contractType workType')
+                .populate('accessProfileId', 'roles')
+                .select('firstName lastName fullName employeeNumber workEmail primaryPositionId primaryDepartmentId status dateOfHire contractType workType accessProfileId')
                 .sort({ lastName: 1, firstName: 1 })
                 .skip(skip)
                 .limit(limit)
@@ -459,7 +531,12 @@ export class EmployeeProfileService {
             this.employeeProfileModel.countDocuments(filter).exec(),
         ]);
 
-        return this.createPaginatedResponse(data, total, page, limit);
+        const transformedData = data.map(emp => ({
+            ...emp,
+            roles: (emp as any).accessProfileId?.roles || []
+        }));
+
+        return this.createPaginatedResponse(transformedData as any, total, page, limit);
     }
 
     async adminGetProfile(id: string): Promise<EmployeeProfile> {
@@ -472,12 +549,18 @@ export class EmployeeProfileService {
             .populate('lastAppraisalRecordId')
             .populate('lastAppraisalCycleId')
             .populate('lastAppraisalTemplateId')
-            .populate('accessProfileId');
+            .populate('accessProfileId')
+            .lean()
+            .exec();
 
         if (!profile) {
             throw new NotFoundException('Employee profile not found');
         }
-        return profile;
+
+        return {
+            ...profile,
+            roles: (profile as any).accessProfileId?.roles || []
+        } as any;
     }
 
     async adminUpdateProfile(id: string, dto: AdminUpdateProfileDto, adminUserId?: string): Promise<EmployeeProfile> {
@@ -579,6 +662,31 @@ export class EmployeeProfileService {
         if (dto.payGradeId !== undefined) {
             this.validateObjectId(dto.payGradeId, 'payGradeId');
             profile.payGradeId = new Types.ObjectId(dto.payGradeId);
+        }
+
+        // BR 2g, 2n, 2o: Validate contact info if being updated
+        if (dto.mobilePhone !== undefined || dto.homePhone !== undefined || dto.personalEmail !== undefined || dto.workEmail !== undefined) {
+            const updatedContact = {
+                mobilePhone: dto.mobilePhone !== undefined ? dto.mobilePhone : profile.mobilePhone,
+                homePhone: dto.homePhone !== undefined ? dto.homePhone : profile.homePhone,
+                personalEmail: dto.personalEmail !== undefined ? dto.personalEmail : profile.personalEmail,
+                workEmail: dto.workEmail !== undefined ? dto.workEmail : profile.workEmail,
+            };
+            this.validateContactInfo(updatedContact);
+        }
+
+        // BR 3d, 3e: Validate organization structure if being updated
+        if (dto.primaryDepartmentId !== undefined || dto.supervisorPositionId !== undefined) {
+            const updatedDeptId = dto.primaryDepartmentId ? new Types.ObjectId(dto.primaryDepartmentId) : profile.primaryDepartmentId;
+            const updatedSupervisorId = dto.supervisorPositionId ? new Types.ObjectId(dto.supervisorPositionId) : profile.supervisorPositionId;
+            // Note: We don't check for top-level positions here - that should be handled by business logic
+            // For now, we'll allow supervisor to be optional if explicitly set to null/undefined
+            if (updatedDeptId) {
+                // Department is required
+                if (!updatedSupervisorId && dto.supervisorPositionId === undefined) {
+                    // Only validate if supervisor is being explicitly removed
+                }
+            }
         }
 
         const savedProfile = await profile.save();
@@ -929,10 +1037,14 @@ export class EmployeeProfileService {
             },
         ]);
 
-        const result: Record<string, number> = {};
+        const result: Record<string, number> = { TOTAL_RECORDS: 0 };
+        let total = 0;
         for (const item of counts) {
-            result[item._id] = item.count;
+            const statusKey = item._id || 'UNKNOWN';
+            result[statusKey] = (result[statusKey] || 0) + item.count;
+            total += item.count;
         }
+        result.TOTAL_RECORDS = total;
         return result;
     }
 

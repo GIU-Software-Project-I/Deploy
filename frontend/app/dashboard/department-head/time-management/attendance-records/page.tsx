@@ -9,7 +9,22 @@ import {
   PunchType,
   CorrectAttendanceDto,
 } from '@/app/services/time-management';
-import { useAuth } from '@/app/context/AuthContext';
+import { employeeProfileService } from '@/app/services/employee-profile';
+import { useAuth } from '@/context/AuthContext';
+import { Users, Clock, CheckCircle, AlertCircle, FileText, Calendar, ChevronLeft, Loader2, Plus, History, ClipboardCheck, X, Check } from 'lucide-react';
+import Link from 'next/link';
+
+interface TeamMember {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  fullName?: string;
+  employeeNumber?: string;
+  jobTitle?: string;
+  primaryDepartmentId?: {
+    name: string;
+  };
+}
 
 export default function AttendanceRecordsPage() {
   const { user } = useAuth();
@@ -17,10 +32,14 @@ export default function AttendanceRecordsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Team members
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loadingTeam, setLoadingTeam] = useState(true);
+
   // Filter state
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [employeeIdFilter, setEmployeeIdFilter] = useState('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
 
   // Data state
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -59,27 +78,48 @@ export default function AttendanceRecordsPage() {
   // Create attendance record state
   const [createForm, setCreateForm] = useState<{
     employeeId: string;
+    punchInDate: string;
     punchInTime: string;
+    punchOutDate: string;
     punchOutTime: string;
     reason: string;
   }>({
     employeeId: '',
+    punchInDate: '',
     punchInTime: '',
+    punchOutDate: '',
     punchOutTime: '',
     reason: '',
   });
 
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  // Fetch team members on mount
+  const fetchTeamMembers = useCallback(async () => {
+    try {
+      setLoadingTeam(true);
+      const response = await employeeProfileService.getTeamProfiles();
+      if (response.data && Array.isArray(response.data)) {
+        setTeamMembers(response.data as TeamMember[]);
+        // Auto-select first team member if available
+        if (response.data.length > 0 && !selectedEmployeeId) {
+          setSelectedEmployeeId((response.data[0] as TeamMember)._id);
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch team members:', err);
+    } finally {
+      setLoadingTeam(false);
+    }
+  }, []);
 
   const fetchAttendanceRecords = useCallback(async () => {
-    if (!employeeIdFilter) {
+    if (!selectedEmployeeId) {
       setAttendanceRecords([]);
       return;
     }
 
     try {
       const response = await timeManagementService.getMonthlyAttendance(
-        employeeIdFilter,
+        selectedEmployeeId,
         selectedMonth,
         selectedYear
       );
@@ -90,7 +130,7 @@ export default function AttendanceRecordsPage() {
     } catch (err: any) {
       console.error('Failed to fetch attendance records:', err);
     }
-  }, [employeeIdFilter, selectedMonth, selectedYear]);
+  }, [selectedEmployeeId, selectedMonth, selectedYear]);
 
   const fetchPendingCorrections = useCallback(async () => {
     try {
@@ -143,6 +183,10 @@ export default function AttendanceRecordsPage() {
   };
 
   useEffect(() => {
+    fetchTeamMembers();
+  }, [fetchTeamMembers]);
+
+  useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       await Promise.all([
@@ -152,8 +196,12 @@ export default function AttendanceRecordsPage() {
       setLoading(false);
     };
 
-    loadData();
-  }, [fetchAttendanceRecords, fetchPendingCorrections]);
+    if (selectedEmployeeId) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [fetchAttendanceRecords, fetchPendingCorrections, selectedEmployeeId]);
 
   const handleCorrectAttendance = async () => {
     if (!selectedRecord) return;
@@ -259,12 +307,12 @@ export default function AttendanceRecordsPage() {
 
   const handleCreateAttendanceRecord = async () => {
     if (!createForm.employeeId) {
-      setError('Employee ID is required');
+      setError('Please select an employee');
       return;
     }
 
-    if (!createForm.punchInTime || !createForm.punchOutTime) {
-      setError('Both punch in and punch out times are required');
+    if (!createForm.punchInDate || !createForm.punchInTime || !createForm.punchOutDate || !createForm.punchOutTime) {
+      setError('Both punch in and punch out date/time are required');
       return;
     }
 
@@ -277,11 +325,19 @@ export default function AttendanceRecordsPage() {
       setSubmitting(true);
       setError(null);
 
+      // Helper function to convert date and time to ISO string
+      const convertToISO = (dateStr: string, timeStr: string): string => {
+        const [day, month, year] = dateStr.split('/');
+        const [hours, minutes] = timeStr.split(':');
+        const dateTime = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
+        return dateTime.toISOString();
+      };
+
       const dto = {
         employeeId: createForm.employeeId,
         punches: [
-          { type: PunchType.IN, time: createForm.punchInTime },
-          { type: PunchType.OUT, time: createForm.punchOutTime }
+          { type: PunchType.IN, time: convertToISO(createForm.punchInDate, createForm.punchInTime) },
+          { type: PunchType.OUT, time: convertToISO(createForm.punchOutDate, createForm.punchOutTime) }
         ],
         createdBy: user?.id,
         reason: createForm.reason,
@@ -295,10 +351,11 @@ export default function AttendanceRecordsPage() {
       }
 
       setSuccess('Attendance record created successfully');
-      setShowCreateModal(false);
       setCreateForm({
         employeeId: '',
+        punchInDate: '',
         punchInTime: '',
+        punchOutDate: '',
         punchOutTime: '',
         reason: '',
       });
@@ -329,13 +386,13 @@ export default function AttendanceRecordsPage() {
   const getStatusBadgeColor = (status: CorrectionRequestStatus) => {
     switch (status) {
       case CorrectionRequestStatus.SUBMITTED:
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        return 'bg-info/10 text-info border-info/30';
       case CorrectionRequestStatus.IN_REVIEW:
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+        return 'bg-warning/10 text-warning border-warning/30';
       case CorrectionRequestStatus.APPROVED:
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+        return 'bg-success/10 text-success border-success/30';
       case CorrectionRequestStatus.REJECTED:
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        return 'bg-destructive/10 text-destructive border-destructive/30';
       default:
         return 'bg-muted text-muted-foreground';
     }
@@ -361,81 +418,150 @@ export default function AttendanceRecordsPage() {
     return `${hours}h ${mins}m`;
   };
 
-  if (loading) {
+  const getEmployeeName = (employeeId: string) => {
+    const member = teamMembers.find(m => m._id === employeeId);
+    if (member) {
+      return member.fullName || `${member.firstName} ${member.lastName}`;
+    }
+    return employeeId;
+  };
+
+  const selectedEmployee = teamMembers.find(m => m._id === selectedEmployeeId);
+
+  if (loadingTeam) {
     return (
-      <div className="p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-muted rounded w-1/3"></div>
-            <div className="h-64 bg-card rounded-xl border border-border"></div>
-          </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading team members...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 lg:p-8 bg-background min-h-screen">
+    <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Attendance Management</h1>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <Link href="/dashboard/department-head" className="hover:text-foreground transition-colors flex items-center gap-1">
+                <ChevronLeft className="h-4 w-4" />
+                Department Head
+              </Link>
+              <span>/</span>
+              <span className="text-foreground font-medium">Time Management</span>
+            </div>
+            <h1 className="text-3xl font-semibold text-foreground">Attendance Management</h1>
             <p className="text-muted-foreground mt-1">
-              View, record, and correct attendance records manually
+              View, record, and correct attendance records for your team
             </p>
           </div>
         </div>
 
         {/* Alerts */}
         {error && (
-          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center justify-between">
-            <span>{error}</span>
+          <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <span className="text-destructive font-medium">{error}</span>
+            </div>
             <button onClick={() => setError(null)} className="text-destructive/70 hover:text-destructive">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" />
             </button>
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 rounded-lg">
-            {success}
+          <div className="bg-success/10 border border-success/30 rounded-xl p-4 flex items-center gap-3">
+            <CheckCircle className="h-5 w-5 text-success" />
+            <span className="text-success font-medium">{success}</span>
           </div>
         )}
 
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                <Users className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Team Members</p>
+                <p className="text-3xl font-semibold text-foreground">{teamMembers.length}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-info/10 rounded-xl flex items-center justify-center">
+                <FileText className="w-6 h-6 text-info" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Records This Month</p>
+                <p className="text-3xl font-semibold text-foreground">{attendanceRecords.length}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-warning/10 rounded-xl flex items-center justify-center">
+                <Clock className="w-6 h-6 text-warning" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Pending Corrections</p>
+                <p className="text-3xl font-semibold text-foreground">{pendingCorrections.length}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-success/10 rounded-xl flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-success" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Processed</p>
+                <p className="text-3xl font-semibold text-foreground">{pastCorrections.length}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-border">
+        <div className="flex gap-1 border-b border-border">
           <button
             onClick={() => setActiveTab('records')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
               activeTab === 'records'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
+            <FileText className="w-4 h-4" />
             Attendance Records
           </button>
           <button
             onClick={() => setActiveTab('create')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
               activeTab === 'create'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
+            <Plus className="w-4 h-4" />
             Create Record
           </button>
           <button
             onClick={() => setActiveTab('corrections')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
+            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
               activeTab === 'corrections'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            Correction Requests
+            <ClipboardCheck className="w-4 h-4" />
+            Corrections
             {pendingCorrections.length > 0 && (
               <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
                 {pendingCorrections.length}
@@ -444,39 +570,47 @@ export default function AttendanceRecordsPage() {
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2 ${
               activeTab === 'history'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            Correction History
+            <History className="w-4 h-4" />
+            History
           </button>
         </div>
 
         {/* Attendance Records Tab */}
         {activeTab === 'records' && (
           <div className="space-y-6">
-            {/* Filters */}
+            {/* Employee Selection & Filters */}
             <div className="bg-card rounded-xl border border-border p-6">
-              <h2 className="font-semibold text-foreground mb-4">Search Attendance Records</h2>
+              <h2 className="font-semibold text-foreground mb-4">Select Team Member</h2>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Employee ID</label>
-                  <input
-                    type="text"
-                    value={employeeIdFilter}
-                    onChange={(e) => setEmployeeIdFilter(e.target.value)}
-                    placeholder="Enter employee ID"
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">Employee</label>
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select a team member...</option>
+                    {teamMembers.map((member) => (
+                      <option key={member._id} value={member._id}>
+                        {member.fullName || `${member.firstName} ${member.lastName}`}
+                        {member.employeeNumber && ` (${member.employeeNumber})`}
+                        {member.jobTitle && ` - ${member.jobTitle}`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Month</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Month</label>
                   <select
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {Array.from({ length: 12 }, (_, i) => (
                       <option key={i + 1} value={i + 1}>
@@ -486,11 +620,11 @@ export default function AttendanceRecordsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Year</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Year</label>
                   <select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {[2024, 2025, 2026].map((year) => (
                       <option key={year} value={year}>
@@ -499,64 +633,84 @@ export default function AttendanceRecordsPage() {
                     ))}
                   </select>
                 </div>
-                <div className="flex items-end">
-                  <button
-                    onClick={fetchAttendanceRecords}
-                    className="w-full px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors"
-                  >
-                    Search
-                  </button>
-                </div>
               </div>
+
+              {/* Selected Employee Info */}
+              {selectedEmployee && (
+                <div className="mt-4 p-4 bg-muted/30 rounded-xl border border-border">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
+                      {selectedEmployee.firstName?.charAt(0)}{selectedEmployee.lastName?.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {selectedEmployee.fullName || `${selectedEmployee.firstName} ${selectedEmployee.lastName}`}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedEmployee.jobTitle || 'No title'} • {selectedEmployee.primaryDepartmentId?.name || 'No department'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Records List */}
-            <div className="bg-card rounded-xl border border-border p-6">
-              <h2 className="font-semibold text-foreground mb-4">
-                Attendance Records
-                {attendanceRecords.length > 0 && (
-                  <span className="text-muted-foreground font-normal ml-2">
-                    ({attendanceRecords.length} records)
-                  </span>
-                )}
-              </h2>
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <div className="p-6 border-b border-border">
+                <h2 className="font-semibold text-foreground">
+                  Attendance Records
+                  {attendanceRecords.length > 0 && (
+                    <span className="text-muted-foreground font-normal ml-2">
+                      ({attendanceRecords.length} records)
+                    </span>
+                  )}
+                </h2>
+              </div>
 
-              {!employeeIdFilter ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  Enter an employee ID to view attendance records.
+              {!selectedEmployeeId ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                  <p>Select a team member to view their attendance records.</p>
+                </div>
+              ) : loading ? (
+                <div className="text-center py-16">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+                  <p className="text-muted-foreground">Loading records...</p>
                 </div>
               ) : attendanceRecords.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  No attendance records found for the selected period.
+                <div className="text-center py-16 text-muted-foreground">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                  <p>No attendance records found for the selected period.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Punches</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Work Time</th>
-                        <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                        <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left py-4 px-6 font-medium text-foreground">Date</th>
+                        <th className="text-left py-4 px-6 font-medium text-foreground">Punches</th>
+                        <th className="text-left py-4 px-6 font-medium text-foreground">Work Time</th>
+                        <th className="text-left py-4 px-6 font-medium text-foreground">Status</th>
+                        <th className="text-right py-4 px-6 font-medium text-foreground">Actions</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-border">
                       {attendanceRecords.map((record) => (
-                        <tr key={record._id} className="border-b border-border last:border-0">
-                          <td className="py-3 px-4">
+                        <tr key={record._id} className="hover:bg-muted/30 transition-colors">
+                          <td className="py-4 px-6">
                             <span className="font-medium text-foreground">{getRecordDate(record)}</span>
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="flex flex-col gap-1">
+                          <td className="py-4 px-6">
+                            <div className="flex flex-wrap gap-2">
                               {record.punches && record.punches.length > 0 ? (
                                 record.punches.map((punch, idx) => (
                                   <span
                                     key={idx}
-                                    className={`text-xs px-2 py-0.5 rounded inline-flex items-center gap-1 w-fit ${
+                                    className={`text-xs px-2 py-1 rounded-full border ${
                                       punch.type === PunchType.IN
-                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                        ? 'bg-success/10 text-success border-success/30'
+                                        : 'bg-destructive/10 text-destructive border-destructive/30'
                                     }`}
                                   >
                                     {punch.type}: {formatTime(punch.time)}
@@ -567,36 +721,36 @@ export default function AttendanceRecordsPage() {
                               )}
                             </div>
                           </td>
-                          <td className="py-3 px-4">
-                            <span className="text-foreground">
+                          <td className="py-4 px-6">
+                            <span className="text-foreground font-medium">
                               {formatWorkTime(record.totalWorkMinutes)}
                             </span>
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="flex flex-col gap-1">
+                          <td className="py-4 px-6">
+                            <div className="flex flex-wrap gap-2">
                               {record.hasMissedPunch && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 w-fit">
+                                <span className="text-xs px-2 py-1 rounded-full bg-warning/10 text-warning border border-warning/30">
                                   Missing Punch
                                 </span>
                               )}
                               {record.finalisedForPayroll ? (
-                                <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 w-fit">
+                                <span className="text-xs px-2 py-1 rounded-full bg-success/10 text-success border border-success/30">
                                   Finalized
                                 </span>
                               ) : (
-                                <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground w-fit">
+                                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground border border-border">
                                   Pending
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-4 px-6 text-right">
                             <button
                               onClick={() => {
                                 setSelectedRecord(record);
                                 setShowCorrectionModal(true);
                               }}
-                              className="text-sm text-primary hover:text-primary/80 font-medium"
+                              className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                             >
                               Correct
                             </button>
@@ -611,98 +765,142 @@ export default function AttendanceRecordsPage() {
           </div>
         )}
 
-        {/* Correction Requests Tab */}
+        {/* Create Record Tab */}
         {activeTab === 'create' && (
           <div className="bg-card rounded-xl border border-border p-6 max-w-2xl">
             <h2 className="font-semibold text-foreground mb-6">Create New Attendance Record</h2>
 
             <div className="space-y-4">
-              {/* Employee ID */}
+              {/* Employee Selection */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Employee ID *
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Select Employee *
                 </label>
-                <input
-                  type="text"
+                <select
                   value={createForm.employeeId}
                   onChange={(e) => setCreateForm({ ...createForm, employeeId: e.target.value })}
-                  placeholder="Enter employee ID"
-                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                  className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Select a team member...</option>
+                  {teamMembers.map((member) => (
+                    <option key={member._id} value={member._id}>
+                      {member.fullName || `${member.firstName} ${member.lastName}`}
+                      {member.employeeNumber && ` (${member.employeeNumber})`}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Punch In Time */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Punch In Time (dd/mm/yyyy hh:mm) *
-                </label>
-                <input
-                  type="text"
-                  value={createForm.punchInTime}
-                  onChange={(e) => setCreateForm({ ...createForm, punchInTime: e.target.value })}
-                  placeholder="e.g., 16/12/2025 09:00"
-                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+              {/* Punch In Date & Time */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Punch In Date *
+                  </label>
+                  <select
+                    value={createForm.punchInDate}
+                    onChange={(e) => setCreateForm({ ...createForm, punchInDate: e.target.value })}
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select date</option>
+                    {getDateOptions().map((date) => (
+                      <option key={date} value={date}>{date}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Punch In Time *
+                  </label>
+                  <select
+                    value={createForm.punchInTime}
+                    onChange={(e) => setCreateForm({ ...createForm, punchInTime: e.target.value })}
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select time</option>
+                    {getTimeOptions().map((time) => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Punch Out Time */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Punch Out Time (dd/mm/yyyy hh:mm) *
-                </label>
-                <input
-                  type="text"
-                  value={createForm.punchOutTime}
-                  onChange={(e) => setCreateForm({ ...createForm, punchOutTime: e.target.value })}
-                  placeholder="e.g., 16/12/2025 17:00"
-                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+              {/* Punch Out Date & Time */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Punch Out Date *
+                  </label>
+                  <select
+                    value={createForm.punchOutDate}
+                    onChange={(e) => setCreateForm({ ...createForm, punchOutDate: e.target.value })}
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select date</option>
+                    {getDateOptions().map((date) => (
+                      <option key={date} value={date}>{date}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Punch Out Time *
+                  </label>
+                  <select
+                    value={createForm.punchOutTime}
+                    onChange={(e) => setCreateForm({ ...createForm, punchOutTime: e.target.value })}
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select time</option>
+                    {getTimeOptions().map((time) => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Reason */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Reason for Creation *
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Reason for Manual Entry *
                 </label>
                 <textarea
                   value={createForm.reason}
                   onChange={(e) => setCreateForm({ ...createForm, reason: e.target.value })}
                   placeholder="Enter the reason for manually creating this attendance record"
                   rows={3}
-                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 pt-4">
+              <div className="flex gap-3 pt-4">
                 <button
                   onClick={handleCreateAttendanceRecord}
                   disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  className="flex-1 px-4 py-3 bg-primary text-primary-foreground font-medium rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors"
                 >
                   {submitting ? 'Creating...' : 'Create Attendance Record'}
                 </button>
                 <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setCreateForm({
-                      employeeId: '',
-                      punchInTime: '',
-                      punchOutTime: '',
-                      reason: '',
-                    });
-                  }}
-                  className="px-4 py-2 border border-input text-foreground font-medium rounded-lg hover:bg-accent transition-colors"
+                  onClick={() => setCreateForm({
+                    employeeId: '',
+                    punchInDate: '',
+                    punchInTime: '',
+                    punchOutDate: '',
+                    punchOutTime: '',
+                    reason: '',
+                  })}
+                  className="px-4 py-3 border border-border text-foreground font-medium rounded-xl hover:bg-muted/50 transition-colors"
                 >
                   Reset
                 </button>
               </div>
 
               {/* Info */}
-              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-300">
-                  <strong>Note:</strong> You can manually create attendance records for employees when system records are missing or incorrect.
-                  Make sure the punch times are in the correct format (dd/mm/yyyy hh:mm).
+              <div className="mt-6 p-4 bg-info/10 border border-info/30 rounded-xl">
+                <p className="text-sm text-info">
+                  <strong>Note:</strong> You can manually create attendance records for team members when system records are missing or incorrect.
                 </p>
               </div>
             </div>
@@ -711,55 +909,51 @@ export default function AttendanceRecordsPage() {
 
         {/* Correction Requests Tab */}
         {activeTab === 'corrections' && (
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="font-semibold text-foreground mb-4">Pending Correction Requests</h2>
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="p-6 border-b border-border">
+              <h2 className="font-semibold text-foreground">Pending Correction Requests</h2>
+              <p className="text-sm text-muted-foreground mt-1">Review and approve or reject attendance correction requests</p>
+            </div>
 
             {pendingCorrections.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                No pending correction requests.
+              <div className="text-center py-16 text-muted-foreground">
+                <ClipboardCheck className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p>No pending correction requests.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-border">
                 {pendingCorrections.map((correction) => (
-                  <div
-                    key={correction._id}
-                    className="p-4 rounded-lg border border-border bg-background"
-                  >
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-foreground">
-                            Correction Request
+                  <div key={correction._id} className="p-6 hover:bg-muted/30 transition-colors">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-semibold text-foreground">
+                            {getEmployeeName(correction.employeeId)}
                           </span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusBadgeColor(correction.status)}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-xs border ${getStatusBadgeColor(correction.status)}`}>
                             {correction.status}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Employee ID: {correction.employeeId}
-                        </p>
                         {correction.reason && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Reason: {correction.reason}
+                          <p className="text-sm text-muted-foreground mb-1">
+                            <span className="font-medium">Reason:</span> {correction.reason}
                           </p>
                         )}
                         {correction.createdAt && (
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground">
                             Submitted: {formatDateTime(correction.createdAt)}
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedCorrection(correction);
-                            setShowReviewModal(true);
-                          }}
-                          className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                        >
-                          Review
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedCorrection(correction);
+                          setShowReviewModal(true);
+                        }}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
+                      >
+                        Review
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -770,45 +964,39 @@ export default function AttendanceRecordsPage() {
 
         {/* Correction History Tab */}
         {activeTab === 'history' && (
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h2 className="font-semibold text-foreground mb-4">Correction History</h2>
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="p-6 border-b border-border">
+              <h2 className="font-semibold text-foreground">Correction History</h2>
+              <p className="text-sm text-muted-foreground mt-1">Previously processed correction requests</p>
+            </div>
 
             {pastCorrections.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                No correction history found.
+              <div className="text-center py-16 text-muted-foreground">
+                <History className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p>No correction history found.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-border">
                 {pastCorrections.map((correction) => (
-                  <div
-                    key={correction._id}
-                    className="p-4 rounded-lg border border-border bg-background"
-                  >
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-foreground">
-                            Correction Request
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusBadgeColor(correction.status)}`}>
-                            {correction.status}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Employee ID: {correction.employeeId}
-                        </p>
-                        {correction.reason && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Reason: {correction.reason}
-                          </p>
-                        )}
-                        {correction.createdAt && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Submitted: {formatDateTime(correction.createdAt)}
-                          </p>
-                        )}
-                      </div>
+                  <div key={correction._id} className="p-6 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="font-semibold text-foreground">
+                        {getEmployeeName(correction.employeeId)}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs border ${getStatusBadgeColor(correction.status)}`}>
+                        {correction.status}
+                      </span>
                     </div>
+                    {correction.reason && (
+                      <p className="text-sm text-muted-foreground mb-1">
+                        <span className="font-medium">Reason:</span> {correction.reason}
+                      </p>
+                    )}
+                    {correction.createdAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Submitted: {formatDateTime(correction.createdAt)}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -820,8 +1008,8 @@ export default function AttendanceRecordsPage() {
         {showCorrectionModal && selectedRecord && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-card rounded-xl border border-border p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-foreground">Correct Attendance Record</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-foreground">Correct Attendance Record</h2>
                 <button
                   onClick={() => {
                     setShowCorrectionModal(false);
@@ -829,24 +1017,22 @@ export default function AttendanceRecordsPage() {
                   }}
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Current punches */}
-              <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+              <div className="mb-6 p-4 bg-muted/30 rounded-xl border border-border">
                 <p className="text-sm font-medium text-foreground mb-2">Current Punches:</p>
                 {selectedRecord.punches && selectedRecord.punches.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {selectedRecord.punches.map((punch, idx) => (
                       <span
                         key={idx}
-                        className={`text-xs px-2 py-1 rounded ${
+                        className={`text-xs px-2 py-1 rounded-full border ${
                           punch.type === PunchType.IN
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            ? 'bg-success/10 text-success border-success/30'
+                            : 'bg-destructive/10 text-destructive border-destructive/30'
                         }`}
                       >
                         {punch.type}: {formatDateTime(punch.time)}
@@ -865,7 +1051,7 @@ export default function AttendanceRecordsPage() {
                   <select
                     value={correctionForm.action}
                     onChange={(e) => setCorrectionForm({ ...correctionForm, action: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="addPunchIn">Add Missing Punch In</option>
                     <option value="addPunchOut">Add Missing Punch Out</option>
@@ -883,7 +1069,7 @@ export default function AttendanceRecordsPage() {
                       <select
                         value={correctionForm.punchInDate}
                         onChange={(e) => setCorrectionForm({ ...correctionForm, punchInDate: e.target.value })}
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">Select date</option>
                         {getDateOptions().map((date) => (
@@ -900,7 +1086,7 @@ export default function AttendanceRecordsPage() {
                       <select
                         value={correctionForm.punchInTime}
                         onChange={(e) => setCorrectionForm({ ...correctionForm, punchInTime: e.target.value })}
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">Select time</option>
                         {getTimeOptions().map((time) => (
@@ -923,7 +1109,7 @@ export default function AttendanceRecordsPage() {
                       <select
                         value={correctionForm.punchOutDate}
                         onChange={(e) => setCorrectionForm({ ...correctionForm, punchOutDate: e.target.value })}
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">Select date</option>
                         {getDateOptions().map((date) => (
@@ -940,7 +1126,7 @@ export default function AttendanceRecordsPage() {
                       <select
                         value={correctionForm.punchOutTime}
                         onChange={(e) => setCorrectionForm({ ...correctionForm, punchOutTime: e.target.value })}
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">Select time</option>
                         {getTimeOptions().map((time) => (
@@ -963,16 +1149,16 @@ export default function AttendanceRecordsPage() {
                     onChange={(e) => setCorrectionForm({ ...correctionForm, reason: e.target.value })}
                     placeholder="Enter the reason for this correction"
                     rows={3}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                   />
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-3 pt-4">
                   <button
                     onClick={handleCorrectAttendance}
                     disabled={submitting}
-                    className="flex-1 px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    className="flex-1 px-4 py-3 bg-primary text-primary-foreground font-medium rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors"
                   >
                     {submitting ? 'Applying...' : 'Apply Correction'}
                   </button>
@@ -981,7 +1167,7 @@ export default function AttendanceRecordsPage() {
                       setShowCorrectionModal(false);
                       setSelectedRecord(null);
                     }}
-                    className="px-4 py-2 border border-input text-foreground font-medium rounded-lg hover:bg-accent transition-colors"
+                    className="px-4 py-3 border border-border text-foreground font-medium rounded-xl hover:bg-muted/50 transition-colors"
                   >
                     Cancel
                   </button>
@@ -995,8 +1181,8 @@ export default function AttendanceRecordsPage() {
         {showReviewModal && selectedCorrection && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-card rounded-xl border border-border p-6 max-w-lg w-full">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-foreground">Review Correction Request</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-foreground">Review Correction Request</h2>
                 <button
                   onClick={() => {
                     setShowReviewModal(false);
@@ -1005,27 +1191,25 @@ export default function AttendanceRecordsPage() {
                   }}
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="space-y-4">
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Employee ID:</p>
-                  <p className="font-medium text-foreground">{selectedCorrection.employeeId}</p>
+                <div className="p-4 bg-muted/30 rounded-xl border border-border">
+                  <p className="text-sm text-muted-foreground">Employee</p>
+                  <p className="font-semibold text-foreground">{getEmployeeName(selectedCorrection.employeeId)}</p>
                 </div>
 
                 {selectedCorrection.reason && (
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Reason:</p>
+                  <div className="p-4 bg-muted/30 rounded-xl border border-border">
+                    <p className="text-sm text-muted-foreground">Reason</p>
                     <p className="font-medium text-foreground">{selectedCorrection.reason}</p>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Review Note (Optional)
                   </label>
                   <textarea
@@ -1033,23 +1217,25 @@ export default function AttendanceRecordsPage() {
                     onChange={(e) => setReviewNote(e.target.value)}
                     placeholder="Add a note for this review"
                     rows={3}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                   />
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-3 pt-4">
                   <button
                     onClick={() => handleReviewCorrection('APPROVE')}
                     disabled={submitting}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    className="flex-1 px-4 py-3 bg-success text-white font-medium rounded-xl hover:bg-success/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                   >
+                    <Check className="w-4 h-4" />
                     {submitting ? 'Processing...' : 'Approve'}
                   </button>
                   <button
                     onClick={() => handleReviewCorrection('REJECT')}
                     disabled={submitting}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                    className="flex-1 px-4 py-3 bg-destructive text-white font-medium rounded-xl hover:bg-destructive/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                   >
+                    <X className="w-4 h-4" />
                     {submitting ? 'Processing...' : 'Reject'}
                   </button>
                   <button
@@ -1058,7 +1244,7 @@ export default function AttendanceRecordsPage() {
                       setSelectedCorrection(null);
                       setReviewNote('');
                     }}
-                    className="px-4 py-2 border border-input text-foreground font-medium rounded-lg hover:bg-accent transition-colors"
+                    className="px-4 py-3 border border-border text-foreground font-medium rounded-xl hover:bg-muted/50 transition-colors"
                   >
                     Cancel
                   </button>

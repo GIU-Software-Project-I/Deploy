@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-
 import { MongooseModule } from '@nestjs/mongoose';
 import { NotificationLogSchema, NotificationLog } from './models/notification-log.schema';
 import { AttendanceCorrectionRequestSchema, AttendanceCorrectionRequest } from './models/attendance-correction-request.schema';
@@ -33,9 +32,10 @@ import { EmployeeModule } from '../employee/employee.module';
 import {EmployeeProfile, EmployeeProfileSchema} from "../employee/models/employee/employee-profile.schema";
 import {BreakPermissionController} from "./controllers/BreakPermissionController";
 import {BreakPermissionService} from "./services/BreakPermissionService";
-import {AuthModule} from "../auth/auth-module";
+import {AuthModule} from "../auth/auth.module";
 import {TimeExceptionEscalationScheduler} from "./services/time-exception-escalation.scheduler";
 import {TestSchedulersController} from "./controllers/test-schedulers.controller";
+import {AttendanceDailySummaryScheduler} from "./services/attendance-daily-summary.scheduler";
 
 @Module({
     imports:
@@ -53,7 +53,7 @@ import {TestSchedulersController} from "./controllers/test-schedulers.controller
             { name: ShiftAssignment.name, schema: ShiftAssignmentSchema },
             { name: LatenessRule.name, schema: latenessRuleSchema },
             { name: Holiday.name, schema: HolidaySchema },
-            { name: 'EmployeeProfile', schema: EmployeeProfileSchema },
+            { name: EmployeeProfile.name, schema: EmployeeProfileSchema },
 
 
         ]),
@@ -76,6 +76,7 @@ import {TestSchedulersController} from "./controllers/test-schedulers.controller
         HolidayService,
         ShiftExpiryScheduler,
         TimeExceptionEscalationScheduler,
+        AttendanceDailySummaryScheduler,
         RepeatedLatenessService,
         NotificationService,
         BreakPermissionService,

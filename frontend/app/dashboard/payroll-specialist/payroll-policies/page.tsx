@@ -2,9 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { payrollConfigurationService } from '@/app/services/payroll-configuration';
-import { useAuth } from '@/app/context/AuthContext';
-import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/app/components/theme-customizer';
+import { useAuth } from '@/context/AuthContext';
+import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/components/theme-customizer';
 // Type definitions based on your API response
+interface PopulatedEmployee {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  employeeNumber: string;
+}
+
 interface PayrollPolicy {
   _id: string;
   policyType: string;
@@ -13,10 +21,10 @@ interface PayrollPolicy {
   effectiveDate: string;
   expirationDate?: string;
   status: 'draft' | 'approved' | 'rejected' | 'pending_approval';
-  createdBy: string;
+  createdBy: string | PopulatedEmployee;
   createdAt: string;
   updatedAt: string;
-  approvedBy?: string;
+  approvedBy?: string | PopulatedEmployee;
   approvedAt?: string;
   rejectionReason?: string;
   applicability?: string;
@@ -77,14 +85,14 @@ export default function PayrollPoliciesPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<PayrollPolicy | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   // Search and filter state
   const [filters, setFilters] = useState({
     search: '',
     status: '',
     policyType: '',
   });
-  
+
   // Form state
   const [formData, setFormData] = useState({
     policyType: '',
@@ -114,22 +122,22 @@ export default function PayrollPoliciesPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('Fetching payroll policies...');
       const response = await payrollConfigurationService.getPayrollPolicies();
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       console.log('API Response:', response);
-      
+
       if (!response.data) {
         console.warn('No data in response');
         setPolicies([]);
         return;
       }
-      
+
       const apiData = response.data as any;
 
       // helper: normalize status strings to our mapping keys (e.g. "Approved" -> "approved", "Pending Approval" -> "pending_approval")
@@ -138,12 +146,12 @@ export default function PayrollPoliciesPage() {
         const str = String(s).toLowerCase();
         return str.replace(/\s+/g, '_').replace(/[^a-z_]/g, '');
       };
-      
+
       // Handle different response structures
       if (apiData.data && Array.isArray(apiData.data)) {
         console.log('Found policies in data.data');
         setPolicies(apiData.data.map((p: any) => ({ ...p, status: normalizeStatus(p.status) })));
-      } 
+      }
       else if (Array.isArray(apiData)) {
         console.log('Response is directly an array');
         setPolicies(apiData.map((p: any) => ({ ...p, status: normalizeStatus(p.status) })));
@@ -152,7 +160,7 @@ export default function PayrollPoliciesPage() {
         console.warn('Unexpected response structure:', apiData);
         setPolicies([]);
       }
-      
+
     } catch (err: any) {
       setError(err.message || 'Failed to fetch payroll policies');
       console.error('Error fetching policies:', err);
@@ -161,11 +169,11 @@ export default function PayrollPoliciesPage() {
     }
   };
 
- const handleCreatePolicy = async () => {
+  const handleCreatePolicy = async () => {
     try {
       // Validate required fields (remove createdByEmployeeId from this check)
-      if (!formData.policyType || !formData.name || !formData.description || 
-          !formData.effectiveDate || !formData.applicability) {
+      if (!formData.policyType || !formData.name || !formData.description ||
+        !formData.effectiveDate || !formData.applicability) {
         setError('Please fill all required fields');
         return;
       }
@@ -185,22 +193,22 @@ export default function PayrollPoliciesPage() {
         setError('Percentage must be between 0 and 100');
         return;
       }
-      
+
       if (ruleDefinition.fixedAmount && (isNaN(fixedAmountNum) || fixedAmountNum < 0)) {
         setError('Fixed amount must be 0 or greater');
         return;
       }
-      
+
       if (ruleDefinition.thresholdAmount && (isNaN(thresholdNum) || thresholdNum < 1)) {
         setError('Threshold amount must be 1 or greater');
         return;
       }
 
       setActionLoading(true);
-      
+
       // Get the employee ID - REQUIRED by backend DTO
       let createdByEmployeeId = user?.id || '';
-      
+
       // Fallback to localStorage if user.id is not available
       if (!createdByEmployeeId) {
         try {
@@ -213,13 +221,13 @@ export default function PayrollPoliciesPage() {
           console.error('Failed to get user from localStorage:', e);
         }
       }
-      
+
       if (!createdByEmployeeId) {
         setError('Unable to identify user. Please make sure you are logged in.');
         setActionLoading(false);
         return;
       }
-      
+
       // Validate that createdByEmployeeId looks like a MongoDB ObjectId
       // MongoDB ObjectIds are 24-character hex strings
       const objectIdRegex = /^[0-9a-fA-F]{24}$/;
@@ -227,7 +235,7 @@ export default function PayrollPoliciesPage() {
         console.warn('Employee ID does not look like a MongoDB ObjectId:', createdByEmployeeId);
         // Continue anyway - the backend validation will catch it
       }
-      
+
       // Transform form data to match API expected format
       const apiData = {
         policyType: formData.policyType,
@@ -244,19 +252,19 @@ export default function PayrollPoliciesPage() {
           condition: ruleDefinition.condition || undefined,
         }
       };
-      
+
       console.log('Creating policy with data:', apiData);
-      
+
       const response = await payrollConfigurationService.createPayrollPolicy(apiData);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       // Check for backend validation errors
       if (response.data) {
         const responseData = response.data as any;
-        
+
         // Handle various error response formats
         if (responseData.message && responseData.message.includes('already exists')) {
           throw new Error(responseData.message);
@@ -266,23 +274,23 @@ export default function PayrollPoliciesPage() {
         }
         else if (responseData.statusCode && responseData.statusCode >= 400) {
           // Extract validation messages if available
-          const errorMessage = responseData.message || 
-                              responseData.error?.message || 
-                              'Failed to create payroll policy';
+          const errorMessage = responseData.message ||
+            responseData.error?.message ||
+            'Failed to create payroll policy';
           throw new Error(errorMessage);
         }
       }
-      
+
       setSuccess('Payroll policy created successfully as DRAFT');
       setShowModal(false);
       resetForm();
       fetchPolicies();
     } catch (err: any) {
       console.error('Create policy error details:', err);
-      
+
       // Extract error message from various possible formats
       let errorMessage = 'Failed to create payroll policy';
-      
+
       if (err.message) {
         errorMessage = err.message;
       } else if (err.response?.data?.message) {
@@ -290,12 +298,12 @@ export default function PayrollPoliciesPage() {
       } else if (err.response?.data?.error?.message) {
         errorMessage = err.response.data.error.message;
       }
-      
+
       // Special handling for ObjectId conversion errors
       if (errorMessage.includes('ObjectId') || errorMessage.includes('Cast to ObjectId')) {
         errorMessage = 'User identification issue. Please try logging out and back in.';
       }
-      
+
       setError(errorMessage);
     } finally {
       setActionLoading(false);
@@ -303,11 +311,11 @@ export default function PayrollPoliciesPage() {
   };
   const handleUpdatePolicy = async () => {
     if (!selectedPolicy) return;
-    
+
     try {
       // Validate required fields
-      if (!formData.policyType || !formData.name || !formData.description || 
-          !formData.effectiveDate || !formData.applicability) {
+      if (!formData.policyType || !formData.name || !formData.description ||
+        !formData.effectiveDate || !formData.applicability) {
         setError('Please fill all required fields');
         return;
       }
@@ -327,19 +335,19 @@ export default function PayrollPoliciesPage() {
         setError('Percentage must be between 0 and 100');
         return;
       }
-      
+
       if (ruleDefinition.fixedAmount && (isNaN(fixedAmountNum) || fixedAmountNum < 0)) {
         setError('Fixed amount must be 0 or greater');
         return;
       }
-      
+
       if (ruleDefinition.thresholdAmount && (isNaN(thresholdNum) || thresholdNum < 1)) {
         setError('Threshold amount must be 1 or greater');
         return;
       }
 
       setActionLoading(true);
-      
+
       const updateData = {
         policyName: formData.name,
         description: formData.description,
@@ -353,16 +361,16 @@ export default function PayrollPoliciesPage() {
           condition: ruleDefinition.condition || undefined,
         }
       };
-      
+
       const response = await payrollConfigurationService.updatePayrollPolicy(
         selectedPolicy._id,
         updateData
       );
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       setSuccess('Payroll policy updated successfully');
       setShowModal(false);
       resetForm();
@@ -376,15 +384,15 @@ export default function PayrollPoliciesPage() {
 
   const handleDeletePolicy = async (id: string) => {
     if (!confirm('Are you sure you want to delete this policy? This action cannot be undone.')) return;
-    
+
     try {
       setActionLoading(true);
       const response = await payrollConfigurationService.deletePayrollPolicy(id);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       setSuccess('Payroll policy deleted successfully');
       fetchPolicies();
     } catch (err: any) {
@@ -396,22 +404,22 @@ export default function PayrollPoliciesPage() {
 
   const handleApprovePolicy = async () => {
     if (!selectedPolicy) return;
-    
+
     try {
       setActionLoading(true);
       const approveData = {
         approvedBy: 'current-user-id',
       };
-      
+
       const response = await payrollConfigurationService.approvePayrollPolicy(
         selectedPolicy._id,
         approveData
       );
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       setSuccess('Payroll policy approved successfully');
       setShowApproveModal(false);
       fetchPolicies();
@@ -424,23 +432,23 @@ export default function PayrollPoliciesPage() {
 
   const handleRejectPolicy = async () => {
     if (!selectedPolicy) return;
-    
+
     try {
       setActionLoading(true);
       const rejectData = {
         approvedBy: 'current-user-id',
         rejectionReason: rejectionReason,
       };
-      
+
       const response = await payrollConfigurationService.rejectPayrollPolicy(
         selectedPolicy._id,
         rejectData
       );
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       setSuccess('Payroll policy rejected successfully');
       setShowRejectModal(false);
       setRejectionReason('');
@@ -458,7 +466,7 @@ export default function PayrollPoliciesPage() {
       setError('Only DRAFT policies can be edited. Approved or rejected policies cannot be modified.');
       return;
     }
-    
+
     setSelectedPolicy(policy);
     setFormData({
       policyType: policy.policyType,
@@ -469,7 +477,7 @@ export default function PayrollPoliciesPage() {
       applicability: policy.applicability || '',
       createdByEmployeeId: 'current-user-id',
     });
-    
+
     // Set rule definition if it exists
     if (policy.ruleDefinition) {
       setRuleDefinition({
@@ -479,7 +487,7 @@ export default function PayrollPoliciesPage() {
         condition: policy.ruleDefinition.condition || '',
       });
     }
-    
+
     setShowModal(true);
   };
 
@@ -548,13 +556,19 @@ export default function PayrollPoliciesPage() {
 
   // Filter policies based on search, status, and policy type
   const filteredPolicies = policies.filter(policy => {
-    const matchesSearch = !filters.search || 
+    const matchesSearch = !filters.search ||
       policy.policyName.toLowerCase().includes(filters.search.toLowerCase()) ||
       policy.description.toLowerCase().includes(filters.search.toLowerCase());
     const matchesStatus = !filters.status || policy.status === filters.status;
     const matchesPolicyType = !filters.policyType || policy.policyType === filters.policyType;
     return matchesSearch && matchesStatus && matchesPolicyType;
   });
+
+  const getEmployeeDisplayName = (emp: string | PopulatedEmployee | undefined) => {
+    if (!emp) return 'N/A';
+    if (typeof emp === 'string') return emp;
+    return `${emp.fullName || `${emp.firstName} ${emp.lastName}`.trim()} (${emp.employeeNumber})`;
+  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -599,16 +613,16 @@ export default function PayrollPoliciesPage() {
 
   return (
     <div className="space-y-6 relative">
-       {/* Theme Customizer */}
-    <div className="fixed bottom-6 right-6 z-40">
-      <ThemeCustomizerTrigger 
-        onClick={() => setShowThemeCustomizer(true)}
-      />
-    </div>
-    
-    {showThemeCustomizer && (
-      <ThemeCustomizer open={showThemeCustomizer} onOpenChange={setShowThemeCustomizer} />
-    )}
+      {/* Theme Customizer */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <ThemeCustomizerTrigger
+          onClick={() => setShowThemeCustomizer(true)}
+        />
+      </div>
+
+      {showThemeCustomizer && (
+        <ThemeCustomizer open={showThemeCustomizer} onOpenChange={setShowThemeCustomizer} />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -636,7 +650,7 @@ export default function PayrollPoliciesPage() {
         <div className="bg-success/10 border border-success/20 rounded-lg p-4 flex items-center gap-3">
           <div className="text-success font-bold">Success</div>
           <p className="text-success-foreground font-medium">{success}</p>
-          <button 
+          <button
             onClick={() => setSuccess(null)}
             className="ml-auto text-success hover:text-success/80"
           >
@@ -650,7 +664,7 @@ export default function PayrollPoliciesPage() {
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-center gap-3">
           <div className="text-destructive font-bold">Failed</div>
           <p className="text-destructive/90 font-medium">{error}</p>
-          <button 
+          <button
             onClick={() => setError(null)}
             className="ml-auto text-destructive hover:text-destructive/80"
           >
@@ -729,7 +743,7 @@ export default function PayrollPoliciesPage() {
             )}
           </h2>
         </div>
-        
+
         {filteredPolicies.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-muted-foreground font-medium">
@@ -750,19 +764,19 @@ export default function PayrollPoliciesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-                  <thead>
-                      <tr className="border-b border-border bg-muted/50">
-                        <th className="text-left py-4 px-6 font-semibold text-foreground">Policy Name</th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground">Type</th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground">Status</th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground">Effective Date</th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground">Last Modified</th>
-                        <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
-                      </tr>
-                  </thead>
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left py-4 px-6 font-semibold text-foreground">Policy Name</th>
+                  <th className="text-left py-4 px-6 font-semibold text-foreground">Type</th>
+                  <th className="text-left py-4 px-6 font-semibold text-foreground">Status</th>
+                  <th className="text-left py-4 px-6 font-semibold text-foreground">Effective Date</th>
+                  <th className="text-left py-4 px-6 font-semibold text-foreground">Last Modified</th>
+                  <th className="text-left py-4 px-6 font-semibold text-foreground">Actions</th>
+                </tr>
+              </thead>
               <tbody>
                 {filteredPolicies.map((policy) => (
-                    <tr key={policy._id} className="border-b border-border hover:bg-muted/20">
+                  <tr key={policy._id} className="border-b border-border hover:bg-muted/20">
                     <td className="py-4 px-6">
                       <div>
                         <p className="font-medium text-foreground">{policy.policyName}</p>
@@ -776,31 +790,31 @@ export default function PayrollPoliciesPage() {
                         {policyTypes.find(t => t.value === policy.policyType)?.label || policy.policyType}
                       </span>
                     </td>
-                   <td className="py-4 px-6">
-  <span className={`
+                    <td className="py-4 px-6">
+                      <span className={`
     inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-    ${policy.status === 'approved' 
-      ? 'bg-green-100 text-green-800' 
-      : policy.status === 'draft' 
-      ? 'bg-yellow-100 text-yellow-800'
-      : policy.status === 'rejected' 
-      ? 'bg-red-100 text-red-800'
-      : policy.status === 'pending_approval'
-      ? 'bg-yellow-100 text-yellow-800'
-      : 'bg-muted/20 text-foreground'
-    }
+    ${policy.status === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : policy.status === 'draft'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : policy.status === 'rejected'
+                              ? 'bg-red-100 text-red-800'
+                              : policy.status === 'pending_approval'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-muted/20 text-foreground'
+                        }
   `}>
-    {policy.status === 'approved' 
-      ? 'Approved' 
-      : policy.status === 'draft' 
-      ? 'Draft'
-      : policy.status === 'rejected' 
-      ? 'Rejected'
-      : policy.status === 'pending_approval'
-      ? 'Pending Approval'
-      : policy.status}
-  </span>
-</td>
+                        {policy.status === 'approved'
+                          ? 'Approved'
+                          : policy.status === 'draft'
+                            ? 'Draft'
+                            : policy.status === 'rejected'
+                              ? 'Rejected'
+                              : policy.status === 'pending_approval'
+                                ? 'Pending Approval'
+                                : policy.status}
+                      </span>
+                    </td>
                     <td className="py-4 px-6 text-foreground">{formatDate(policy.effectiveDate)}</td>
                     <td className="py-4 px-6 text-foreground">{formatDate(policy.updatedAt)}</td>
                     <td className="py-4 px-6">
@@ -812,7 +826,7 @@ export default function PayrollPoliciesPage() {
                         >
                           View
                         </button>
-                        
+
                         {/* Only show edit button for draft policies */}
                         {policy.status === 'draft' && (
                           <button
@@ -823,7 +837,7 @@ export default function PayrollPoliciesPage() {
                             Edit
                           </button>
                         )}
-                        
+
                         {canApproveReject(policy) && (
                           <>
                             <button
@@ -873,7 +887,7 @@ export default function PayrollPoliciesPage() {
               </h3>
             </div>
             <div className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Policy Type *
@@ -882,7 +896,7 @@ export default function PayrollPoliciesPage() {
                     name="policyType"
                     value={formData.policyType}
                     onChange={handleChange}
-                      className="w-full px-4 py-2 border border-input rounded-lg font-medium text-muted-foreground focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                    className="w-full px-4 py-2 border border-input rounded-lg font-medium text-muted-foreground focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
                     required
                   >
                     <option value="">Select a policy type</option>
@@ -893,7 +907,7 @@ export default function PayrollPoliciesPage() {
                     ))}
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Applicability *
@@ -914,7 +928,7 @@ export default function PayrollPoliciesPage() {
                   </select>
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Policy Name *
@@ -929,7 +943,7 @@ export default function PayrollPoliciesPage() {
                   placeholder="Enter policy name"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Description *
@@ -944,7 +958,7 @@ export default function PayrollPoliciesPage() {
                   placeholder="Enter policy description"
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
@@ -972,12 +986,12 @@ export default function PayrollPoliciesPage() {
                   />
                 </div>
               </div>
-              
+
               {/* Rule Definition Section */}
               <div className="border-t pt-6">
                 <h4 className="font-semibold text-foreground mb-4">Rule Definition *</h4>
-                
-                
+
+
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
@@ -996,7 +1010,7 @@ export default function PayrollPoliciesPage() {
                     />
                     <p className="text-xs text-muted-foreground mt-1">0-100 range</p>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Fixed Amount (≥ 0)
@@ -1013,7 +1027,7 @@ export default function PayrollPoliciesPage() {
                     />
                     <p className="text-xs text-muted-foreground mt-1">Must be ≥ 0</p>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Threshold (≥ 1)
@@ -1031,7 +1045,7 @@ export default function PayrollPoliciesPage() {
                     <p className="text-xs text-muted-foreground mt-1">Must be ≥ 1</p>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Condition (Optional)
@@ -1046,7 +1060,7 @@ export default function PayrollPoliciesPage() {
                   />
                 </div>
               </div>
-              
+
               {/* Hidden createdByEmployeeId field */}
               <input
                 type="hidden"
@@ -1087,31 +1101,31 @@ export default function PayrollPoliciesPage() {
                   <p className="text-sm text-primary">Status</p>
                   <span className={`
   inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-1
-  ${selectedPolicy.status === 'approved' 
-    ? 'bg-green-100 text-green-800' 
-    : selectedPolicy.status === 'draft' 
-    ? 'bg-yellow-100 text-yellow-800'
-    : selectedPolicy.status === 'rejected' 
-    ? 'bg-red-100 text-red-800'
-    : selectedPolicy.status === 'pending_approval'
-    ? 'bg-yellow-100 text-yellow-800'
-    : 'bg-muted/20 text-foreground'
-  }
+  ${selectedPolicy.status === 'approved'
+                      ? 'bg-green-100 text-green-800'
+                      : selectedPolicy.status === 'draft'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : selectedPolicy.status === 'rejected'
+                          ? 'bg-red-100 text-red-800'
+                          : selectedPolicy.status === 'pending_approval'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-muted/20 text-foreground'
+                    }
 `}>
-  {selectedPolicy.status === 'approved' 
-    ? 'Approved' 
-    : selectedPolicy.status === 'draft' 
-    ? 'Draft'
-    : selectedPolicy.status === 'rejected' 
-    ? 'Rejected'
-    : selectedPolicy.status === 'pending_approval'
-    ? 'Pending Approval'
-    : selectedPolicy.status}
-</span>
+                    {selectedPolicy.status === 'approved'
+                      ? 'Approved'
+                      : selectedPolicy.status === 'draft'
+                        ? 'Draft'
+                        : selectedPolicy.status === 'rejected'
+                          ? 'Rejected'
+                          : selectedPolicy.status === 'pending_approval'
+                            ? 'Pending Approval'
+                            : selectedPolicy.status}
+                  </span>
                 </div>
               </div>
-              
-                  <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-primary">Policy Type</p>
                   <p className="font-medium text-foreground">
@@ -1124,7 +1138,7 @@ export default function PayrollPoliciesPage() {
                 </div>
                 <div>
                   <p className="text-sm text-primary">Created By</p>
-                  <p className="font-medium text-foreground">{selectedPolicy.createdBy}</p>
+                  <p className="font-medium text-foreground">{getEmployeeDisplayName(selectedPolicy.createdBy)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-primary">Created At</p>
@@ -1144,14 +1158,12 @@ export default function PayrollPoliciesPage() {
                     <p className="font-medium text-foreground">{formatDate(selectedPolicy.expirationDate)}</p>
                   </div>
                 )}
-                {(selectedPolicy.status === 'approved' || selectedPolicy.status === 'rejected') && (
-                  <div>
-                    <p className="text-sm text-primary">
-                      {selectedPolicy.status === 'rejected' ? 'Rejected By' : 'Approved By'}
-                    </p>
-                    <p className="font-medium text-foreground">{selectedPolicy.approvedBy || 'N/A'}</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-sm text-primary">
+                    {selectedPolicy.status === 'rejected' ? 'Rejected By' : 'Approved By'}
+                  </p>
+                  <p className="font-medium text-foreground">{getEmployeeDisplayName(selectedPolicy.approvedBy)}</p>
+                </div>
                 {(selectedPolicy.status === 'approved' || selectedPolicy.status === 'rejected') && (
                   <div>
                     <p className="text-sm text-primary">
@@ -1161,12 +1173,12 @@ export default function PayrollPoliciesPage() {
                   </div>
                 )}
               </div>
-              
-                <div>
-                  <p className="text-sm text-primary mb-2">Description</p>
+
+              <div>
+                <p className="text-sm text-primary mb-2">Description</p>
                 <p className="font-medium text-foreground">{selectedPolicy.description}</p>
               </div>
-              
+
               {selectedPolicy.ruleDefinition && (
                 <div className="bg-muted/5 border border-border rounded-lg p-4">
                   <h5 className="font-medium text-foreground">Rule Definition</h5>
@@ -1190,7 +1202,7 @@ export default function PayrollPoliciesPage() {
                   </div>
                 </div>
               )}
-              
+
               {selectedPolicy.rejectionReason && (
                 <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
                   <p className="text-sm font-medium text-destructive mb-1">Rejection Reason</p>

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { claimsService, Claim, ClaimStatus, ClaimFilters } from '@/app/services/claims';
-import { useAuth } from '@/app/context/AuthContext';
-import { SystemRole } from '@/app/types';
+import { useAuth } from '@/context/AuthContext';
+import { SystemRole } from '@/types';
 
 export default function ClaimsPage() {
   const { user } = useAuth();
@@ -154,28 +154,28 @@ export default function ClaimsPage() {
 
   const getStatusColor = (status: ClaimStatus) => {
     switch (status) {
-      case ClaimStatus.UNDER_REVIEW: return 'bg-yellow-100 text-yellow-800';
-      case 'pending payroll Manager approval' as any: return 'bg-orange-100 text-orange-800';
-      case ClaimStatus.APPROVED: return 'bg-green-100 text-green-800';
-      case ClaimStatus.REJECTED: return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case ClaimStatus.UNDER_REVIEW: return 'bg-warning/15 text-warning border border-warning/30';
+      case 'pending payroll Manager approval' as any: return 'bg-info/15 text-info border border-info/30';
+      case ClaimStatus.APPROVED: return 'bg-success/15 text-success border border-success/30';
+      case ClaimStatus.REJECTED: return 'bg-destructive/15 text-destructive border border-destructive/30';
+      default: return 'bg-muted/50 text-muted-foreground border border-border';
     }
   };
 
   const getClaimTypeColor = (claimType: string) => {
     switch (claimType.toLowerCase()) {
-      case 'medical': return 'bg-blue-100 text-blue-800';
-      case 'travel': return 'bg-green-100 text-green-800';
-      case 'equipment': return 'bg-purple-100 text-purple-800';
-      case 'training': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'medical': return 'bg-primary/15 text-primary border border-primary/30';
+      case 'travel': return 'bg-success/15 text-success border border-success/30';
+      case 'equipment': return 'bg-accent/15 text-accent border border-accent/30';
+      case 'training': return 'bg-warning/15 text-warning border border-warning/30';
+      default: return 'bg-muted/50 text-muted-foreground border border-border';
     }
   };
 
   if (!hasAccess) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-slate-500">Access denied. Payroll Specialist role required.</p>
+        <p className="text-muted-foreground">Access denied. Payroll Specialist role required.</p>
       </div>
     );
   }
@@ -184,18 +184,18 @@ export default function ClaimsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Claims Review and Approval</h1>
-          <p className="text-white mt-1">Review and approve/reject employee claims</p>
+          <h1 className="text-2xl font-bold text-foreground">Claims Review and Approval</h1>
+          <p className="text-muted-foreground mt-1">Review and approve/reject employee claims</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
+      <div className="bg-card rounded-lg border border-border p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Status</label>
             <select
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground bg-background"
               value={filters.status || 'all'}
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any }))}
             >
@@ -206,9 +206,9 @@ export default function ClaimsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Claim Type</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Claim Type</label>
             <select
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground bg-background"
               value={filters.claimType || 'all'}
               onChange={(e) => setFilters(prev => ({ ...prev, claimType: e.target.value as any }))}
             >
@@ -221,10 +221,10 @@ export default function ClaimsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Date Range</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Date Range</label>
             <input
               type="date"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground bg-background"
               value={filters.startDate || ''}
               onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
             />
@@ -233,7 +233,7 @@ export default function ClaimsPage() {
         <div className="flex items-end mt-4">
           <button
             onClick={loadClaims}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
           >
             Apply Filters
           </button>
@@ -242,52 +242,52 @@ export default function ClaimsPage() {
 
       {/* Success/Error Messages */}
       {successMessage && (
-        <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
+        <div className="bg-success/10 border-l-4 border-success text-success p-4">
           <p>{successMessage}</p>
         </div>
       )}
       {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+        <div className="bg-destructive/10 border-l-4 border-destructive text-destructive p-4">
           <p>{error}</p>
         </div>
       )}
 
       {/* Claims List */}
-      <div className="bg-white rounded-lg border border-slate-200">
-        <div className="p-6 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">Claims</h2>
+      <div className="bg-card rounded-lg border border-border">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">Claims</h2>
         </div>
         {loading ? (
           <div className="p-6 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="text-slate-500 mt-2">Loading claims...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground mt-2">Loading claims...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50">
+              <thead className="bg-muted/30">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Claim ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Claim Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Approved Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Claim ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Employee</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Claim Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Approved Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
+              <tbody className="bg-card divide-y divide-border">
                 {claims.map((claim) => {
                   const normalizedType = normalizeClaimType(claim.claimType);
                   return (
-                    <tr key={claim._id} className="hover:bg-slate-50">
+                    <tr key={claim._id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-slate-900">{claim.claimId}</span>
+                        <span className="text-sm font-medium text-foreground">{claim.claimId}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-slate-900">
+                        <div className="text-sm font-medium text-foreground">
                           {typeof claim.employeeId === 'object' && claim.employeeId
-                            ? `${(claim.employeeId as any).firstName || ''} ${(claim.employeeId as any).lastName || ''}`.trim() || (claim.employeeId as any).employeeId || 'N/A'
+                            ? `${(claim.employeeId as any).firstName || ''} ${(claim.employeeId as any).lastName || ''}`.trim() || (claim.employeeId as any).employeeNumber || 'N/A'
                             : claim.employeeId || 'N/A'}
                         </div>
                       </td>
@@ -296,10 +296,10 @@ export default function ClaimsPage() {
                           {normalizedType}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                         ${claim.amount.toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                         {claim.approvedAmount ? `$${claim.approvedAmount.toLocaleString()}` : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -311,7 +311,7 @@ export default function ClaimsPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => setSelectedClaim(claim)}
-                            className="text-blue-600 hover:text-blue-800"
+                            className="text-primary hover:text-primary/80"
                           >
                             View
                           </button>
@@ -319,13 +319,13 @@ export default function ClaimsPage() {
                             <>
                               <button
                                 onClick={() => openReviewModal(claim, 'approve')}
-                                className="text-green-600 hover:text-green-800"
+                                className="text-success hover:text-success/80"
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => openReviewModal(claim, 'reject')}
-                                className="text-red-600 hover:text-red-800"
+                                className="text-destructive hover:text-destructive/80"
                               >
                                 Reject
                               </button>
@@ -339,7 +339,7 @@ export default function ClaimsPage() {
               </tbody>
             </table>
             {claims.length === 0 && (
-              <div className="p-6 text-center text-slate-500">
+              <div className="p-6 text-center text-muted-foreground">
                 No claims found
               </div>
             )}
@@ -349,13 +349,13 @@ export default function ClaimsPage() {
 
       {/* Claim Details Modal */}
       {selectedClaim && !showReviewModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">Expense Claim Details</h3>
+              <h3 className="text-lg font-semibold text-foreground">Expense Claim Details</h3>
               <button
                 onClick={() => setSelectedClaim(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 ×
               </button>
@@ -363,48 +363,48 @@ export default function ClaimsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Employee ID</label>
-                  <p className="text-slate-900">
+                  <label className="text-sm font-medium text-muted-foreground">Employee ID</label>
+                  <p className="text-foreground">
                     {typeof selectedClaim.employeeId === 'object' && selectedClaim.employeeId
                       ? `${(selectedClaim.employeeId as any).firstName || ''} ${(selectedClaim.employeeId as any).lastName || ''}`.trim() || (selectedClaim.employeeId as any).employeeId || 'N/A'
                       : selectedClaim.employeeId || 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Claim Type</label>
+                  <label className="text-sm font-medium text-muted-foreground">Claim Type</label>
                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getClaimTypeColor(normalizeClaimType(selectedClaim.claimType))}`}>
                     {normalizeClaimType(selectedClaim.claimType)}
                   </span>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Amount</label>
-                  <p className="text-lg font-semibold text-slate-900">${selectedClaim.amount.toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Amount</label>
+                  <p className="text-lg font-semibold text-foreground">${selectedClaim.amount.toLocaleString()}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Status</label>
+                  <label className="text-sm font-medium text-muted-foreground">Status</label>
                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedClaim.status)}`}>
                     {selectedClaim.status}
                   </span>
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-500">Description</label>
-                <p className="text-slate-900 mt-1">{selectedClaim.description}</p>
+                <label className="text-sm font-medium text-muted-foreground">Description</label>
+                <p className="text-foreground mt-1">{selectedClaim.description}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-500">Submitted</label>
-                <p className="text-slate-900">{new Date(selectedClaim.createdAt).toLocaleString()}</p>
+                <label className="text-sm font-medium text-muted-foreground">Submitted</label>
+                <p className="text-foreground">{new Date(selectedClaim.createdAt).toLocaleString()}</p>
               </div>
               {selectedClaim.resolutionComment && (
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Resolution Comment</label>
-                  <p className="text-slate-900 mt-1">{selectedClaim.resolutionComment}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Resolution Comment</label>
+                  <p className="text-foreground mt-1">{selectedClaim.resolutionComment}</p>
                 </div>
               )}
               {selectedClaim.rejectionReason && (
                 <div>
-                  <label className="text-sm font-medium text-slate-500">Rejection Reason</label>
-                  <p className="text-slate-900 mt-1">{selectedClaim.rejectionReason}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Rejection Reason</label>
+                  <p className="text-foreground mt-1">{selectedClaim.rejectionReason}</p>
                 </div>
               )}
             </div>
@@ -412,13 +412,13 @@ export default function ClaimsPage() {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => openReviewModal(selectedClaim, 'reject')}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90"
                 >
                   Reject
                 </button>
                 <button
                   onClick={() => openReviewModal(selectedClaim, 'approve')}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  className="px-4 py-2 bg-success text-success-foreground rounded-lg hover:bg-success/90"
                 >
                   Approve
                 </button>
@@ -430,23 +430,23 @@ export default function ClaimsPage() {
 
       {/* Review Modal */}
       {showReviewModal && selectedClaim && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               {reviewAction === 'approve' ? 'Approve Claim' : 'Reject Claim'}
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-500">Claim</label>
-                <p className="text-slate-900">{selectedClaim.description}</p>
-                <p className="text-sm text-slate-600">{selectedClaim.claimId} • ${selectedClaim.amount.toLocaleString()}</p>
+                <label className="text-sm font-medium text-muted-foreground">Claim</label>
+                <p className="text-foreground">{selectedClaim.description}</p>
+                <p className="text-sm text-muted-foreground">{selectedClaim.claimId} • ${selectedClaim.amount.toLocaleString()}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   {reviewAction === 'approve' ? 'Review Notes' : 'Rejection Remarks'}
                 </label>
                 <textarea
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground bg-background"
                   rows={3}
                   placeholder={reviewAction === 'approve' ? "Add your review notes..." : "Provide rejection remarks..."}
                   value={reviewAction === 'approve' ? reviewNotes : rejectionRemarks}
@@ -457,13 +457,13 @@ export default function ClaimsPage() {
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setShowReviewModal(false)}
-                className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                className="px-4 py-2 text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReviewClaim}
-                className={`px-4 py-2 text-white rounded-lg hover:opacity-90 ${reviewAction === 'approve' ? 'bg-green-600' : 'bg-red-600'
+                className={`px-4 py-2 text-white rounded-lg hover:opacity-90 ${reviewAction === 'approve' ? 'bg-success' : 'bg-destructive'
                   }`}
               >
                 {reviewAction === 'approve' ? 'Approve' : 'Reject'}

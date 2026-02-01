@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Button } from '@/app/components/ui/button';
-import { Card } from '@/app/components/ui/card';
-import { Input } from '@/app/components/ui/input';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
-import { ApplicationStage, ApplicationStatus } from '@/app/types/enums';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ApplicationStage, ApplicationStatus } from '@/types/enums';
 import { getApplications, getReferrals, updateApplicationStage } from '@/app/services/recruitment';
 
 // =====================================================
@@ -37,46 +37,46 @@ interface ApplicationCandidate {
 const stageConfig = {
   [ApplicationStage.SCREENING]: {
     label: 'Screening',
-    color: 'bg-blue-50 border-blue-200 text-blue-700',
-    headerColor: 'bg-blue-500',
+    color: 'bg-info/10 border-info/30 text-info',
+    headerColor: 'bg-info',
   },
   [ApplicationStage.DEPARTMENT_INTERVIEW]: {
     label: 'Dept Interview',
-    color: 'bg-purple-50 border-purple-200 text-purple-700',
-    headerColor: 'bg-purple-500',
+    color: 'bg-primary/10 border-primary/30 text-primary',
+    headerColor: 'bg-primary',
   },
   [ApplicationStage.HR_INTERVIEW]: {
     label: 'HR Interview',
-    color: 'bg-amber-50 border-amber-200 text-amber-700',
-    headerColor: 'bg-amber-500',
+    color: 'bg-warning/10 border-warning/30 text-warning',
+    headerColor: 'bg-warning',
   },
   [ApplicationStage.OFFER]: {
     label: 'Offer',
-    color: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-    headerColor: 'bg-emerald-500',
+    color: 'bg-success/10 border-success/30 text-success',
+    headerColor: 'bg-success',
   },
 };
 
 const statusConfig = {
   [ApplicationStatus.SUBMITTED]: {
     label: 'Submitted',
-    color: 'bg-slate-100 text-slate-700 border-slate-200',
+    color: 'bg-muted text-muted-foreground border-border',
   },
   [ApplicationStatus.IN_PROCESS]: {
     label: 'In Process',
-    color: 'bg-blue-50 text-blue-700 border-blue-200',
+    color: 'bg-info/10 text-info border-info/30',
   },
   [ApplicationStatus.OFFER]: {
     label: 'Offer',
-    color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    color: 'bg-success/10 text-success border-success/30',
   },
   [ApplicationStatus.HIRED]: {
     label: 'Hired',
-    color: 'bg-green-50 text-green-700 border-green-200',
+    color: 'bg-success/20 text-success border-success/40',
   },
   [ApplicationStatus.REJECTED]: {
     label: 'Rejected',
-    color: 'bg-red-50 text-red-700 border-red-200',
+    color: 'bg-destructive/10 text-destructive border-destructive/30',
   },
 };
 
@@ -89,7 +89,7 @@ function StatusBadge({ status }: { status: ApplicationStatus }) {
 
   if (!config) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
         {status || 'Unknown'}
       </span>
     );
@@ -107,7 +107,7 @@ function StageBadge({ stage }: { stage: ApplicationStage }) {
 
   if (!config) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
         {stage || 'Unknown'}
       </span>
     );
@@ -122,7 +122,7 @@ function StageBadge({ stage }: { stage: ApplicationStage }) {
 
 function ReferralBadge({ referredBy }: { referredBy?: string }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-accent text-accent-foreground border border-border">
       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
         <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
       </svg>
@@ -142,28 +142,28 @@ function ApplicationCard({
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-card rounded-lg border border-border p-4 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div>
           <Link
             href={`/dashboard/hr-employee/recruitment/applications/${application.id}`}
-            className="font-medium text-slate-900 hover:text-indigo-600 transition-colors"
+            className="font-medium text-foreground hover:text-primary transition-colors"
           >
             {application.candidateName}
           </Link>
-          <p className="text-xs text-slate-500">{application.applicationId}</p>
+          <p className="text-xs text-muted-foreground">{application.applicationId}</p>
         </div>
         {application.isReferral && <ReferralBadge referredBy={application.referredBy} />}
       </div>
 
-      <p className="text-sm text-slate-600 mb-2">{application.jobTitle}</p>
-      <p className="text-xs text-slate-500 mb-3">{application.departmentName}</p>
+      <p className="text-sm text-muted-foreground mb-2">{application.jobTitle}</p>
+      <p className="text-xs text-muted-foreground mb-3">{application.departmentName}</p>
 
       <div className="flex items-center justify-between mb-3">
         <StatusBadge status={application.status} />
         {application.score !== undefined && (
-          <span className="text-sm font-medium text-slate-700">
-            Score: <span className={application.score >= 70 ? 'text-emerald-600' : 'text-amber-600'}>{application.score}</span>
+          <span className="text-sm font-medium text-foreground">
+            Score: <span className={application.score >= 70 ? 'text-success' : 'text-warning'}>{application.score}</span>
           </span>
         )}
       </div>
@@ -172,7 +172,7 @@ function ApplicationCard({
       <div className="relative">
         <button
           onClick={() => setShowDropdown(!showDropdown)}
-          className="w-full flex items-center justify-between px-3 py-2 text-sm bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+          className="w-full flex items-center justify-between px-3 py-2 text-sm bg-muted rounded-lg hover:bg-muted/80 transition-colors text-foreground"
         >
           <span>Move to Stage</span>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,7 +180,7 @@ function ApplicationCard({
           </svg>
         </button>
         {showDropdown && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-10">
             {Object.entries(stageConfig).map(([stage, config]) => (
               <button
                 key={stage}
@@ -189,7 +189,7 @@ function ApplicationCard({
                   setShowDropdown(false);
                 }}
                 disabled={application.currentStage === stage}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 first:rounded-t-lg last:rounded-b-lg ${application.currentStage === stage ? 'bg-slate-100 text-slate-400' : 'text-slate-700'
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-muted first:rounded-t-lg last:rounded-b-lg ${application.currentStage === stage ? 'bg-muted text-muted-foreground' : 'text-foreground'
                   }`}
               >
                 {config.label}
@@ -199,11 +199,11 @@ function ApplicationCard({
         )}
       </div>
 
-      <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
         <span>Applied: {new Date(application.appliedDate).toLocaleDateString()}</span>
         <Link
           href={`/dashboard/hr-employee/recruitment/applications/${application.id}`}
-          className="text-indigo-600 hover:text-indigo-800 font-medium"
+          className="text-primary hover:text-primary/80 font-medium"
         >
           View →
         </Link>
@@ -225,18 +225,18 @@ function KanbanColumn({
   const config = stageConfig[stage];
 
   return (
-    <div className="flex-1 min-w-[300px] bg-slate-50 rounded-xl">
-      <div className={`${config.headerColor} text-white px-4 py-3 rounded-t-xl`}>
+    <div className="flex-1 min-w-[300px] bg-muted/50 rounded-xl">
+      <div className={`${config.headerColor} text-primary-foreground px-4 py-3 rounded-t-xl`}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">{config.label}</h3>
-          <span className="bg-white/20 px-2 py-0.5 rounded-full text-sm">
+          <span className="bg-background/20 px-2 py-0.5 rounded-full text-sm">
             {applications.length}
           </span>
         </div>
       </div>
       <div className="p-3 space-y-3 max-h-[600px] overflow-y-auto">
         {applications.length === 0 ? (
-          <div className="text-center py-8 text-slate-400 text-sm">
+          <div className="text-center py-8 text-muted-foreground text-sm">
             No applications in this stage
           </div>
         ) : (
@@ -265,49 +265,49 @@ function ApplicationsList({
     <Card className="p-0">
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 border-b border-slate-200">
+          <thead className="bg-muted border-b border-border">
             <tr>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Candidate
               </th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Position
               </th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Stage
               </th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Status
               </th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Score
               </th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Applied
               </th>
-              <th className="text-right px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody className="divide-y divide-border">
             {applications.map((app) => (
-              <tr key={app.id} className="hover:bg-slate-50 transition-colors">
+              <tr key={app.id} className="hover:bg-muted/50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                      <span className="text-indigo-600 font-semibold">
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <span className="text-primary font-semibold">
                         {app.candidateName.charAt(0)}
                       </span>
                     </div>
                     <div>
                       <Link
                         href={`/dashboard/hr-employee/recruitment/applications/${app.id}`}
-                        className="font-medium text-slate-900 hover:text-indigo-600"
+                        className="font-medium text-foreground hover:text-primary"
                       >
                         {app.candidateName}
                       </Link>
-                      <p className="text-sm text-slate-500">{app.candidateEmail}</p>
+                      <p className="text-sm text-muted-foreground">{app.candidateEmail}</p>
                       {app.isReferral && (
                         <ReferralBadge referredBy={app.referredBy} />
                       )}
@@ -315,14 +315,14 @@ function ApplicationsList({
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <p className="text-slate-900">{app.jobTitle}</p>
-                  <p className="text-sm text-slate-500">{app.departmentName}</p>
+                  <p className="text-foreground">{app.jobTitle}</p>
+                  <p className="text-sm text-muted-foreground">{app.departmentName}</p>
                 </td>
                 <td className="px-6 py-4">
                   <select
                     value={app.currentStage}
                     onChange={(e) => onStageChange(app.id, e.target.value as ApplicationStage)}
-                    className="text-sm border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="text-sm border border-border rounded-lg px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     {Object.entries(stageConfig).map(([stage, config]) => (
                       <option key={stage} value={stage}>
@@ -336,14 +336,14 @@ function ApplicationsList({
                 </td>
                 <td className="px-6 py-4">
                   {app.score !== undefined ? (
-                    <span className={`font-medium ${app.score >= 70 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    <span className={`font-medium ${app.score >= 70 ? 'text-success' : 'text-warning'}`}>
                       {app.score}%
                     </span>
                   ) : (
-                    <span className="text-slate-400">-</span>
+                    <span className="text-muted-foreground">-</span>
                   )}
                 </td>
-                <td className="px-6 py-4 text-slate-600">
+                <td className="px-6 py-4 text-muted-foreground">
                   {new Date(app.appliedDate).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 text-right">
@@ -494,15 +494,15 @@ export default function HREmployeeApplicationsPipelinePage() {
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Applications Pipeline</h1>
-          <p className="text-slate-600 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Applications Pipeline</h1>
+          <p className="text-muted-foreground mt-1">
             Track and manage candidate applications through hiring stages
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setViewMode('kanban')}
-            className={`p-2 rounded-lg transition-colors ${viewMode === 'kanban' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            className={`p-2 rounded-lg transition-colors ${viewMode === 'kanban' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             title="Kanban View"
           >
@@ -512,7 +512,7 @@ export default function HREmployeeApplicationsPipelinePage() {
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             title="List View"
           >
@@ -525,12 +525,12 @@ export default function HREmployeeApplicationsPipelinePage() {
 
       {/* Error Alert */}
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-          <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+        <div className="mb-6 bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex items-center gap-3">
+          <svg className="w-5 h-5 text-destructive" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
-          <span className="text-red-800 font-medium">{error}</span>
-          <button onClick={() => setError(null)} className="ml-auto text-red-600 hover:text-red-800">
+          <span className="text-destructive font-medium">{error}</span>
+          <button onClick={() => setError(null)} className="ml-auto text-destructive hover:text-destructive/80">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
@@ -540,29 +540,28 @@ export default function HREmployeeApplicationsPipelinePage() {
 
       {/* Success Alert */}
       {stageChangeSuccess && (
-        <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3">
-          <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+        <div className="mb-6 bg-success/10 border border-success/30 rounded-lg p-4 flex items-center gap-3">
+          <svg className="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
-          <span className="text-emerald-800 font-medium">Application stage updated successfully!</span>
+          <span className="text-success font-medium">Application stage updated successfully!</span>
         </div>
       )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">Total Applications</p>
-          <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">In Process</p>
-          <p className="text-2xl font-bold text-blue-600">{stats.inProcess}</p>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <p className="text-sm text-slate-600">At Offer Stage</p>
-          <p className="text-2xl font-bold text-emerald-600">{stats.atOffer}</p>
-        </div>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Total Applications</p>
+          <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">In Process</p>
+          <p className="text-2xl font-bold text-info">{stats.inProcess}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">At Offer Stage</p>
+          <p className="text-2xl font-bold text-success">{stats.atOffer}</p>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -579,7 +578,7 @@ export default function HREmployeeApplicationsPipelinePage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="px-4 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="all">All Statuses</option>
               {Object.entries(statusConfig).map(([status, config]) => (
@@ -591,8 +590,8 @@ export default function HREmployeeApplicationsPipelinePage() {
             <button
               onClick={() => setReferralFilter(referralFilter === true ? null : true)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${referralFilter === true
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 }`}
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -629,11 +628,11 @@ export default function HREmployeeApplicationsPipelinePage() {
       {/* Empty State */}
       {filteredApplications.length === 0 && (
         <Card className="text-center py-12">
-          <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-16 h-16 mx-auto text-muted-foreground mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <h3 className="text-lg font-medium text-slate-900 mb-2">No applications found</h3>
-          <p className="text-slate-600">Try adjusting your search or filter criteria.</p>
+          <h3 className="text-lg font-medium text-foreground mb-2">No applications found</h3>
+          <p className="text-muted-foreground">Try adjusting your search or filter criteria.</p>
         </Card>
       )}
     </div>

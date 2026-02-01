@@ -96,6 +96,11 @@ export default function FinalSettlementPage() {
       </div>
     );
   }
+  const getEmployeeDisplayName = (emp: any) => {
+    if (!emp) return 'Unknown Employee';
+    if (typeof emp === 'string') return emp; // Show full ID if it's all we have, or maybe N/A
+    return `${emp.fullName || `${emp.firstName} ${emp.lastName}`.trim() || emp.employeeNumber || 'Unknown Employee'}${emp.employeeNumber ? ` (${emp.employeeNumber})` : ''}`;
+  };
 
   return (
     <div className="p-6 lg:p-8 bg-background min-h-screen">
@@ -154,16 +159,13 @@ export default function FinalSettlementPage() {
                     <button
                       key={termination._id}
                       onClick={() => handleSelectTermination(termination)}
-                      className={`w-full text-left p-4 hover:bg-accent/50 transition-colors ${
-                        selectedTermination?._id === termination._id 
-                          ? 'bg-primary/5 border-l-2 border-l-primary' 
-                          : ''
-                      }`}
+                      className={`w-full text-left p-4 hover:bg-accent/50 transition-colors ${selectedTermination?._id === termination._id
+                        ? 'bg-primary/5 border-l-2 border-l-primary'
+                        : ''
+                        }`}
                     >
                       <p className="font-medium text-foreground text-sm">
-                        {typeof termination.employeeId === 'object'
-                          ? (termination.employeeId as any).firstName + ' ' + (termination.employeeId as any).lastName
-                          : `Employee ${termination.employeeId.slice(-6)}`}
+                        {getEmployeeDisplayName(termination.employeeId)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {termination.terminationDate
@@ -256,11 +258,10 @@ export default function FinalSettlementPage() {
                         </p>
                       )}
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      preview.canTrigger
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                    }`}>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${preview.canTrigger
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                      }`}>
                       {preview.canTrigger ? 'Ready' : 'Not Ready'}
                     </span>
                   </div>
@@ -270,14 +271,13 @@ export default function FinalSettlementPage() {
                 <div className="bg-card rounded-lg border border-border p-6">
                   <h4 className="font-medium text-foreground mb-4">Clearance Status</h4>
                   <div className="flex items-center gap-4">
-                    <div className={`w-3 h-3 rounded-full ${
-                      preview.clearanceStatus.isComplete ? 'bg-green-500' : 
+                    <div className={`w-3 h-3 rounded-full ${preview.clearanceStatus.isComplete ? 'bg-green-500' :
                       preview.clearanceStatus.hasChecklist ? 'bg-amber-500' : 'bg-muted'
-                    }`} />
+                      }`} />
                     <span className="text-sm text-foreground">
                       {preview.clearanceStatus.isComplete ? 'Fully Cleared' :
-                       preview.clearanceStatus.hasChecklist ? `Pending: ${preview.clearanceStatus.pendingItems?.join(', ')}` :
-                       'No checklist created'}
+                        preview.clearanceStatus.hasChecklist ? `Pending: ${preview.clearanceStatus.pendingItems?.join(', ')}` :
+                          'No checklist created'}
                     </span>
                   </div>
                 </div>
@@ -355,11 +355,10 @@ export default function FinalSettlementPage() {
                 <button
                   onClick={handleTriggerSettlement}
                   disabled={!preview.canTrigger || submitting}
-                  className={`w-full px-4 py-3 font-medium rounded-lg transition-colors ${
-                    preview.canTrigger
-                      ? 'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50'
-                      : 'bg-muted text-muted-foreground cursor-not-allowed'
-                  }`}
+                  className={`w-full px-4 py-3 font-medium rounded-lg transition-colors ${preview.canTrigger
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                    }`}
                 >
                   {submitting ? 'Processing...' : 'Process Final Settlement'}
                 </button>

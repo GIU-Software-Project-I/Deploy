@@ -8,7 +8,6 @@ import { AssessmentResult, AssessmentResultSchema } from "./models/assessment-re
 import { ClearanceChecklist, ClearanceChecklistSchema } from "./models/clearance-checklist.schema";
 import { JobTemplate, JobTemplateSchema } from './models/job-template.schema';
 import { JobRequisition, JobRequisitionSchema } from './models/job-requisition.schema';
-
 import { Referral, ReferralSchema } from './models/referral.schema';
 import { Interview, InterviewSchema } from './models/interview.schema';
 import { Offer, OfferSchema } from "./models/offer.schema";
@@ -17,7 +16,7 @@ import { Document, DocumentSchema } from "./models/document.schema";
 import { Onboarding, OnboardingSchema } from "./models/onboarding.schema";
 import { TerminationRequest, TerminationRequestSchema } from "./models/termination-request.schema";
 
-// Payroll Models for Integration
+// Payroll Models for integration
 import { employeeSigningBonus, employeeSigningBonusSchema } from "../payroll/payroll-execution/models/EmployeeSigningBonus.schema";
 import { signingBonus, signingBonusSchema } from "../payroll/payroll-configuration/models/signingBonus.schema";
 import { employeePayrollDetails, employeePayrollDetailsSchema } from "../payroll/payroll-execution/models/employeePayrollDetails.schema";
@@ -25,7 +24,7 @@ import { payrollRuns, payrollRunsSchema } from "../payroll/payroll-execution/mod
 import { EmployeeTerminationResignation, EmployeeTerminationResignationSchema } from "../payroll/payroll-execution/models/EmployeeTerminationResignation.schema";
 import { terminationAndResignationBenefits, terminationAndResignationBenefitsSchema } from "../payroll/payroll-configuration/models/terminationAndResignationBenefits";
 
-// Leaves Models for Offboarding Integration
+// Leaves Models for Offboarding integration
 import { LeaveEntitlement, LeaveEntitlementSchema } from "../leaves/models/leave-entitlement.schema";
 import { LeaveRequest, LeaveRequestSchema } from "../leaves/models/leave-request.schema";
 import { LeaveType, LeaveTypeSchema } from "../leaves/models/leave-type.schema";
@@ -36,7 +35,7 @@ import { EmployeeSystemRole, EmployeeSystemRoleSchema } from "../employee/models
 import { Candidate, CandidateSchema } from "../employee/models/employee/Candidate.Schema";
 import { payGrade, payGradeSchema } from "../payroll/payroll-configuration/models/payGrades.schema";
 
-// Payroll Module for Service Integration
+// Payroll Module for Service integration
 import { PayrollExecutionModule } from "../payroll/payroll-execution/payroll-execution.module";
 import { PayrollConfigurationModule } from "../payroll/payroll-configuration/payroll-configuration.module";
 
@@ -51,8 +50,8 @@ import { OffboardingService } from "./services/offboarding.service";
 import { OnboardingService } from "./services/onboarding.service";
 
 // Shared Module
-import { SharedModule } from "../shared/shared.module";
-import { AuthModule } from "../auth/auth-module";
+import { IntegrationModule } from "../integration/Integration.module";
+import { AuthModule } from "../auth/auth.module";
 
 
 @Module({
@@ -64,7 +63,6 @@ import { AuthModule } from "../auth/auth-module";
             // Recruitment Models
             { name: JobTemplate.name, schema: JobTemplateSchema },
             { name: JobRequisition.name, schema: JobRequisitionSchema },
-            
             { name: Application.name, schema: ApplicationSchema },
             { name: ApplicationStatusHistory.name, schema: ApplicationStatusHistorySchema },
             { name: Referral.name, schema: ReferralSchema },
@@ -76,7 +74,7 @@ import { AuthModule } from "../auth/auth-module";
             { name: ClearanceChecklist.name, schema: ClearanceChecklistSchema },
             { name: Onboarding.name, schema: OnboardingSchema },
             { name: TerminationRequest.name, schema: TerminationRequestSchema },
-            // Payroll Models for Integration
+            // Payroll Models for integration
             { name: employeeSigningBonus.name, schema: employeeSigningBonusSchema },
             { name: signingBonus.name, schema: signingBonusSchema },
             { name: employeePayrollDetails.name, schema: employeePayrollDetailsSchema },
@@ -84,7 +82,7 @@ import { AuthModule } from "../auth/auth-module";
             { name: EmployeeTerminationResignation.name, schema: EmployeeTerminationResignationSchema },
             { name: terminationAndResignationBenefits.name, schema: terminationAndResignationBenefitsSchema },
             { name: payGrade.name, schema: payGradeSchema },
-            // Leaves Models for Offboarding Integration
+            // Leaves Models for Offboarding integration
             { name: LeaveEntitlement.name, schema: LeaveEntitlementSchema },
             { name: LeaveRequest.name, schema: LeaveRequestSchema },
             { name: LeaveType.name, schema: LeaveTypeSchema },
@@ -93,7 +91,7 @@ import { AuthModule } from "../auth/auth-module";
             { name: EmployeeSystemRole.name, schema: EmployeeSystemRoleSchema },
             { name: Candidate.name, schema: CandidateSchema },
         ]),
-        SharedModule,
+        IntegrationModule,
     ],
     controllers: [RecruitmentController, OnboardingController, OffboardingController],
     providers: [RecruitmentService, OnboardingService, OffboardingService],

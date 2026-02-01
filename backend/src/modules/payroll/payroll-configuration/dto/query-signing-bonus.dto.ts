@@ -1,6 +1,6 @@
 import { IsOptional, IsEnum, IsString, IsNumber, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ConfigStatus } from '../../payroll-configuration/enums/payroll-configuration-enums';
+import { ConfigStatus } from '../enums/payroll-configuration-enums';
 
 /**
  * PHASE 1 — DEFINE STRUCTURE

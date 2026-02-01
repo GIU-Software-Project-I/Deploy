@@ -33,8 +33,8 @@ export class CreateTerminationRequestDto {
     @IsOptional()
     terminationDate?: string;
 
-    @ApiProperty({ description: 'Contract ID associated with the employee', example: '507f1f77bcf86cd799439011' })
+    @ApiPropertyOptional({ description: 'Contract ID associated with the employee', example: '507f1f77bcf86cd799439011' })
     //@IsMongoId()
-    @IsNotEmpty()
-    contractId: string;
+    @IsOptional()
+    contractId?: string;
 }

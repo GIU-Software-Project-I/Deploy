@@ -5,7 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PayrollConfigurationController } from './controllers/payroll-configuration.controller';
 import { PayrollConfigurationService } from './services/payroll-configuration.service';
 import { EmployeeModule } from '../../employee/employee.module';
-import { OrganizationStructureModule } from '../../employee/organization-structure.module';
+import { OrganizationStructureModule } from '../../organization-structure/organization-structure.module';
 
 
 import { CompanyWideSettings, CompanyWideSettingsSchema } from './models/CompanyWideSettings.schema';
@@ -19,7 +19,7 @@ import { terminationAndResignationBenefits, terminationAndResignationBenefitsSch
 import { payGrade, payGradeSchema } from './models/payGrades.schema';
 import {RecruitmentModule} from "../../recruitment/recruitment.module";
 import { EmployeeProfile, EmployeeProfileSchema } from '../../employee/models/employee/employee-profile.schema';
-import { AuthModule } from '../../auth/auth-module';
+import { AuthModule } from '../../auth/auth.module';
 
 
 

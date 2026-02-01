@@ -2,8 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { payrollTrackingService } from '@/app/services/payroll-tracking';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from '@/components/ui/table';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from '@/components/ui/dialog';
+import { ArrowLeft, Download, AlertTriangle, Eye, Calendar, DollarSign, Wallet } from 'lucide-react';
 
 /**
  * Payslips Page - Department Employee
@@ -98,7 +108,7 @@ export default function PayslipsPage() {
 
   const handleViewDetails = async (payslip: Payslip) => {
     if (!user?.id) return;
-    
+
     try {
       const response = await payrollTrackingService.getPayslipDetailsMapped(payslip.id, user.id);
       // Response shape: may contain backend-shaped payslip or already-mapped Payslip
@@ -133,11 +143,11 @@ export default function PayslipsPage() {
 
   const handleDownload = async (payslipId: string) => {
     if (!user?.id) return;
-    
+
     try {
       setDownloading(payslipId);
       const response = await payrollTrackingService.downloadPayslip(payslipId, user.id);
-      
+
       // Handle file download - response now contains blob and filename
       if (response?.blob) {
         const url = window.URL.createObjectURL(response.blob);
@@ -162,15 +172,15 @@ export default function PayslipsPage() {
   const getStatusBadge = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'paid':
-        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Paid</span>;
+        return <Badge className="bg-success/15 text-success hover:bg-success/25 border-success/20">Paid</Badge>;
       case 'pending':
-        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Pending</span>;
+        return <Badge className="bg-warning/15 text-warning hover:bg-warning/25 border-warning/20">Pending</Badge>;
       case 'disputed':
-        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">Disputed</span>;
+        return <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/25 border-destructive/20">Disputed</Badge>;
       case 'processing':
-        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Processing</span>;
+        return <Badge className="bg-primary/15 text-primary hover:bg-primary/25 border-primary/20">Processing</Badge>;
       default:
-        return <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{status || 'Unknown'}</span>;
+        return <Badge variant="outline">{status || 'Unknown'}</Badge>;
     }
   };
 
@@ -199,10 +209,10 @@ export default function PayslipsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading your payslips...</p>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground font-medium animate-pulse">Loading your payslips...</p>
         </div>
       </div>
     );
@@ -210,14 +220,18 @@ export default function PayslipsPage() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p className="text-red-800 font-medium">Error loading payslips</p>
-        <p className="text-red-700 text-sm mt-2">{error}</p>
-        <Link href="/dashboard/department-employee/payroll-tracking">
-          <button className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-            Back to Payroll Tracking
-          </button>
-        </Link>
+      <div className="p-6">
+        <GlassCard className="border-destructive/20 bg-destructive/5 p-6 space-y-4">
+          <h3 className="font-semibold text-destructive flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" /> Error loading payslips
+          </h3>
+          <p className="text-destructive/80 text-sm">{error}</p>
+          <Link href="/dashboard/department-employee/payroll-tracking">
+            <Button variant="destructive" size="sm">
+              Back to Payroll Tracking
+            </Button>
+          </Link>
+        </GlassCard>
       </div>
     );
   }
@@ -225,175 +239,177 @@ export default function PayslipsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">My Payslips</h1>
-          <p className="text-slate-600 mt-2">View and download your monthly payslips</p>
+          <h1 className="text-3xl font-black tracking-tighter text-foreground">My Payslips</h1>
+          <p className="text-muted-foreground mt-1">View and download your monthly payslips</p>
         </div>
         <Link href="/dashboard/department-employee/payroll-tracking">
-          <button className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">
-            ← Back to Payroll Tracking
-          </button>
+          <Button variant="outline" className="gap-2 rounded-xl">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Payroll Tracking
+          </Button>
         </Link>
       </div>
 
       {/* Overview Card */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-6 text-white">
+      <div className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-8 text-white shadow-xl shadow-primary/20">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold">Payslip Overview</h2>
-            <p className="text-blue-100 mt-1">{payslips.length} payslips available</p>
+            <h2 className="text-2xl font-bold text-white">Payslip Overview</h2>
+            <p className="text-white/80 mt-1">{payslips.length} payslips available</p>
           </div>
-          <div className="text-5xl"></div>
+          <Wallet className="w-16 h-16 text-white/20" />
         </div>
       </div>
 
       {/* Payslips List */}
-      {payslips.length === 0 ? (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-8 text-center">
-          <div className="text-6xl mb-4"></div>
-          <h3 className="text-xl font-semibold text-slate-900 mb-2">No Payslips Available</h3>
-          <p className="text-slate-600">Your payslips will appear here once they are generated.</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+      <GlassCard className="overflow-hidden">
+        {payslips.length === 0 ? (
+          <div className="p-12 text-center flex flex-col items-center justify-center">
+            <div className="p-4 rounded-full bg-muted mb-4">
+              <Calendar className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-1">No Payslips Available</h3>
+            <p className="text-muted-foreground">Your payslips will appear here once they are generated.</p>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Period</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Pay Date</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Gross Pay</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Deductions</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Net Pay</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Status</th>
-                  <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead>Period</TableHead>
+                  <TableHead>Pay Date</TableHead>
+                  <TableHead>Gross Pay</TableHead>
+                  <TableHead>Deductions</TableHead>
+                  <TableHead>Net Pay</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {payslips.map((payslip) => (
-                  <tr key={payslip.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-slate-900">
+                  <TableRow key={payslip.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell>
+                      <div className="font-medium text-foreground">
                         {formatPeriod(payslip.periodStart, payslip.periodEnd)}
                       </div>
-                      <div className="text-sm text-slate-500">
+                      <div className="text-xs text-muted-foreground">
                         {formatDate(payslip.periodStart)} - {formatDate(payslip.periodEnd)}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-700">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {formatDate(payslip.payDate)}
-                    </td>
-                    <td className="px-6 py-4 text-slate-900 font-medium">
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">
                       {formatCurrency(payslip.grossPay, payslip.currency)}
-                    </td>
-                    <td className="px-6 py-4 text-red-600">
+                    </TableCell>
+                    <TableCell className="text-destructive font-medium">
                       -{formatCurrency(payslip.totalDeductions, payslip.currency)}
-                    </td>
-                    <td className="px-6 py-4 text-green-600 font-bold">
+                    </TableCell>
+                    <TableCell className="text-success font-bold">
                       {formatCurrency(payslip.netPay, payslip.currency)}
-                    </td>
-                    <td className="px-6 py-4">
+                    </TableCell>
+                    <TableCell>
                       {getStatusBadge(payslip.status)}
-                    </td>
-                    <td className="px-6 py-4 text-right">
+                    </TableCell>
+                    <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <button
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleViewDetails(payslip)}
-                          className="px-3 py-1 text-sm border border-blue-300 text-blue-600 rounded hover:bg-blue-50"
+                          className="h-8"
                         >
-                          View
-                        </button>
-                        <button
+                          <Eye className="w-3.5 h-3.5 mr-1" /> View
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
                           onClick={() => handleDownload(payslip.id)}
                           disabled={downloading === payslip.id}
-                          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                          className="h-8"
                         >
-                          {downloading === payslip.id ? '...' : 'PDF'}
-                        </button>
+                          {downloading === payslip.id ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                          ) : (
+                            <Download className="w-3.5 h-3.5 mr-1" />
+                          )}
+                          PDF
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      )}
+        )}
+      </GlassCard>
 
       {/* Payslip Detail Modal */}
-      {selectedPayslip && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 text-white rounded-t-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold">Payslip Details</h3>
-                  <p className="text-blue-100 text-sm mt-1">
-                    Period: {formatPeriod(selectedPayslip.periodStart, selectedPayslip.periodEnd)}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setSelectedPayslip(null)}
-                  className="text-white hover:text-blue-200 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
+      <Dialog open={!!selectedPayslip} onOpenChange={(open) => !open && setSelectedPayslip(null)}>
+        <DialogContent className="max-w-3xl overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Payslip Details</DialogTitle>
+            <DialogDescription>
+              Period: {selectedPayslip && formatPeriod(selectedPayslip.periodStart, selectedPayslip.periodEnd)}
+            </DialogDescription>
+          </DialogHeader>
 
-            {/* Modal Content */}
-            <div className="p-6 space-y-6">
+          {selectedPayslip && (
+            <div className="space-y-6 pt-4">
               {/* Summary */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-slate-50 rounded-lg p-4">
-                  <p className="text-sm text-slate-600">Base Salary</p>
-                  <p className="text-lg font-bold text-slate-900">
+                <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                  <p className="text-sm text-muted-foreground">Base Salary</p>
+                  <p className="text-lg font-bold text-foreground">
                     {formatCurrency(selectedPayslip.baseSalary, selectedPayslip.currency)}
                   </p>
                 </div>
-                <div className="bg-green-50 rounded-lg p-4">
-                  <p className="text-sm text-green-600">Gross Pay</p>
-                  <p className="text-lg font-bold text-green-700">
+                <div className="bg-success/10 rounded-lg p-4 border border-success/20">
+                  <p className="text-sm text-success">Gross Pay</p>
+                  <p className="text-lg font-bold text-success">
                     {formatCurrency(selectedPayslip.grossPay, selectedPayslip.currency)}
                   </p>
                 </div>
-                <div className="bg-red-50 rounded-lg p-4">
-                  <p className="text-sm text-red-600">Deductions</p>
-                  <p className="text-lg font-bold text-red-700">
+                <div className="bg-destructive/10 rounded-lg p-4 border border-destructive/20">
+                  <p className="text-sm text-destructive">Deductions</p>
+                  <p className="text-lg font-bold text-destructive">
                     -{formatCurrency(selectedPayslip.totalDeductions, selectedPayslip.currency)}
                   </p>
                 </div>
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <p className="text-sm text-blue-600">Net Pay</p>
-                  <p className="text-lg font-bold text-blue-700">
+                <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
+                  <p className="text-sm text-primary">Net Pay</p>
+                  <p className="text-lg font-bold text-primary">
                     {formatCurrency(selectedPayslip.netPay, selectedPayslip.currency)}
                   </p>
                 </div>
               </div>
 
               {/* Earnings Breakdown */}
-              <div className="border border-slate-200 rounded-lg p-4">
-                <h4 className="font-semibold text-slate-900 mb-4">Earnings</h4>
+              <div className="border border-border/60 rounded-xl p-4">
+                <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-success" /> Earnings
+                </h4>
                 <div className="space-y-2">
-                  <div className="flex justify-between py-2 border-b border-slate-100">
-                    <span className="text-slate-700">Base Salary</span>
-                    <span className="font-medium text-slate-900">
+                  <div className="flex justify-between py-2 border-b border-border/50">
+                    <span className="text-muted-foreground">Base Salary</span>
+                    <span className="font-medium text-foreground">
                       {formatCurrency(selectedPayslip.baseSalary, selectedPayslip.currency)}
                     </span>
                   </div>
                   {selectedPayslip.earnings?.map((earning, idx) => (
-                    <div key={idx} className="flex justify-between py-2 border-b border-slate-100">
-                      <span className="text-slate-700">{earning.type}</span>
-                      <span className="font-medium text-green-600">
+                    <div key={idx} className="flex justify-between py-2 border-b border-border/50">
+                      <span className="text-muted-foreground">{earning.type}</span>
+                      <span className="font-medium text-success">
                         +{formatCurrency(earning.amount, selectedPayslip.currency)}
                       </span>
                     </div>
                   ))}
-                  <div className="flex justify-between py-2 font-bold">
-                    <span className="text-slate-900">Total Earnings</span>
-                    <span className="text-green-600">
+                  <div className="flex justify-between py-2 font-bold pt-4">
+                    <span className="text-foreground">Total Earnings</span>
+                    <span className="text-success">
                       {formatCurrency(selectedPayslip.grossPay, selectedPayslip.currency)}
                     </span>
                   </div>
@@ -401,20 +417,22 @@ export default function PayslipsPage() {
               </div>
 
               {/* Deductions Breakdown */}
-              <div className="border border-slate-200 rounded-lg p-4">
-                <h4 className="font-semibold text-slate-900 mb-4">Deductions</h4>
+              <div className="border border-border/60 rounded-xl p-4">
+                <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-destructive" /> Deductions
+                </h4>
                 <div className="space-y-2">
                   {selectedPayslip.deductions?.map((deduction, idx) => (
-                    <div key={idx} className="flex justify-between py-2 border-b border-slate-100">
-                      <span className="text-slate-700">{deduction.type}</span>
-                      <span className="font-medium text-red-600">
+                    <div key={idx} className="flex justify-between py-2 border-b border-border/50">
+                      <span className="text-muted-foreground">{deduction.type}</span>
+                      <span className="font-medium text-destructive">
                         -{formatCurrency(deduction.amount, selectedPayslip.currency)}
                       </span>
                     </div>
                   ))}
-                  <div className="flex justify-between py-2 font-bold">
-                    <span className="text-slate-900">Total Deductions</span>
-                    <span className="text-red-600">
+                  <div className="flex justify-between py-2 font-bold pt-4">
+                    <span className="text-foreground">Total Deductions</span>
+                    <span className="text-destructive">
                       -{formatCurrency(selectedPayslip.totalDeductions, selectedPayslip.currency)}
                     </span>
                   </div>
@@ -422,40 +440,40 @@ export default function PayslipsPage() {
               </div>
 
               {/* Net Pay */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-blue-900">Net Pay</span>
-                  <span className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(selectedPayslip.netPay, selectedPayslip.currency)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Status and Actions */}
-              <div className="flex items-center justify-between pt-4 border-t border-slate-200">
-                <div className="flex items-center gap-3">
-                  <span className="text-slate-600">Status:</span>
-                  {getStatusBadge(selectedPayslip.status)}
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleDownload(selectedPayslip.id)}
-                    disabled={downloading === selectedPayslip.id}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {downloading === selectedPayslip.id ? 'Downloading...' : 'Download PDF'}
-                  </button>
-                  <Link href="/dashboard/department-employee/payroll-tracking/claims-disputes">
-                    <button className="px-4 py-2 border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50">
-                      Dispute
-                    </button>
-                  </Link>
-                </div>
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 flex justify-between items-center">
+                <span className="text-lg font-bold text-foreground">Net Pay</span>
+                <span className="text-2xl font-bold text-primary">
+                  {formatCurrency(selectedPayslip.netPay, selectedPayslip.currency)}
+                </span>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+
+          <DialogFooter className="border-t border-border pt-4 mt-4">
+            <div className="flex w-full items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">Status:</span>
+                {selectedPayslip && getStatusBadge(selectedPayslip.status)}
+              </div>
+              <div className="flex gap-3">
+                <Link href="/dashboard/department-employee/payroll-tracking/claims-disputes">
+                  <Button variant="outline" className="border-warning/50 text-warning hover:bg-warning/10 hover:text-warning hover:border-warning">
+                    Dispute
+                  </Button>
+                </Link>
+                {selectedPayslip && (
+                  <Button
+                    onClick={() => handleDownload(selectedPayslip.id)}
+                    disabled={downloading === selectedPayslip.id}
+                  >
+                    {downloading === selectedPayslip.id ? 'Downloading...' : 'Download PDF'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

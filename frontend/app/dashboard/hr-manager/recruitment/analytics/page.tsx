@@ -18,16 +18,17 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { Card } from '@/app/components/ui/card';
-import { Button } from '@/app/components/ui/button';
-import { 
-  getRecruitmentDashboard, 
-  getJobs, 
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  getRecruitmentDashboard,
+  getJobs,
   getJobTemplates,
   getApplications,
   getInterviews,
 } from '@/app/services/recruitment';
-import { JobTemplate, JobRequisition, Application, Interview } from '@/app/types/recruitment';
+import { analyticsService, OrgPulseResponse } from '@/app/services/analytics';
+import { JobTemplate, JobRequisition, Application, Interview } from '@/types/recruitment';
 
 // ==================== INTERFACES ====================
 interface DashboardData {
@@ -125,6 +126,8 @@ export default function RecruitmentAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [orgPulse, setOrgPulse] = useState<OrgPulseResponse | null>(null);
+  const [loadingPulse, setLoadingPulse] = useState(false);
 
   // Cache for raw data
   const [rawData, setRawData] = useState<{
@@ -176,10 +179,21 @@ export default function RecruitmentAnalyticsPage() {
 
       // Extract unique departments from templates
       const uniqueDepts = new Set<string>();
-      templates.forEach(t => {
+      templates.forEach((t: JobTemplate) => {
         if (t.department) uniqueDepts.add(t.department);
       });
       setDepartments(['all', ...Array.from(uniqueDepts).sort()]);
+
+      // Also fetch Org Pulse
+      try {
+        setLoadingPulse(true);
+        const pulse = await analyticsService.getOrgPulse();
+        setOrgPulse(pulse);
+      } catch (pulseErr) {
+        console.error('Failed to load org pulse:', pulseErr);
+      } finally {
+        setLoadingPulse(false);
+      }
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
@@ -315,7 +329,7 @@ export default function RecruitmentAnalyticsPage() {
     const metrics: JobMetric[] = filteredJobs.map(job => {
       const template = job.templateId ? templateMap.get(job.templateId) : undefined;
       const jobApps = applications.filter(a => a.requisitionId === job.id);
-      const jobInterviews = interviews.filter(i => 
+      const jobInterviews = interviews.filter(i =>
         jobApps.some(a => a.id === i.applicationId)
       );
       const jobHired = jobApps.filter(a => a.status === 'hired');
@@ -352,10 +366,10 @@ export default function RecruitmentAnalyticsPage() {
     hiredApps.forEach(app => {
       const hiredDate = new Date(app.updatedAt);
       const monthKey = `${hiredDate.getFullYear()}-${String(hiredDate.getMonth() + 1).padStart(2, '0')}`;
-      
+
       const created = new Date(app.createdAt);
       const days = Math.ceil((hiredDate.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       if (!monthlyHire[monthKey]) {
         monthlyHire[monthKey] = { total: 0, count: 0 };
       }
@@ -370,7 +384,7 @@ export default function RecruitmentAnalyticsPage() {
       d.setMonth(d.getMonth() - i);
       const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const monthData = monthlyHire[monthKey];
-      
+
       tthData.push({
         month: getMonthName(d),
         days: monthData ? Math.round(monthData.total / monthData.count) : 0,
@@ -382,7 +396,7 @@ export default function RecruitmentAnalyticsPage() {
 
   }, [rawData, dateFilter, departmentFilter]);
 
-  const filteredJobMetrics = useMemo(() => 
+  const filteredJobMetrics = useMemo(() =>
     jobMetrics.filter(
       (job) => departmentFilter === 'all' || job.department === departmentFilter
     ),
@@ -400,7 +414,7 @@ export default function RecruitmentAnalyticsPage() {
 
     // Prepare CSV content
     const csvRows: string[] = [];
-    
+
     // Header
     csvRows.push('Recruitment Analytics Report');
     csvRows.push(`Generated: ${new Date().toLocaleString()}`);
@@ -447,7 +461,7 @@ export default function RecruitmentAnalyticsPage() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    
+
     link.setAttribute('href', url);
     link.setAttribute('download', `recruitment_analytics_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
@@ -664,10 +678,9 @@ export default function RecruitmentAnalyticsPage() {
                     {item.days > 0 ? `${item.days}d` : '-'}
                   </span>
                   <div
-                    className={`w-full rounded-t-md transition-all ${
-                      item.days > 0 ? 'bg-blue-500 hover:bg-blue-600' : 'bg-slate-200'
-                    }`}
-                    style={{ 
+                    className={`w-full rounded-t-md transition-all ${item.days > 0 ? 'bg-blue-500 hover:bg-blue-600' : 'bg-slate-200'
+                      }`}
+                    style={{
                       height: item.days > 0 ? `${(item.days / maxTimeToHire) * 100}%` : '4px',
                       minHeight: '4px'
                     }}
@@ -682,7 +695,7 @@ export default function RecruitmentAnalyticsPage() {
             <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-100">
               <div className="text-center">
                 <p className="text-lg font-bold text-emerald-600">
-                  {timeToHire.filter(t => t.days > 0).length > 0 
+                  {timeToHire.filter(t => t.days > 0).length > 0
                     ? Math.min(...timeToHire.filter(t => t.days > 0).map(t => t.days))
                     : 0}d
                 </p>
@@ -694,7 +707,7 @@ export default function RecruitmentAnalyticsPage() {
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-amber-600">
-                  {timeToHire.filter(t => t.days > 0).length > 0 
+                  {timeToHire.filter(t => t.days > 0).length > 0
                     ? Math.max(...timeToHire.filter(t => t.days > 0).map(t => t.days))
                     : 0}d
                 </p>
@@ -773,11 +786,10 @@ export default function RecruitmentAnalyticsPage() {
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        job.status === 'open'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${job.status === 'open'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-slate-100 text-slate-600'
+                        }`}
                     >
                       {job.status}
                     </span>
@@ -817,6 +829,74 @@ export default function RecruitmentAnalyticsPage() {
           <p className="text-xs text-slate-500 uppercase tracking-wide">Jobs in Pipeline</p>
           <p className="text-2xl font-bold text-slate-900 mt-1">{filteredJobMetrics.length}</p>
         </Card>
+      </div>
+
+      {/* Workforce Health Pulse (Data Science Addition) */}
+      <div className="pt-8 border-t border-slate-200">
+        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+          <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Workforce Health Analytics
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="p-6">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">Current Workforce Pulse</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-500">Total Headcount</span>
+                <span className="font-bold text-lg">{orgPulse?.headcount || '-'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-500">Avg. Performance</span>
+                <span className="font-bold text-lg text-emerald-600">{orgPulse?.avgPerformanceScore?.toFixed(1) || '-'} / 5.0</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-500">Active Appraisals</span>
+                <span className="font-bold text-lg text-blue-600">{orgPulse?.activeAppraisals || 0}</span>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">Gender Diversity</h3>
+            <div className="space-y-3">
+              {orgPulse?.genderDiversity?.map((item) => (
+                <div key={item._id} className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="capitalize">{item._id} ({item.count})</span>
+                    <span>{orgPulse.headcount > 0 ? Math.round((item.count / orgPulse.headcount) * 100) : 0}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${item._id === 'male' ? 'bg-blue-500' : item._id === 'female' ? 'bg-pink-500' : 'bg-slate-400'}`}
+                      style={{ width: `${orgPulse.headcount > 0 ? (item.count / orgPulse.headcount) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+              {!orgPulse?.genderDiversity?.length && <p className="text-xs text-slate-400 italic">No diversity data available</p>}
+            </div>
+          </Card>
+
+          <Card className="p-6 bg-gradient-to-br from-blue-600 to-indigo-700 text-white border-none">
+            <h3 className="text-sm font-semibold mb-4 opacity-90">AI Insight</h3>
+            <div className="space-y-3">
+              <p className="text-xs opacity-90 leading-relaxed">
+                Workforce performance is holding steady at <span className="font-bold">{orgPulse?.avgPerformanceScore?.toFixed(1) || '0.0'}</span>.
+                {orgPulse?.activeAppraisals && orgPulse.activeAppraisals > 0
+                  ? ` There are currently ${orgPulse.activeAppraisals} performance reviews in progress.`
+                  : " All periodic appraisals are currently up to date."
+                }
+              </p>
+              <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-white/20 rounded text-[10px] font-medium">
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                Real-time workforce monitoring active
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );

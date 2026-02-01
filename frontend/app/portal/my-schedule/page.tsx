@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { timeManagementService, ShiftAssignment, ShiftAssignmentStatus, Shift } from '@/app/services/time-management';
 import { leavesService } from '@/app/services/leaves';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 
 interface LeaveEntitlement {
@@ -92,15 +92,15 @@ export default function MySchedulePage() {
   const getStatusColor = (status: ShiftAssignmentStatus) => {
     switch (status) {
       case ShiftAssignmentStatus.APPROVED:
-        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
+        return 'bg-success/10 text-success border-success/20';
       case ShiftAssignmentStatus.PENDING:
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300';
+        return 'bg-warning/10 text-warning border-warning/20';
       case ShiftAssignmentStatus.CANCELLED:
-        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300';
+        return 'bg-destructive/10 text-destructive border-destructive/20';
       case ShiftAssignmentStatus.EXPIRED:
         return 'bg-muted text-muted-foreground';
       default:
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
+        return 'bg-primary/10 text-primary border-primary/20';
     }
   };
 
@@ -155,21 +155,19 @@ export default function MySchedulePage() {
           <div className="flex gap-8">
             <button
               onClick={() => setActiveTab('schedule')}
-              className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-                activeTab === 'schedule'
+              className={`px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'schedule'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               Schedule
             </button>
             <button
               onClick={() => setActiveTab('vacation')}
-              className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-                activeTab === 'vacation'
+              className={`px-4 py-3 font-medium border-b-2 transition-colors ${activeTab === 'vacation'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               Vacation Packages
             </button>
@@ -195,93 +193,93 @@ export default function MySchedulePage() {
                 <p className="text-muted-foreground mt-2">You don't have any shift assignments yet.</p>
                 <p className="text-sm text-muted-foreground mt-4">Contact your HR department if you believe this is incorrect.</p>
               </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Expiring Soon Warning */}
-            {shiftAssignments.some(a => isExpiring(a.endDate)) && (
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                  ⚠️ Some of your shift assignments are expiring soon. Please contact HR to renew them.
-                </p>
-              </div>
-            )}
-
-            {/* Shift Assignments List */}
-            {shiftAssignments.map((assignment) => {
-              const shift = shiftsMap[assignment.shiftId];
-              const isExpiringSoon = isExpiring(assignment.endDate);
-
-              return (
-                <div
-                  key={assignment._id}
-                  className={`bg-card rounded-xl shadow-sm border ${isExpiringSoon ? 'border-yellow-300 dark:border-yellow-700' : 'border-border'} p-6 hover:shadow-md transition-shadow`}
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    {/* Shift Information */}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-lg font-semibold text-foreground">
-                          {typeof assignment.shiftId === 'string' ? shift?.name || 'Shift' : assignment.shiftId}
-                        </h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(assignment.status)}`}>
-                          {assignment.status}
-                        </span>
-                        {isExpiringSoon && (
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
-                            Expiring Soon
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Shift Details */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Start Date</p>
-                          <p className="text-sm font-medium text-foreground mt-1">{formatDate(assignment.startDate)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide">End Date</p>
-                          <p className="text-sm font-medium text-foreground mt-1">
-                            {assignment.endDate ? formatDate(assignment.endDate) : 'Ongoing'}
-                          </p>
-                        </div>
-                        {shift && (
-                          <>
-                            <div>
-                              <p className="text-xs text-muted-foreground uppercase tracking-wide">Start Time</p>
-                              <p className="text-sm font-medium text-foreground mt-1">{formatTime(shift.startTime)}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground uppercase tracking-wide">End Time</p>
-                              <p className="text-sm font-medium text-foreground mt-1">{formatTime(shift.endTime)}</p>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Additional Details */}
-                      {shift && (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Punch Policy</p>
-                            <p className="text-sm font-medium text-foreground mt-1">{shift.punchPolicy}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Grace In</p>
-                            <p className="text-sm font-medium text-foreground mt-1">{shift.graceInMinutes} min</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Grace Out</p>
-                            <p className="text-sm font-medium text-foreground mt-1">{shift.graceOutMinutes} min</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Expiring Soon Warning */}
+                {shiftAssignments.some(a => isExpiring(a.endDate)) && (
+                  <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
+                    <p className="text-sm font-medium text-warning">
+                      ⚠️ Some of your shift assignments are expiring soon. Please contact HR to renew them.
+                    </p>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                )}
+
+                {/* Shift Assignments List */}
+                {shiftAssignments.map((assignment) => {
+                  const shift = shiftsMap[assignment.shiftId];
+                  const isExpiringSoon = isExpiring(assignment.endDate);
+
+                  return (
+                    <div
+                      key={assignment._id}
+                      className={`bg-card rounded-xl shadow-sm border ${isExpiringSoon ? 'border-yellow-300 dark:border-yellow-700' : 'border-border'} p-6 hover:shadow-md transition-shadow`}
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        {/* Shift Information */}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-lg font-semibold text-foreground">
+                              {typeof assignment.shiftId === 'string' ? shift?.name || 'Shift' : assignment.shiftId}
+                            </h3>
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(assignment.status)}`}>
+                              {assignment.status}
+                            </span>
+                            {isExpiringSoon && (
+                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-warning/10 text-warning border border-warning/20">
+                                Expiring Soon
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Shift Details */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                            <div>
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">Start Date</p>
+                              <p className="text-sm font-medium text-foreground mt-1">{formatDate(assignment.startDate)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">End Date</p>
+                              <p className="text-sm font-medium text-foreground mt-1">
+                                {assignment.endDate ? formatDate(assignment.endDate) : 'Ongoing'}
+                              </p>
+                            </div>
+                            {shift && (
+                              <>
+                                <div>
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Start Time</p>
+                                  <p className="text-sm font-medium text-foreground mt-1">{formatTime(shift.startTime)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">End Time</p>
+                                  <p className="text-sm font-medium text-foreground mt-1">{formatTime(shift.endTime)}</p>
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Additional Details */}
+                          {shift && (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
+                              <div>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Punch Policy</p>
+                                <p className="text-sm font-medium text-foreground mt-1">{shift.punchPolicy}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Grace In</p>
+                                <p className="text-sm font-medium text-foreground mt-1">{shift.graceInMinutes} min</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Grace Out</p>
+                                <p className="text-sm font-medium text-foreground mt-1">{shift.graceOutMinutes} min</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </>
         )}
@@ -322,8 +320,8 @@ export default function MySchedulePage() {
                       <div className="space-y-4">
                         {/* Header */}
                         <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-foreground">{leaveName}</h3>
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+                          <h3 className="text-lg font-bold text-foreground">{leaveName}</h3>
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
                             {usagePercentage}% Used
                           </span>
                         </div>
@@ -350,15 +348,15 @@ export default function MySchedulePage() {
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Taken</p>
-                            <p className="text-lg font-semibold text-orange-600 dark:text-orange-400 mt-1">{entitlement.taken}</p>
+                            <p className="text-lg font-black text-warning mt-1">{entitlement.taken}</p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending</p>
-                            <p className="text-lg font-semibold text-yellow-600 dark:text-yellow-400 mt-1">{entitlement.pending}</p>
+                            <p className="text-lg font-black text-primary mt-1">{entitlement.pending}</p>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Remaining</p>
-                            <p className="text-lg font-semibold text-green-600 dark:text-green-400 mt-1">{entitlement.remaining}</p>
+                            <p className="text-lg font-black text-success mt-1">{entitlement.remaining}</p>
                           </div>
                         </div>
 

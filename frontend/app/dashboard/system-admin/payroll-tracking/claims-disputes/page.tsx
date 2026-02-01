@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { payrollTrackingService, CreateDisputeDto, CreateClaimDto } from '@/app/services/payroll-tracking';
 
 /**

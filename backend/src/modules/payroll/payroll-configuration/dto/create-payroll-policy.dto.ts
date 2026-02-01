@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsString, IsEnum, IsDateString, IsNumber, Min, Max, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PolicyType, Applicability } from '../../payroll-configuration/enums/payroll-configuration-enums';
+import { PolicyType, Applicability } from '../enums/payroll-configuration-enums';
 
 /**
  * PHASE 1 — DEFINE STRUCTURE

@@ -7,7 +7,7 @@ import {
   TerminationRequest,
   TerminationStatus,
 } from '@/app/services/offboarding';
-import { StatusBadge } from '@/app/components/ui/status-badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 export default function ResignationsPage() {
   const [loading, setLoading] = useState(true);

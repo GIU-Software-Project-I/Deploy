@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { payrollTrackingService } from '@/app/services/payroll-tracking';
 
 /**
@@ -178,7 +178,7 @@ export default function UnpaidLeaveDeductionsPage() {
         <div className="text-6xl mb-4"></div>
         <p className="text-slate-700 font-medium text-lg">No unpaid leave data available</p>
         <p className="text-slate-500 text-sm mt-2">
-          {'No unpaid leave deductions found'}
+          No unpaid leave deductions found
         </p>
         <Link href="/dashboard/department-employee/payroll-tracking">
           <button className="mt-4 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700">
@@ -471,4 +471,3 @@ export default function UnpaidLeaveDeductionsPage() {
     </div>
   );
 }
-

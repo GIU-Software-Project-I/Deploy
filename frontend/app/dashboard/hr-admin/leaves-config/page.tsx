@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { leavesService } from '@/app/services/leaves';
+import { organizationStructureService } from '@/app/services/organization-structure';
+import { employeeProfileService } from '@/app/services/employee-profile';
+import { Users, X, Search } from 'lucide-react';
 
 type TabType =
   | 'categories'
@@ -47,7 +50,7 @@ interface LeaveType {
 
 interface LeavePolicy {
   _id: string;
-  leaveTypeId: string;
+  leaveTypeId: string | { _id?: string; name?: string; code?: string } | any; // Can be string ID or populated object from backend
   accrualMethod: 'monthly' | 'yearly' | 'per-term';
   monthlyRate?: number;
   yearlyRate?: number;
@@ -77,8 +80,43 @@ type AdjustmentType = 'add' | 'deduct' | 'encashment'; // remove 'encashment' if
 
 type AppRole = 'HR_ADMIN' | 'HR_MANAGER' | 'MANAGER' | 'EMPLOYEE';
 
+// Employee interface for dropdown selection
+interface EmployeeOption {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber?: string;
+  fullName?: string;
+}
+
 export default function HRAdminLeavesConfigPage() {
   const { user } = useAuth();
+
+  // --------------------------
+  // Employee selection state (for dropdowns)
+  // --------------------------
+  const [allEmployees, setAllEmployees] = useState<EmployeeOption[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+
+  // For entitlements tab
+  const [selectedEntEmployee, setSelectedEntEmployee] = useState<EmployeeOption | null>(null);
+  const [entEmployeeSearch, setEntEmployeeSearch] = useState('');
+  const [showEntEmployeeDropdown, setShowEntEmployeeDropdown] = useState(false);
+
+  // For manual adjustment tab
+  const [selectedAdjEmployee, setSelectedAdjEmployee] = useState<EmployeeOption | null>(null);
+  const [adjEmployeeSearch, setAdjEmployeeSearch] = useState('');
+  const [showAdjEmployeeDropdown, setShowAdjEmployeeDropdown] = useState(false);
+
+  // For adjustment history
+  const [selectedHistEmployee, setSelectedHistEmployee] = useState<EmployeeOption | null>(null);
+  const [histEmployeeSearch, setHistEmployeeSearch] = useState('');
+  const [showHistEmployeeDropdown, setShowHistEmployeeDropdown] = useState(false);
+
+  // For recalculate single employee
+  const [selectedRecalcEmployee, setSelectedRecalcEmployee] = useState<EmployeeOption | null>(null);
+  const [recalcEmployeeSearch, setRecalcEmployeeSearch] = useState('');
+  const [showRecalcEmployeeDropdown, setShowRecalcEmployeeDropdown] = useState(false);
 
   // --------------------------
   // helpers
@@ -148,6 +186,29 @@ const getErrorMessage = (err: unknown): string => {
   const [editingType, setEditingType] = useState<string | null>(null);
 
   // --------------------------
+  // Special Absence/Mission Types Configuration (REQ-011)
+  // --------------------------
+  const [showSpecialAbsenceModal, setShowSpecialAbsenceModal] = useState(false);
+  const [specialAbsenceTypeId, setSpecialAbsenceTypeId] = useState<string | null>(null);
+  const [specialAbsenceConfig, setSpecialAbsenceConfig] = useState<{
+    isSpecialAbsence?: boolean;
+    isMissionType?: boolean;
+    trackSickLeaveCycle?: boolean;
+    sickLeaveMaxDays?: number;
+    sickLeaveCycleYears?: number;
+    trackMaternityCount?: boolean;
+    maxMaternityCount?: number;
+    requiresSpecialApproval?: boolean;
+    specialRules?: Record<string, any>;
+  }>({
+    trackSickLeaveCycle: false,
+    sickLeaveMaxDays: 360,
+    sickLeaveCycleYears: 3,
+    trackMaternityCount: false,
+    requiresSpecialApproval: false,
+  });
+
+  // --------------------------
   // Policies
   // --------------------------
   const [policies, setPolicies] = useState<LeavePolicy[]>([]);
@@ -164,6 +225,24 @@ const getErrorMessage = (err: unknown): string => {
     maxConsecutiveDays: undefined as number | undefined,
   });
   const [editingPolicy, setEditingPolicy] = useState<string | null>(null);
+
+  // --------------------------
+  // Approval Workflow Configuration (REQ-009)
+  // --------------------------
+  const [showWorkflowModal, setShowWorkflowModal] = useState(false);
+  const [workflowPolicyId, setWorkflowPolicyId] = useState<string | null>(null);
+  const [positions, setPositions] = useState<Array<{ _id: string; title: string; code: string }>>([]);
+  const [workflowConfig, setWorkflowConfig] = useState<{
+    defaultWorkflow: Array<{ role: string; order: number; positionId?: string; positionCode?: string }>;
+    positionWorkflows: Array<{
+      positionId: string;
+      positionCode?: string;
+      workflow: Array<{ role: string; order: number; positionId?: string; positionCode?: string }>;
+    }>;
+  }>({
+    defaultWorkflow: [{ role: 'manager', order: 1 }, { role: 'hr', order: 2 }],
+    positionWorkflows: [],
+  });
 
   // --------------------------
   // Eligibility
@@ -275,6 +354,7 @@ const getErrorMessage = (err: unknown): string => {
     fullName?: string;
     fullname?: string;
     email?: string;
+    employeeNumber?: string;
     role?: AppRole;
   }
   const [roleUser, setRoleUser] = useState<RoleUser | null>(null);
@@ -403,14 +483,55 @@ const fetchTypes = useCallback(async () => {
     }
   }, []);
 
+  // Fetch all employees for dropdowns
+  const fetchAllEmployees = useCallback(async () => {
+    try {
+      setLoadingEmployees(true);
+      const response = await employeeProfileService.getAllEmployees(1, 500) as any;
+      const data = response?.data?.data || response?.data || response || [];
+
+      if (Array.isArray(data)) {
+        setAllEmployees(data.map((emp: any) => ({
+          _id: emp._id,
+          firstName: emp.firstName || '',
+          lastName: emp.lastName || '',
+          employeeNumber: emp.employeeNumber || '',
+          fullName: emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim()
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to fetch employees:', err);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  }, []);
+
+  // Filter employees based on search
+  const filterEmployees = (search: string) => {
+    const searchLower = search.toLowerCase();
+    return allEmployees.filter(emp => {
+      const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+      return fullName.includes(searchLower) ||
+             emp.employeeNumber?.toLowerCase().includes(searchLower) ||
+             emp._id.toLowerCase().includes(searchLower);
+    });
+  };
+
   useEffect(() => {
     if (activeTab !== 'manual-adjustment') return;
-    if (!adjForm.employeeId.trim()) {
+    if (!selectedAdjEmployee) {
       setAdjPreviewEntitlements([]);
       return;
     }
-    fetchAdjPreviewEntitlements(adjForm.employeeId);
-  }, [activeTab, adjForm.employeeId, fetchAdjPreviewEntitlements]);
+    fetchAdjPreviewEntitlements(selectedAdjEmployee._id);
+  }, [activeTab, selectedAdjEmployee, fetchAdjPreviewEntitlements]);
+
+  // Load employees when entering relevant tabs
+  useEffect(() => {
+    if (['entitlements', 'manual-adjustment', 'accruals'].includes(activeTab) && allEmployees.length === 0) {
+      fetchAllEmployees();
+    }
+  }, [activeTab, allEmployees.length, fetchAllEmployees]);
 
   // ==========================================================
   // Category handlers
@@ -605,6 +726,172 @@ const fetchTypes = useCallback(async () => {
   };
 
   // ==========================================================
+  // Workflow Configuration Handlers (REQ-009)
+  // ==========================================================
+  const openWorkflowModal = async (policyId: string) => {
+    try {
+      setLoading(true);
+      setWorkflowPolicyId(policyId);
+      
+      // Fetch positions
+      const positionsRes = await leavesService.getPositionsForWorkflow();
+      if (positionsRes.data && Array.isArray(positionsRes.data)) {
+        setPositions(positionsRes.data);
+      }
+      
+      // Fetch existing workflow config
+      const workflowRes = await leavesService.getApprovalWorkflow(policyId);
+      if (workflowRes.data) {
+        const config = workflowRes.data;
+        setWorkflowConfig({
+          defaultWorkflow: config.defaultWorkflow || [{ role: 'manager', order: 1 }, { role: 'hr', order: 2 }],
+          positionWorkflows: config.positionWorkflows || [],
+        });
+      }
+      
+      setShowWorkflowModal(true);
+    } catch (err: Error | unknown) {
+      setError(getErrorMessage(err) || 'Failed to load workflow configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveWorkflow = async () => {
+    if (!workflowPolicyId) return;
+    
+    try {
+      setLoading(true);
+      clearMessages();
+      await leavesService.configureApprovalWorkflow(workflowPolicyId, workflowConfig);
+      setSuccess('Approval workflow configured ✅');
+      setShowWorkflowModal(false);
+      setWorkflowPolicyId(null);
+    } catch (err: Error | unknown) {
+      setError(getErrorMessage(err) || 'Failed to save workflow configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addWorkflowStep = (isDefault: boolean, positionIndex?: number) => {
+    const newStep = { role: 'manager', order: 1 };
+    if (isDefault) {
+      const maxOrder = workflowConfig.defaultWorkflow.length > 0
+        ? Math.max(...workflowConfig.defaultWorkflow.map(s => s.order))
+        : 0;
+      newStep.order = maxOrder + 1;
+      setWorkflowConfig({
+        ...workflowConfig,
+        defaultWorkflow: [...workflowConfig.defaultWorkflow, newStep],
+      });
+    } else if (positionIndex !== undefined) {
+      const pw = workflowConfig.positionWorkflows[positionIndex];
+      const maxOrder = pw.workflow.length > 0
+        ? Math.max(...pw.workflow.map(s => s.order))
+        : 0;
+      newStep.order = maxOrder + 1;
+      const updated = [...workflowConfig.positionWorkflows];
+      updated[positionIndex] = {
+        ...updated[positionIndex],
+        workflow: [...updated[positionIndex].workflow, { ...newStep, order: maxOrder + 1 }],
+      };
+      setWorkflowConfig({ ...workflowConfig, positionWorkflows: updated });
+    }
+  };
+
+  const removeWorkflowStep = (isDefault: boolean, stepIndex: number, positionIndex?: number) => {
+    if (isDefault) {
+      setWorkflowConfig({
+        ...workflowConfig,
+        defaultWorkflow: workflowConfig.defaultWorkflow.filter((_, i) => i !== stepIndex),
+      });
+    } else if (positionIndex !== undefined) {
+      const updated = [...workflowConfig.positionWorkflows];
+      updated[positionIndex] = {
+        ...updated[positionIndex],
+        workflow: updated[positionIndex].workflow.filter((_, i) => i !== stepIndex),
+      };
+      setWorkflowConfig({ ...workflowConfig, positionWorkflows: updated });
+    }
+  };
+
+  const addPositionWorkflow = () => {
+    setWorkflowConfig({
+      ...workflowConfig,
+      positionWorkflows: [
+        ...workflowConfig.positionWorkflows,
+        { positionId: '', workflow: [{ role: 'manager', order: 1 }] },
+      ],
+    });
+  };
+
+  const removePositionWorkflow = (index: number) => {
+    setWorkflowConfig({
+      ...workflowConfig,
+      positionWorkflows: workflowConfig.positionWorkflows.filter((_, i) => i !== index),
+    });
+  };
+
+  // ==========================================================
+  // Special Absence/Mission Types Handlers (REQ-011)
+  // ==========================================================
+  const openSpecialAbsenceModal = async (typeId: string) => {
+    try {
+      setLoading(true);
+      setSpecialAbsenceTypeId(typeId);
+      
+      // Fetch existing config
+      const configRes = await leavesService.getSpecialAbsenceConfig(typeId);
+      if (configRes.data) {
+        setSpecialAbsenceConfig({
+          isSpecialAbsence: configRes.data.isSpecialAbsence || false,
+          isMissionType: configRes.data.isMissionType || false,
+          trackSickLeaveCycle: configRes.data.trackSickLeaveCycle || false,
+          sickLeaveMaxDays: configRes.data.sickLeaveMaxDays || 360,
+          sickLeaveCycleYears: configRes.data.sickLeaveCycleYears || 3,
+          trackMaternityCount: configRes.data.trackMaternityCount || false,
+          maxMaternityCount: configRes.data.maxMaternityCount,
+          requiresSpecialApproval: configRes.data.requiresSpecialApproval || false,
+          specialRules: configRes.data.specialRules || {},
+        });
+      } else {
+        // Reset to defaults
+        setSpecialAbsenceConfig({
+          trackSickLeaveCycle: false,
+          sickLeaveMaxDays: 360,
+          sickLeaveCycleYears: 3,
+          trackMaternityCount: false,
+          requiresSpecialApproval: false,
+        });
+      }
+      
+      setShowSpecialAbsenceModal(true);
+    } catch (err: Error | unknown) {
+      setError(getErrorMessage(err) || 'Failed to load special absence configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveSpecialAbsenceConfig = async () => {
+    if (!specialAbsenceTypeId) return;
+    
+    try {
+      setLoading(true);
+      clearMessages();
+      await leavesService.configureSpecialAbsenceType(specialAbsenceTypeId, specialAbsenceConfig);
+      setSuccess('Special absence configuration saved ✅');
+      setShowSpecialAbsenceModal(false);
+      setSpecialAbsenceTypeId(null);
+    } catch (err: Error | unknown) {
+      setError(getErrorMessage(err) || 'Failed to save special absence configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================================
   // Eligibility handler
   // ==========================================================
   const handleSaveEligibility = async () => {
@@ -741,16 +1028,15 @@ const fetchTypes = useCallback(async () => {
   };
 
   const handleRecalcEmployee = async () => {
-    const id = recalcEmployeeId.trim();
-    if (!id) {
-      setError('Employee ID is required for recalculation');
+    if (!selectedRecalcEmployee) {
+      setError('Please select an employee for recalculation');
       return;
     }
 
     try {
       setLoading(true);
       clearMessages();
-      await leavesService.recalcEmployee(id);
+      await leavesService.recalcEmployee(selectedRecalcEmployee._id);
       setSuccess('Employee recalculation done ✅');
     } catch (err: Error | unknown) {
       setError(getErrorMessage(err) || 'Failed to recalculate employee');
@@ -770,16 +1056,15 @@ const fetchTypes = useCallback(async () => {
   };
 
   const loadEntitlements = async () => {
-    const ids = parseEmployeeIds(entForm.employeeIds);
-    if (ids.length !== 1) {
-      setError('To load entitlements, enter exactly ONE employeeId');
+    if (!selectedEntEmployee) {
+      setError('Please select an employee to load entitlements');
       return;
     }
 
     try {
       setLoading(true);
       clearMessages();
-      const res = await leavesService.getEntitlements(ids[0]);
+      const res = await leavesService.getEntitlements(selectedEntEmployee._id);
       setEntitlements(Array.isArray(res.data) ? (res.data as Entitlement[]) : []);
       setSuccess('Entitlements loaded ✅');
     } catch (err: Error | unknown) {
@@ -791,16 +1076,15 @@ const fetchTypes = useCallback(async () => {
   };
 
   const loadEntitlementSummary = async () => {
-    const ids = parseEmployeeIds(entForm.employeeIds);
-    if (ids.length !== 1) {
-      setError('To load summary, enter exactly ONE employeeId');
+    if (!selectedEntEmployee) {
+      setError('Please select an employee to load summary');
       return;
     }
 
     try {
       setLoading(true);
       clearMessages();
-      const res = await leavesService.getEntitlementSummary(ids[0]);
+      const res = await leavesService.getEntitlementSummary(selectedEntEmployee._id);
       setEntSummary(res.data);
       setSuccess('Entitlement summary loaded ✅');
     } catch (err: Error | unknown) {
@@ -812,9 +1096,12 @@ const fetchTypes = useCallback(async () => {
   };
 
   const handleAssignEntitlement = async () => {
-    const ids = parseEmployeeIds(entForm.employeeIds);
-    if (ids.length === 0 || !entForm.leaveTypeId || !entForm.yearlyEntitlement) {
-      setError('Employee IDs, Leave Type, and Yearly Entitlement are required');
+    if (!selectedEntEmployee) {
+      setError('Please select an employee');
+      return;
+    }
+    if (!entForm.leaveTypeId || !entForm.yearlyEntitlement) {
+      setError('Leave Type and Yearly Entitlement are required');
       return;
     }
 
@@ -828,25 +1115,15 @@ const fetchTypes = useCallback(async () => {
       setLoading(true);
       clearMessages();
 
-      // group support: loop
-      for (const empId of ids) {
-        await leavesService.assignEntitlement({
-          employeeId: empId,
-          leaveTypeId: entForm.leaveTypeId,
-          yearlyEntitlement: value,
-        });
-      }
+      await leavesService.assignEntitlement({
+        employeeId: selectedEntEmployee._id,
+        leaveTypeId: entForm.leaveTypeId,
+        yearlyEntitlement: value,
+      });
 
-      setSuccess(ids.length === 1 ? 'Entitlement assigned ✅' : `Assigned to ${ids.length} employees ✅`);
-
-      // if single employee, refresh table + summary
-      if (ids.length === 1) {
-        await loadEntitlements();
-        await loadEntitlementSummary();
-      } else {
-        setEntitlements([]);
-        setEntSummary(null);
-      }
+      setSuccess('Entitlement assigned ✅');
+      await loadEntitlements();
+      await loadEntitlementSummary();
     } catch (err: Error | unknown) {
       setError(getErrorMessage(err) || 'Failed to assign entitlement');
     } finally {
@@ -858,16 +1135,15 @@ const fetchTypes = useCallback(async () => {
   // Manual adjustments handlers (REQ-013)
   // ==========================================================
   const loadAdjustmentHistory = async () => {
-    const empId = adjHistoryFilter.employeeId.trim();
-    if (!empId) {
-      setError('Employee ID is required to load adjustment history');
+    if (!selectedHistEmployee) {
+      setError('Please select an employee to load adjustment history');
       return;
     }
 
     try {
       setLoading(true);
       clearMessages();
-      const res = await leavesService.getAdjustmentHistory(empId, adjHistoryFilter.leaveTypeId || undefined);
+      const res = await leavesService.getAdjustmentHistory(selectedHistEmployee._id, adjHistoryFilter.leaveTypeId || undefined);
       setAdjHistory(Array.isArray(res.data) ? res.data : []);
       setSuccess('Adjustment history loaded ✅');
     } catch (err: Error | unknown) {
@@ -879,13 +1155,17 @@ const fetchTypes = useCallback(async () => {
   };
 
   const handleCreateAdjustment = async () => {
-    const employeeId = adjForm.employeeId.trim();
+    if (!selectedAdjEmployee) {
+      setError('Please select an employee');
+      return;
+    }
+    const employeeId = selectedAdjEmployee._id;
     const hrUserId = (adjForm.hrUserId || getActorId()).trim();
     const leaveTypeId = adjForm.leaveTypeId;
     const amount = Number(adjForm.amount);
 
-    if (!employeeId || !leaveTypeId || !adjForm.reason.trim() || !hrUserId) {
-      setError('Employee ID, Leave Type, and Reason are required');
+    if (!leaveTypeId || !adjForm.reason.trim() || !hrUserId) {
+      setError('Leave Type and Reason are required');
       return;
     }
     if (Number.isNaN(amount) || amount <= 0) {
@@ -1451,6 +1731,13 @@ const handleResetLeaveYear = async () => {
                               Edit
                             </button>
 
+                            <button
+                              onClick={() => openSpecialAbsenceModal(t._id)}
+                              className="text-warning hover:text-warning/80 transition-colors"
+                            >
+                              Special Rules
+                            </button>
+
                             <button onClick={() => handleDeleteType(t._id)} className="text-destructive hover:text-destructive/80 transition-colors">
                               Delete
                             </button>
@@ -1676,13 +1963,34 @@ const handleResetLeaveYear = async () => {
 
             <div className="space-y-2">
               {policies.map((p) => {
-                const leaveTypeId = p.leaveTypeId;
-                const t = types.find((x: LeaveType) => (x._id || x.id) === leaveTypeId);
+                // Handle leaveTypeId - backend populates it as { _id, name, code } or returns as string
+                let leaveTypeName: string = 'Unknown Type';
+                
+                if (typeof p.leaveTypeId === 'string') {
+                  // If it's a string ID, find in types array
+                  const t = types.find((x: LeaveType) => {
+                    const typeId = (x._id || x.id)?.toString();
+                    return typeId === p.leaveTypeId;
+                  });
+                  leaveTypeName = t?.name || getTypeName(p.leaveTypeId) || 'Unknown Type';
+                } else if (p.leaveTypeId && typeof p.leaveTypeId === 'object') {
+                  // Backend returns populated leaveTypeId object with name and code
+                  const ltObj = p.leaveTypeId as any;
+                  const name = ltObj.name || '';
+                  const code = ltObj.code || '';
+                  leaveTypeName = name ? (code ? `${name} (${code})` : name) : 'Unknown Type';
+                }
+                
+                // Extract leaveTypeId string for form editing
+                const leaveTypeIdString = typeof p.leaveTypeId === 'string' 
+                  ? p.leaveTypeId 
+                  : (p.leaveTypeId as any)?._id?.toString() || (p.leaveTypeId as any)?.id?.toString() || '';
+                
                 return (
                   <div key={p._id} className="p-4 border border-border rounded-lg">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-medium text-foreground">{t?.name || 'Unknown Type'}</p>
+                        <p className="font-medium text-foreground">{leaveTypeName}</p>
                         <p className="text-sm text-muted-foreground mt-1">
                           Accrual: {p.accrualMethod} | Notice: {p.minNoticeDays} days | Carry Forward:{' '}
                           {p.carryForwardAllowed ? `Yes (max ${p.maxCarryForward ?? 0})` : 'No'}
@@ -1694,7 +2002,7 @@ const handleResetLeaveYear = async () => {
                           onClick={() => {
                             setEditingPolicy(p._id);
                             setPolicyForm({
-                              leaveTypeId: p.leaveTypeId,
+                              leaveTypeId: leaveTypeIdString,
                               accrualMethod: p.accrualMethod,
                               monthlyRate: p.monthlyRate,
                               yearlyRate: p.yearlyRate,
@@ -1713,6 +2021,12 @@ const handleResetLeaveYear = async () => {
                         </button>
 
                         <button
+                          onClick={() => openWorkflowModal(p._id)}
+                          className="px-3 py-1 text-sm bg-primary/10 dark:bg-primary/20 text-primary rounded hover:bg-primary/20"
+                        >
+                          Configure Workflow
+                        </button>
+                        <button
                           onClick={() => handleDeletePolicy(p._id)}
                           className="px-3 py-1 text-sm bg-destructive/10 dark:bg-destructive/20 text-destructive rounded hover:bg-destructive/20"
                         >
@@ -1727,6 +2041,354 @@ const handleResetLeaveYear = async () => {
               {policies.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">No policies found. Create one above.</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================= */}
+      {/* Workflow Configuration Modal (REQ-009) */}
+      {/* ========================= */}
+      {showWorkflowModal && workflowPolicyId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg shadow-lg border border-border max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">Configure Approval Workflow</h2>
+                <button
+                  onClick={() => {
+                    setShowWorkflowModal(false);
+                    setWorkflowPolicyId(null);
+                    setWorkflowConfig({
+                      defaultWorkflow: [{ role: 'manager', order: 1 }, { role: 'hr', order: 2 }],
+                      positionWorkflows: [],
+                    });
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Default Workflow */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-3">Default Workflow</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    This workflow applies to all positions unless a position-specific workflow is defined.
+                  </p>
+                  <div className="space-y-2">
+                    {workflowConfig.defaultWorkflow.map((step, index) => (
+                      <div key={index} className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                        <span className="text-sm font-medium text-foreground w-8">Step {step.order}</span>
+                        <select
+                          value={step.role}
+                          onChange={(e) => {
+                            const updated = [...workflowConfig.defaultWorkflow];
+                            updated[index] = { ...updated[index], role: e.target.value };
+                            setWorkflowConfig({ ...workflowConfig, defaultWorkflow: updated });
+                          }}
+                          className="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                        >
+                          <option value="manager">Manager</option>
+                          <option value="hr">HR</option>
+                          <option value="director">Director</option>
+                          <option value="ceo">CEO</option>
+                        </select>
+                        <button
+                          onClick={() => removeWorkflowStep(true, index)}
+                          className="px-3 py-2 text-sm bg-destructive/10 text-destructive rounded hover:bg-destructive/20"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => addWorkflowStep(true)}
+                      className="w-full px-4 py-2 text-sm bg-primary/10 text-primary rounded hover:bg-primary/20"
+                    >
+                      + Add Step
+                    </button>
+                  </div>
+                </div>
+
+                {/* Position-Specific Workflows */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-medium text-foreground">Position-Specific Workflows</h3>
+                    <button
+                      onClick={addPositionWorkflow}
+                      className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                    >
+                      + Add Position Workflow
+                    </button>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Define custom approval workflows for specific positions (e.g., Manager → HR → Director).
+                  </p>
+                  <div className="space-y-4">
+                    {workflowConfig.positionWorkflows.map((pw, pwIndex) => (
+                      <div key={pwIndex} className="p-4 border border-border rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <select
+                            value={pw.positionId}
+                            onChange={(e) => {
+                              const position = positions.find(p => p._id === e.target.value);
+                              const updated = [...workflowConfig.positionWorkflows];
+                              updated[pwIndex] = {
+                                ...updated[pwIndex],
+                                positionId: e.target.value,
+                                positionCode: position?.code,
+                              };
+                              setWorkflowConfig({ ...workflowConfig, positionWorkflows: updated });
+                            }}
+                            className="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                          >
+                            <option value="">Select Position</option>
+                            {positions.map((pos) => (
+                              <option key={pos._id} value={pos._id}>
+                                {pos.title} ({pos.code})
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => removePositionWorkflow(pwIndex)}
+                            className="ml-2 px-3 py-2 text-sm bg-destructive/10 text-destructive rounded hover:bg-destructive/20"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {pw.workflow.map((step, stepIndex) => (
+                            <div key={stepIndex} className="flex items-center gap-2 p-2 bg-muted/30 rounded">
+                              <span className="text-sm font-medium text-foreground w-8">Step {step.order}</span>
+                              <select
+                                value={step.role}
+                                onChange={(e) => {
+                                  const updated = [...workflowConfig.positionWorkflows];
+                                  updated[pwIndex].workflow[stepIndex] = {
+                                    ...updated[pwIndex].workflow[stepIndex],
+                                    role: e.target.value,
+                                  };
+                                  setWorkflowConfig({ ...workflowConfig, positionWorkflows: updated });
+                                }}
+                                className="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                              >
+                                <option value="manager">Manager</option>
+                                <option value="hr">HR</option>
+                                <option value="director">Director</option>
+                                <option value="ceo">CEO</option>
+                              </select>
+                              <button
+                                onClick={() => removeWorkflowStep(false, stepIndex, pwIndex)}
+                                className="px-3 py-2 text-sm bg-destructive/10 text-destructive rounded hover:bg-destructive/20"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => addWorkflowStep(false, pwIndex)}
+                            className="w-full px-4 py-2 text-sm bg-primary/10 text-primary rounded hover:bg-primary/20"
+                          >
+                            + Add Step
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+                <button
+                  onClick={handleSaveWorkflow}
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {loading ? 'Saving...' : 'Save Workflow'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowWorkflowModal(false);
+                    setWorkflowPolicyId(null);
+                  }}
+                  className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-accent"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================= */}
+      {/* Special Absence/Mission Types Configuration Modal (REQ-011) */}
+      {/* ========================= */}
+      {showSpecialAbsenceModal && specialAbsenceTypeId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg shadow-lg border border-border max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">Configure Special Absence/Mission Rules</h2>
+                <button
+                  onClick={() => {
+                    setShowSpecialAbsenceModal(false);
+                    setSpecialAbsenceTypeId(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Basic Flags */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-3">Type Classification</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="isSpecialAbsence"
+                        checked={specialAbsenceConfig.isSpecialAbsence || false}
+                        onChange={(e) => setSpecialAbsenceConfig({ ...specialAbsenceConfig, isSpecialAbsence: e.target.checked })}
+                        className="h-4 w-4 text-primary border-border rounded"
+                      />
+                      <label htmlFor="isSpecialAbsence" className="text-sm text-foreground">
+                        Special Absence Type (e.g., bereavement, jury duty, Hajj, exams, marriage)
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="isMissionType"
+                        checked={specialAbsenceConfig.isMissionType || false}
+                        onChange={(e) => setSpecialAbsenceConfig({ ...specialAbsenceConfig, isMissionType: e.target.checked })}
+                        className="h-4 w-4 text-primary border-border rounded"
+                      />
+                      <label htmlFor="isMissionType" className="text-sm text-foreground">
+                        Mission Type
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="requiresSpecialApproval"
+                        checked={specialAbsenceConfig.requiresSpecialApproval || false}
+                        onChange={(e) => setSpecialAbsenceConfig({ ...specialAbsenceConfig, requiresSpecialApproval: e.target.checked })}
+                        className="h-4 w-4 text-primary border-border rounded"
+                      />
+                      <label htmlFor="requiresSpecialApproval" className="text-sm text-foreground">
+                        Requires Special Approval
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sick Leave Cycle Tracking */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-3">Sick Leave 3-Year Cycle Tracking</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="trackSickLeaveCycle"
+                        checked={specialAbsenceConfig.trackSickLeaveCycle || false}
+                        onChange={(e) => setSpecialAbsenceConfig({ ...specialAbsenceConfig, trackSickLeaveCycle: e.target.checked })}
+                        className="h-4 w-4 text-primary border-border rounded"
+                      />
+                      <label htmlFor="trackSickLeaveCycle" className="text-sm text-foreground">
+                        Track cumulatively over cycle (max 360 days per 3-year cycle)
+                      </label>
+                    </div>
+
+                    {specialAbsenceConfig.trackSickLeaveCycle && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-1">Cycle Period (Years)</label>
+                          <input
+                            type="number"
+                            value={specialAbsenceConfig.sickLeaveCycleYears || 3}
+                            onChange={(e) => setSpecialAbsenceConfig({ ...specialAbsenceConfig, sickLeaveCycleYears: Number(e.target.value) })}
+                            className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                            min="1"
+                            max="10"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-1">Maximum Days in Cycle</label>
+                          <input
+                            type="number"
+                            value={specialAbsenceConfig.sickLeaveMaxDays || 360}
+                            onChange={(e) => setSpecialAbsenceConfig({ ...specialAbsenceConfig, sickLeaveMaxDays: Number(e.target.value) })}
+                            className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                            min="1"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Default: 360 days (national labor law)</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Maternity Leave Tracking */}
+                <div>
+                  <h3 className="text-lg font-medium text-foreground mb-3">Maternity Leave Count Tracking</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="trackMaternityCount"
+                        checked={specialAbsenceConfig.trackMaternityCount || false}
+                        onChange={(e) => setSpecialAbsenceConfig({ ...specialAbsenceConfig, trackMaternityCount: e.target.checked })}
+                        className="h-4 w-4 text-primary border-border rounded"
+                      />
+                      <label htmlFor="trackMaternityCount" className="text-sm text-foreground">
+                        Track number of times employee has taken maternity leave
+                      </label>
+                    </div>
+
+                    {specialAbsenceConfig.trackMaternityCount && (
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-1">Maximum Allowed Count (Optional)</label>
+                        <input
+                          type="number"
+                          value={specialAbsenceConfig.maxMaternityCount ?? ''}
+                          onChange={(e) => setSpecialAbsenceConfig({ ...specialAbsenceConfig, maxMaternityCount: e.target.value ? Number(e.target.value) : undefined })}
+                          className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                          placeholder="Leave empty for unlimited"
+                          min="1"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Leave empty to track without limit</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+                <button
+                  onClick={handleSaveSpecialAbsenceConfig}
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {loading ? 'Saving...' : 'Save Configuration'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSpecialAbsenceModal(false);
+                    setSpecialAbsenceTypeId(null);
+                  }}
+                  className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-accent"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2119,20 +2781,73 @@ const handleResetLeaveYear = async () => {
             <h2 className="text-lg font-semibold text-foreground mb-4">Recalculate Single Employee</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Employee ID *</label>
-                <input
-                  type="text"
-                  value={recalcEmployeeId}
-                  onChange={(e) => setRecalcEmployeeId(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                  placeholder="MongoId"
-                />
+              <div className="relative">
+                <label className="block text-sm font-medium text-foreground mb-1">Employee *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedRecalcEmployee ? `${selectedRecalcEmployee.firstName} ${selectedRecalcEmployee.lastName}` : recalcEmployeeSearch}
+                    onChange={(e) => {
+                      setRecalcEmployeeSearch(e.target.value);
+                      setSelectedRecalcEmployee(null);
+                      setShowRecalcEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowRecalcEmployeeDropdown(true)}
+                    placeholder="Search employee..."
+                    className="w-full px-3 py-2 pl-10 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                  />
+                  <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  {selectedRecalcEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRecalcEmployee(null);
+                        setRecalcEmployeeSearch('');
+                        setRecalcEmployeeId('');
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {showRecalcEmployeeDropdown && !selectedRecalcEmployee && (
+                  <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {loadingEmployees ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : filterEmployees(recalcEmployeeSearch).length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">No employees found</div>
+                    ) : (
+                      filterEmployees(recalcEmployeeSearch).slice(0, 10).map((emp) => (
+                        <button
+                          type="button"
+                          key={emp._id}
+                          onClick={() => {
+                            setSelectedRecalcEmployee(emp);
+                            setRecalcEmployeeSearch('');
+                            setShowRecalcEmployeeDropdown(false);
+                            setRecalcEmployeeId(emp._id);
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <div>
+                            <span className="text-sm text-foreground">{emp.firstName} {emp.lastName}</span>
+                            {emp.employeeNumber && <span className="text-xs text-muted-foreground ml-2">#{emp.employeeNumber}</span>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
               <button
                 onClick={handleRecalcEmployee}
-                disabled={loading}
+                disabled={loading || !selectedRecalcEmployee}
                 className="px-4 py-2 bg-foreground text-primary-foreground rounded-lg hover:bg-foreground/90 disabled:opacity-50"
               >
                 {loading ? 'Processing...' : 'Recalculate'}
@@ -2152,17 +2867,70 @@ const handleResetLeaveYear = async () => {
             <h2 className="text-lg font-semibold text-foreground mb-4">Entitlements</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-foreground mb-1">Employee IDs *</label>
-                <textarea
-                  value={entForm.employeeIds}
-                  onChange={(e) => setEntForm({ ...entForm, employeeIds: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                  rows={3}
-                  placeholder="One employeeId OR multiple separated by comma/new line"
-                />
+              <div className="md:col-span-1 relative">
+                <label className="block text-sm font-medium text-foreground mb-1">Employee *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedEntEmployee ? `${selectedEntEmployee.firstName} ${selectedEntEmployee.lastName}` : entEmployeeSearch}
+                    onChange={(e) => {
+                      setEntEmployeeSearch(e.target.value);
+                      setSelectedEntEmployee(null);
+                      setShowEntEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowEntEmployeeDropdown(true)}
+                    placeholder="Search employee..."
+                    className="w-full px-3 py-2 pl-10 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                  />
+                  <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  {selectedEntEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedEntEmployee(null);
+                        setEntEmployeeSearch('');
+                        setEntForm({ ...entForm, employeeIds: '' });
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {showEntEmployeeDropdown && !selectedEntEmployee && (
+                  <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {loadingEmployees ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : filterEmployees(entEmployeeSearch).length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">No employees found</div>
+                    ) : (
+                      filterEmployees(entEmployeeSearch).slice(0, 10).map((emp) => (
+                        <button
+                          type="button"
+                          key={emp._id}
+                          onClick={() => {
+                            setSelectedEntEmployee(emp);
+                            setEntEmployeeSearch('');
+                            setShowEntEmployeeDropdown(false);
+                            setEntForm({ ...entForm, employeeIds: emp._id });
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <div>
+                            <span className="text-sm text-foreground">{emp.firstName} {emp.lastName}</span>
+                            {emp.employeeNumber && <span className="text-xs text-muted-foreground ml-2">#{emp.employeeNumber}</span>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  For Load/Summary you must enter exactly 1 employeeId. For Assign you can enter a group.
+                  Select an employee to load/update entitlements.
                 </p>
               </div>
 
@@ -2301,16 +3069,69 @@ const handleResetLeaveYear = async () => {
 
             {/* Form */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Employee ID *</label>
-                <input
-                  type="text"
-                  value={adjForm.employeeId}
-                  onChange={(e) => setAdjForm({ ...adjForm, employeeId: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                  placeholder="MongoId"
-                />
-                <p className="text-xs text-muted-foreground mt-1">When you type an ID, balances auto-load for preview.</p>
+              <div className="relative">
+                <label className="block text-sm font-medium text-foreground mb-1">Employee *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedAdjEmployee ? `${selectedAdjEmployee.firstName} ${selectedAdjEmployee.lastName}` : adjEmployeeSearch}
+                    onChange={(e) => {
+                      setAdjEmployeeSearch(e.target.value);
+                      setSelectedAdjEmployee(null);
+                      setShowAdjEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowAdjEmployeeDropdown(true)}
+                    placeholder="Search employee..."
+                    className="w-full px-3 py-2 pl-10 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                  />
+                  <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  {selectedAdjEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAdjEmployee(null);
+                        setAdjEmployeeSearch('');
+                        setAdjForm({ ...adjForm, employeeId: '' });
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {showAdjEmployeeDropdown && !selectedAdjEmployee && (
+                  <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {loadingEmployees ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : filterEmployees(adjEmployeeSearch).length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">No employees found</div>
+                    ) : (
+                      filterEmployees(adjEmployeeSearch).slice(0, 10).map((emp) => (
+                        <button
+                          type="button"
+                          key={emp._id}
+                          onClick={() => {
+                            setSelectedAdjEmployee(emp);
+                            setAdjEmployeeSearch('');
+                            setShowAdjEmployeeDropdown(false);
+                            setAdjForm({ ...adjForm, employeeId: emp._id });
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <div>
+                            <span className="text-sm text-foreground">{emp.firstName} {emp.lastName}</span>
+                            {emp.employeeNumber && <span className="text-xs text-muted-foreground ml-2">#{emp.employeeNumber}</span>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Balances auto-load when you select an employee.</p>
               </div>
 
               <div>
@@ -2416,15 +3237,68 @@ const handleResetLeaveYear = async () => {
             <h3 className="text-lg font-semibold text-foreground mb-4">Adjustment History</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Employee ID *</label>
-                <input
-                  type="text"
-                  value={adjHistoryFilter.employeeId}
-                  onChange={(e) => setAdjHistoryFilter({ ...adjHistoryFilter, employeeId: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-                  placeholder="MongoId"
-                />
+              <div className="relative">
+                <label className="block text-sm font-medium text-foreground mb-1">Employee *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedHistEmployee ? `${selectedHistEmployee.firstName} ${selectedHistEmployee.lastName}` : histEmployeeSearch}
+                    onChange={(e) => {
+                      setHistEmployeeSearch(e.target.value);
+                      setSelectedHistEmployee(null);
+                      setShowHistEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowHistEmployeeDropdown(true)}
+                    placeholder="Search employee..."
+                    className="w-full px-3 py-2 pl-10 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                  />
+                  <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  {selectedHistEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedHistEmployee(null);
+                        setHistEmployeeSearch('');
+                        setAdjHistoryFilter({ ...adjHistoryFilter, employeeId: '' });
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {showHistEmployeeDropdown && !selectedHistEmployee && (
+                  <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {loadingEmployees ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : filterEmployees(histEmployeeSearch).length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">No employees found</div>
+                    ) : (
+                      filterEmployees(histEmployeeSearch).slice(0, 10).map((emp) => (
+                        <button
+                          type="button"
+                          key={emp._id}
+                          onClick={() => {
+                            setSelectedHistEmployee(emp);
+                            setHistEmployeeSearch('');
+                            setShowHistEmployeeDropdown(false);
+                            setAdjHistoryFilter({ ...adjHistoryFilter, employeeId: emp._id });
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <div>
+                            <span className="text-sm text-foreground">{emp.firstName} {emp.lastName}</span>
+                            {emp.employeeNumber && <span className="text-xs text-muted-foreground ml-2">#{emp.employeeNumber}</span>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -2638,7 +3512,7 @@ const handleResetLeaveYear = async () => {
                     <span className="font-medium">Email:</span> {roleUser.email || '-'}
                   </div>
                   <div>
-                    <span className="font-medium">User ID:</span> <span className="font-mono text-muted-foreground">{roleUser._id}</span>
+                    <span className="font-medium">Employee Code:</span> <span className="font-mono text-muted-foreground">{roleUser.employeeNumber || '-'}</span>
                   </div>
                   <div>
                     <span className="font-medium">Current Role:</span> {roleUser.role || '-'}

@@ -2,9 +2,9 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 ;
 import { UserProfileBase } from './user-schema';
-import {ContractType, EmployeeStatus, WorkType} from "../../enums/employee-profile.enums";
-import {AppraisalRatingScaleType} from "../../enums/performance.enums";
-import {payGrade} from "../../../payroll/payroll-configuration/models/payGrades.schema";
+import { ContractType, EmployeeStatus, WorkType } from "../../enums/employee-profile.enums";
+import { AppraisalRatingScaleType } from "../../../performance/enums/performance.enums";
+import { payGrade } from "../../../payroll/payroll-configuration/models/payGrades.schema";
 
 export type EmployeeProfileDocument = HydratedDocument<EmployeeProfile>;
 
@@ -101,6 +101,17 @@ export class EmployeeProfile extends UserProfileBase {
 
     @Prop({ type: String })
     lastDevelopmentPlanSummary?: string;
+
+    @Prop({
+        type: [{
+            name: { type: String, required: true },
+            category: { type: String, required: true },
+            level: { type: Number, min: 1, max: 5, default: 1 },
+            isVerified: { type: Boolean, default: false }
+        }],
+        default: []
+    })
+    skills: Array<{ name: string; category: string; level: number; isVerified: boolean }>;
 }
 
 export const EmployeeProfileSchema =

@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { leavesService } from '@/app/services/leaves';
-import { useAuth } from '@/app/context/AuthContext';
-import type { LeaveBalanceSummary } from '@/app/types/leaves';
+import { useAuth } from '@/context/AuthContext';
+import type { LeaveBalanceSummary } from '@/types/leaves';
 
 type BalanceList = LeaveBalanceSummary[];
 type LeaveTypeKey = 'annual' | 'sick' | 'personal';

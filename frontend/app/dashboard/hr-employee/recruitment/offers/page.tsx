@@ -3,20 +3,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '@/app/components/ui/button';
-import { Card } from '@/app/components/ui/card';
-import { Input } from '@/app/components/ui/input';
-import { LoadingSpinner } from '@/app/components/ui/loading-spinner';
-import { OfferResponseStatus, OfferFinalStatus, ApplicationStage } from '@/app/types/enums';
-import { getOfferResponseStatusConfig } from '@/app/utils/recruitment-theme';
-import { 
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { OfferResponseStatus, OfferFinalStatus, ApplicationStage } from '@/types/enums';
+import {
   getOffers, 
   createOffer, 
   sendOffer,
   getApplications,
   getAverageScore,
 } from '@/app/services/recruitment';
-import { CreateJobOfferRequest } from '@/app/types/recruitment';
+import { CreateJobOfferRequest } from '@/types/recruitment';
 
 // =====================================================
 // Types
@@ -87,8 +86,20 @@ const availableBenefits = [
 // =====================================================
 
 function OfferStatusBadge({ status }: { status: OfferResponseStatus }) {
-  const config = getOfferResponseStatusConfig(status);
-  
+  const getConfig = (status: OfferResponseStatus) => {
+    switch (status) {
+      case OfferResponseStatus.ACCEPTED:
+        return { label: 'Accepted', color: 'bg-green-100 text-green-700 border-green-300' };
+      case OfferResponseStatus.REJECTED:
+        return { label: 'Rejected', color: 'bg-red-100 text-red-700 border-red-300' };
+      case OfferResponseStatus.PENDING:
+      default:
+        return { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' };
+    }
+  };
+
+  const config = getConfig(status);
+
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.color}`}>
       {config.label}

@@ -497,3 +497,189 @@ body {
     animation: none;
   }
 }
+
+/* ============================================
+   PRINT STYLES FOR PDF EXPORT
+   ============================================ */
+@media print {
+  /* Reset page margins */
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
+  /* Hide navigation and sidebars */
+  nav,
+  aside,
+  header:has(nav),
+  .sidebar,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Show main content full width */
+  body,
+  html {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Reset containers */
+  main,
+  .container,
+  .mx-auto {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Force visibility */
+  * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Grid layouts for print */
+  .grid {
+    display: grid !important;
+    page-break-inside: avoid;
+  }
+
+  /* Ensure cards are visible */
+  .card,
+  [class*="rounded"] {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+
+  /* Tables */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  /* Charts and visualizations */
+  canvas,
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Typography adjustments */
+  h1 {
+    font-size: 24pt !important;
+  }
+
+  h2 {
+    font-size: 18pt !important;
+  }
+
+  h3 {
+    font-size: 14pt !important;
+  }
+
+  p,
+  td,
+  th {
+    font-size: 10pt !important;
+  }
+
+  /* Remove text shadows and effects */
+  * {
+    text-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Department Head legacy color normalization to theme tokens */
+.dept-head-theme .bg-white {
+  background-color: var(--card);
+}
+.dept-head-theme .bg-slate-50,
+.dept-head-theme .bg-slate-100,
+.dept-head-theme .bg-slate-200 {
+  background-color: var(--muted);
+}
+.dept-head-theme .bg-slate-50\/50 {
+  background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+}
+.dept-head-theme .bg-slate-900 {
+  background-color: var(--primary);
+}
+.dept-head-theme .text-white {
+  color: var(--primary-foreground);
+}
+.dept-head-theme .text-slate-900,
+.dept-head-theme .text-slate-800,
+.dept-head-theme .text-slate-700 {
+  color: var(--foreground);
+}
+.dept-head-theme .text-slate-600,
+.dept-head-theme .text-slate-500,
+.dept-head-theme .text-slate-400,
+.dept-head-theme .text-slate-300 {
+  color: var(--muted-foreground);
+}
+.dept-head-theme .border-slate-300,
+.dept-head-theme .border-slate-200,
+.dept-head-theme .border-slate-100 {
+  border-color: var(--border);
+}
+.dept-head-theme .bg-amber-50,
+.dept-head-theme .bg-amber-100,
+.dept-head-theme .bg-yellow-100,
+.dept-head-theme .bg-amber-500 {
+  background-color: color-mix(in oklch, var(--warning) 12%, var(--background));
+}
+.dept-head-theme .text-amber-500,
+.dept-head-theme .text-amber-600,
+.dept-head-theme .text-amber-700,
+.dept-head-theme .text-yellow-600,
+.dept-head-theme .text-yellow-700 {
+  color: var(--warning);
+}
+.dept-head-theme .bg-red-50,
+.dept-head-theme .bg-red-100,
+.dept-head-theme .bg-red-500 {
+  background-color: color-mix(in oklch, var(--destructive) 12%, var(--background));
+}
+.dept-head-theme .text-red-500,
+.dept-head-theme .text-red-600,
+.dept-head-theme .text-red-700 {
+  color: var(--destructive);
+}
+.dept-head-theme .border-red-200 {
+  border-color: color-mix(in oklch, var(--destructive) 30%, var(--border));
+}
+.dept-head-theme .bg-green-100 {
+  background-color: color-mix(in oklch, var(--success) 12%, var(--background));
+}
+.dept-head-theme .text-green-600,
+.dept-head-theme .text-green-700 {
+  color: var(--success);
+}
+.dept-head-theme .bg-blue-100 {
+  background-color: color-mix(in oklch, var(--info) 12%, var(--background));
+}
+.dept-head-theme .text-blue-600,
+.dept-head-theme .text-blue-700 {
+  color: var(--info);
+}

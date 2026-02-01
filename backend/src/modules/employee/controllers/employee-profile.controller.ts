@@ -1,22 +1,22 @@
 // Production mode authenticated controller
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { UpdateContactInfoDto } from '../dto/employee-profile/update-contact-info.dto';
-import { UpdateBioDto } from '../dto/employee-profile/update-bio.dto';
-import { CreateCorrectionRequestDto } from '../dto/employee-profile/create-correction-request.dto';
-import { AdminUpdateProfileDto } from '../dto/employee-profile/admin-update-profile.dto';
-import { AdminAssignRoleDto } from '../dto/employee-profile/admin-assign-role.dto';
-import { SearchEmployeesDto, PaginationQueryDto } from '../dto/employee-profile/search-employees.dto';
-import { ProcessChangeRequestDto } from '../dto/employee-profile/process-change-request.dto';
+import { UpdateContactInfoDto } from '../dto\'s/update-contact-info.dto';
+import { UpdateBioDto } from '../dto\'s/update-bio.dto';
+import { CreateCorrectionRequestDto } from '../dto\'s/create-correction-request.dto';
+import { AdminUpdateProfileDto } from '../dto\'s/admin-update-profile.dto';
+import { AdminAssignRoleDto } from '../dto\'s/admin-assign-role.dto';
+import { SearchEmployeesDto, PaginationQueryDto } from '../dto\'s/search-employees.dto';
+import { ProcessChangeRequestDto } from '../dto\'s/process-change-request.dto';
 import { ProfileChangeStatus, SystemRole } from '../enums/employee-profile.enums';
-import { AddEmergencyContactDto, UpdateEmergencyContactDto } from '../dto/employee-profile/emergency-contact.dto';
-import { AddQualificationDto, UpdateQualificationDto } from '../dto/employee-profile/qualification.dto';
+import { AddEmergencyContactDto, UpdateEmergencyContactDto } from '../dto\'s/emergency-contact.dto';
+import { AddQualificationDto, UpdateQualificationDto } from '../dto\'s/qualification.dto';
 import { EmployeeProfileService } from '../services/employee-profile.service';
 
-import { AuthenticationGuard } from '../../auth/guards/authentication-guard';
-import { AuthorizationGuard } from '../../auth/guards/authorization-guard';
-import { Roles } from '../../auth/decorators/roles-decorator';
-import { CurrentUser } from '../../auth/decorators/current-user';
-import type { JwtPayload } from '../../auth/token/jwt-payload';
+import { AuthenticationGuard } from '../../common/guards/authentication-guard';
+import { AuthorizationGuard } from '../../common/guards/authorization-guard';
+import { Roles } from '../../common/decorators/roles-decorator';
+import { CurrentUser } from '../../common/decorators/current-user';
+import type { JwtPayload } from '../../common/payload/jwt-payload';
 
 @Controller('employee-profile')
 @UseGuards(AuthenticationGuard, AuthorizationGuard)
@@ -124,13 +124,13 @@ export class EmployeeProfileController {
     @Get('team')
     @Roles(SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
     async getTeamProfiles(@CurrentUser() user: JwtPayload) {
-        return this.employeeProfileService.getTeamProfiles(user.sub);
+        return this.employeeProfileService.getTeamProfiles(user.sub, user.roles);
     }
 
     @Get('team/paginated')
     @Roles(SystemRole.DEPARTMENT_HEAD, SystemRole.HR_MANAGER, SystemRole.HR_ADMIN, SystemRole.SYSTEM_ADMIN)
     async getTeamProfilesPaginated(@CurrentUser() user: JwtPayload, @Query() queryDto: PaginationQueryDto) {
-        return this.employeeProfileService.getTeamProfilesPaginated(user.sub, queryDto);
+        return this.employeeProfileService.getTeamProfilesPaginated(user.sub, queryDto, user.roles);
     }
 
     // ==========================================

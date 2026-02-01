@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { payrollConfigurationService } from "@/app/services/payroll-configuration";
-import { ConfigStatus } from "@/app/types/enums";
-import { useAuth } from "@/app/context/AuthContext";
-import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/app/components/theme-customizer';
+import { ConfigStatus } from "@/types/enums";
+import { useAuth } from "@/context/AuthContext";
+import { ThemeCustomizer, ThemeCustomizerTrigger } from '@/components/theme-customizer';
 import {
   Card,
   CardContent,
@@ -12,18 +12,18 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "../../../components/ui/card";
-import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
-import { Label } from "../../../components/ui/label";
-import { Badge } from "../../../components/ui/badge";
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select";
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -31,13 +31,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../../components/ui/table";
+} from "@/components/ui/table";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "../../../components/ui/tabs";
+} from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +45,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog";
+} from "@/components/ui/dialog";
 import {
   AlertCircle,
   CheckCircle,
@@ -80,6 +80,14 @@ import {
   Award
 } from "lucide-react";
 
+interface EmployeeRef {
+  _id?: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  employeeNumber?: string;
+}
+
 interface ConfigItem {
   id: string;
   name?: string;
@@ -97,8 +105,8 @@ interface ConfigItem {
   employerRate?: number;
   minSalary?: number;
   maxSalary?: number;
-  createdBy?: string;
-  approvedBy?: string;
+  createdBy?: string | EmployeeRef;
+  approvedBy?: string | EmployeeRef;
   approvedAt?: string;
   [key: string]: any;
 }
@@ -606,6 +614,28 @@ export default function PayrollSystemConfigurationApprovalPage() {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  // Format employee display from populated data or raw ID
+  const formatEmployee = (employee?: string | EmployeeRef): string => {
+    if (!employee) return "-";
+    
+    // If it's a string (raw ID), return it as is
+    if (typeof employee === 'string') {
+      return employee;
+    }
+    
+    // If it's a populated object, format with name and employee number
+    const name = employee.fullName || 
+      (employee.firstName && employee.lastName 
+        ? `${employee.firstName} ${employee.lastName}` 
+        : employee.firstName || employee.lastName || 'Unknown');
+    
+    if (employee.employeeNumber) {
+      return `${name} (${employee.employeeNumber})`;
+    }
+    
+    return name;
   };
 
   return (
@@ -1214,7 +1244,7 @@ export default function PayrollSystemConfigurationApprovalPage() {
                     <Label className="text-sm text-muted-foreground">Created By</Label>
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-foreground">{view.createdBy}</span>
+                      <span className="text-foreground">{formatEmployee(view.createdBy)}</span>
                     </div>
                   </div>
                 )}
@@ -1226,7 +1256,7 @@ export default function PayrollSystemConfigurationApprovalPage() {
                     </Label>
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-foreground">{view.approvedBy}</span>
+                      <span className="text-foreground">{formatEmployee(view.approvedBy)}</span>
                     </div>
                   </div>
                 )}
