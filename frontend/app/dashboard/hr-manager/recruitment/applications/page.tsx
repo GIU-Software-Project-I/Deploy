@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { getApplications, getJobs, updateApplicationStage, updateApplicationStatus, rejectApplication } from '@/app/services/recruitment';
 import { Application, JobRequisition } from '@/types/recruitment';
 import { ApplicationStage, ApplicationStatus } from '@/types/enums';
-import { Users, Search, Filter, Briefcase, Calendar, UserCheck, Mail, Clock, CheckCircle2, Eye, ThumbsUp, ThumbsDown, FileText } from 'lucide-react';
+import { Users, Search, Filter, Briefcase, Calendar, UserCheck, Mail, MapPin, Clock, CheckCircle2, Eye, ThumbsUp, ThumbsDown, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -94,7 +94,7 @@ export default function HRManagerApplicationsPage() {
     hired: applications.filter(a => a.status === ApplicationStatus.HIRED).length
   };
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex justify-between items-start">
           <div>

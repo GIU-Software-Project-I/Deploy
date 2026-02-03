@@ -131,11 +131,11 @@ export class AuthService {
     }
 
     async getCookieWithJwtToken(token: string) {
-        return `access_token=${token}; HttpOnly; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+        return `access_token=${token}; HttpOnly; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=None; Secure`;
     }
 
     async getCookieForLogout() {
-        return `access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`;
+        return `access_token=; HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure`;
     }
 
     async logout(token: string) {
